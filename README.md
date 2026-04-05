@@ -1,6 +1,6 @@
-# Estudiantes TBO
+# Estudiantes TBÓ
 
-Landing demo profesional para el gimnasio Estudiantes TBO.
+Landing premium profesional para el gimnasio Estudiantes TBÓ.
 
 ## Contenido
 

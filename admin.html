@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Privado | Estudiantes TBÓ</title>
+  <meta name="description" content="Panel privado de gestión premium para reservas y horarios de Estudiantes TBÓ.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body class="admin-body">
+  <div class="site-shell">
+    <header class="site-header admin-header">
+      <div class="container admin-header-inner">
+        <a class="brand" href="index.html" aria-label="Volver al sitio">
+          <img src="assets/Captura de pantalla 2026-04-01 000722.png" alt="Logo de Estudiantes TBÓ">
+          <div class="brand-copy">
+            <span>Panel privado</span>
+            <strong>TBÓ</strong>
+          </div>
+        </a>
+
+        <div class="admin-header-actions">
+          <a class="btn btn-secondary admin-btn" href="index.html">Volver al sitio</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="admin-main">
+      <section class="section admin-gate-section" id="admin-gate-section">
+        <div class="container">
+          <div class="admin-gate-card">
+            <p class="section-kicker">Panel privado</p>
+            <h1 class="section-title">Gestión premium de reservas TBÓ</h1>
+            <p class="section-text">
+              Ingresá al panel para administrar reservas, liberar cupos, sumar horarios y seguir la operación diaria desde una interfaz oscura y deportiva.
+            </p>
+
+            <form class="admin-login-form" id="admin-login-form">
+              <label class="form-field">
+                <span>PIN de acceso</span>
+                <input id="admin-pin" type="password" placeholder="Ingresá tu PIN" required>
+              </label>
+
+              <button class="btn btn-primary admin-btn" type="submit" id="admin-login-button">
+                <span class="btn-text">Ingresar al panel</span>
+                <span class="btn-loader" aria-hidden="true"></span>
+              </button>
+            </form>
+
+            <p class="admin-gate-note" id="admin-gate-note">Acceso privado del gimnasio. La sesión queda abierta solo en este navegador.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section admin-dashboard is-hidden" id="admin-dashboard">
+        <div class="container">
+          <div class="admin-intro">
+            <div>
+              <p class="section-kicker">Dashboard premium</p>
+              <h2 class="section-title">Reservas, cupos y agenda en tiempo real</h2>
+              <p class="section-text">
+                Todo lo que se reserve desde la home impacta acá. Todo lo que canceles o agregues acá se refleja en la experiencia pública.
+              </p>
+            </div>
+
+            <div class="admin-sync-chip">
+              <span class="sync-dot"></span>
+              <strong>Sincronizado con la home</strong>
+            </div>
+          </div>
+
+          <div class="admin-stats-grid">
+            <article class="admin-stat-card">
+              <span>Reservas del día</span>
+              <strong id="stat-day" data-admin-value="0">0</strong>
+            </article>
+            <article class="admin-stat-card">
+              <span>Reservas de la semana</span>
+              <strong id="stat-week" data-admin-value="0">0</strong>
+            </article>
+            <article class="admin-stat-card">
+              <span>Cupos libres</span>
+              <strong id="stat-spots" data-admin-value="0">0</strong>
+            </article>
+            <article class="admin-stat-card admin-stat-card-wide">
+              <span>Clase más elegida</span>
+              <strong id="stat-top-class">Sin datos</strong>
+              <small id="stat-top-class-count">0 reservas</small>
+            </article>
+          </div>
+
+          <div class="admin-workspace">
+            <aside class="admin-form-shell">
+              <div class="admin-panel-head">
+                <p class="section-kicker">Alta de horarios</p>
+                <h3>Nueva agenda</h3>
+                <p>Agregá bloques manuales para clases especiales, refuerzo de cupos o nuevos turnos.</p>
+              </div>
+
+              <form class="admin-schedule-form" id="admin-schedule-form">
+                <label class="form-field">
+                  <span>Fecha</span>
+                  <input id="admin-date" type="date" required>
+                </label>
+
+                <label class="form-field">
+                  <span>Hora</span>
+                  <input id="admin-time" type="time" required>
+                </label>
+
+                <label class="form-field">
+                  <span>Clase</span>
+                  <select id="admin-class" required></select>
+                </label>
+
+                <label class="form-field">
+                  <span>Capacidad</span>
+                  <input id="admin-capacity" type="number" min="1" max="40" value="12" required>
+                </label>
+
+                <button class="btn btn-primary admin-btn" type="submit" id="admin-schedule-button">
+                  <span class="btn-text">Agregar horario</span>
+                  <span class="btn-loader" aria-hidden="true"></span>
+                </button>
+              </form>
+
+              <div class="booking-feedback booking-feedback-idle" id="admin-form-feedback" aria-live="polite">
+                Cargá un nuevo horario para que aparezca en la home y en el panel en tiempo real.
+              </div>
+            </aside>
+
+            <section class="admin-list-shell">
+              <div class="admin-panel-head admin-panel-head-inline">
+                <div>
+                  <p class="section-kicker">Reservas activas</p>
+                  <h3>Listado completo</h3>
+                </div>
+                <div class="admin-list-counter" id="admin-list-counter">0 reservas</div>
+              </div>
+
+              <div class="admin-reservations" id="admin-reservations"></div>
+            </section>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
+
+  <script src="booking-data.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

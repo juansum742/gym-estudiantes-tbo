@@ -1,0 +1,333 @@
+.admin-body {
+  background:
+    radial-gradient(circle at top left, rgba(78, 93, 255, 0.18), transparent 30%),
+    radial-gradient(circle at 100% 0%, rgba(197, 64, 53, 0.14), transparent 28%),
+    linear-gradient(180deg, #040508 0%, #06080e 48%, #080a10 100%);
+}
+
+.admin-header {
+  background: rgba(7, 9, 14, 0.92);
+}
+
+.admin-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 84px;
+}
+
+.admin-btn {
+  min-height: 54px;
+}
+
+.admin-main {
+  padding-bottom: 4rem;
+}
+
+.is-hidden {
+  display: none;
+}
+
+.admin-gate-card,
+.admin-stat-card,
+.admin-form-shell,
+.admin-list-shell,
+.admin-reservation-card,
+.admin-empty-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(15, 18, 29, 0.98), rgba(9, 12, 20, 0.95));
+  box-shadow: var(--shadow-deep);
+}
+
+.admin-gate-card {
+  max-width: 720px;
+  margin: 3rem auto 0;
+  padding: clamp(1.6rem, 4vw, 2.5rem);
+  border-radius: 32px;
+  text-align: center;
+}
+
+.admin-login-form {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.6rem;
+}
+
+.admin-gate-note {
+  margin: 1rem 0 0;
+  color: var(--muted);
+}
+
+.admin-intro {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.6rem;
+}
+
+.admin-sync-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.8rem 1rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+}
+
+.sync-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #33d17a, #91ffa6);
+  box-shadow: 0 0 0 0 rgba(51, 209, 122, 0.45);
+  animation: adminPulse 2s ease-in-out infinite;
+}
+
+.admin-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.admin-stat-card {
+  position: relative;
+  overflow: hidden;
+  padding: 1.2rem 1.15rem;
+  border-radius: 28px;
+}
+
+.admin-stat-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, var(--red), var(--blue-bright));
+}
+
+.admin-stat-card span,
+.admin-reservation-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.admin-stat-card strong {
+  display: block;
+  margin-top: 0.8rem;
+  font-family: var(--font-display);
+  font-size: 2.8rem;
+  letter-spacing: 0.08em;
+}
+
+.admin-stat-card small {
+  display: block;
+  margin-top: 0.45rem;
+  color: var(--silver);
+}
+
+.admin-stat-card-wide {
+  background:
+    radial-gradient(circle at top right, rgba(78, 93, 255, 0.22), transparent 30%),
+    linear-gradient(180deg, rgba(20, 24, 40, 0.98), rgba(9, 12, 20, 0.95));
+}
+
+.admin-workspace {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.4fr) minmax(0, 0.6fr);
+  gap: 1rem;
+  margin-top: 1.4rem;
+}
+
+.admin-form-shell,
+.admin-list-shell {
+  padding: 1.3rem;
+  border-radius: 32px;
+}
+
+.admin-panel-head {
+  margin-bottom: 1rem;
+}
+
+.admin-panel-head h3 {
+  margin: 0.45rem 0 0;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-panel-head p:last-child {
+  margin: 0.55rem 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.admin-panel-head-inline {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-list-counter {
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-schedule-form,
+.admin-reservations {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-reservation-card {
+  position: relative;
+  overflow: hidden;
+  padding: 1.15rem;
+  border-radius: 24px;
+}
+
+.admin-reservation-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, var(--blue-bright), var(--red));
+}
+
+.admin-reservation-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-reservation-head strong {
+  display: block;
+  font-size: 1.35rem;
+}
+
+.admin-reservation-head span {
+  color: var(--muted);
+}
+
+.admin-reservation-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin: 1rem 0 1.1rem;
+}
+
+.admin-reservation-grid strong,
+.admin-reservation-grid a {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 1.04rem;
+  color: var(--text);
+}
+
+.admin-class-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.55rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.accent-available {
+  background: rgba(51, 209, 122, 0.12);
+}
+
+.accent-accent {
+  background: rgba(78, 93, 255, 0.16);
+}
+
+.accent-danger {
+  background: rgba(197, 64, 53, 0.16);
+}
+
+.accent-highlight,
+.accent-neutral {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.admin-empty-card {
+  padding: 1.4rem;
+  border-radius: 24px;
+  text-align: center;
+}
+
+.admin-empty-card strong {
+  display: block;
+  font-size: 1.3rem;
+}
+
+.admin-empty-card p {
+  margin: 0.7rem 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+@keyframes adminPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(51, 209, 122, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(51, 209, 122, 0);
+  }
+}
+
+@media (max-width: 1100px) {
+  .admin-stats-grid,
+  .admin-workspace {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .admin-header-inner,
+  .admin-intro,
+  .admin-panel-head-inline,
+  .admin-reservation-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .admin-stats-grid,
+  .admin-reservation-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-header-actions,
+  .admin-header-actions .admin-btn {
+    width: 100%;
+  }
+
+  .admin-btn {
+    width: 100%;
+  }
+}
