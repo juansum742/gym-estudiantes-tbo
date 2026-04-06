@@ -112,6 +112,9 @@ if (bookingApi) {
   const adminClass = document.querySelector("#admin-class");
   const adminCapacity = document.querySelector("#admin-capacity");
   const adminFormFeedback = document.querySelector("#admin-form-feedback");
+  const scheduleDeleteModal = document.querySelector("#schedule-delete-modal");
+  const scheduleDeleteModalCopy = document.querySelector("#schedule-delete-modal-copy");
+  const scheduleDeleteConfirm = document.querySelector("#schedule-delete-confirm");
 
   const memberForm = document.querySelector("#admin-member-form");
   const memberButton = document.querySelector("#member-submit");
@@ -136,6 +139,7 @@ if (bookingApi) {
   const renewalList = document.querySelector("#renewal-list");
   const checkinCounter = document.querySelector("#checkin-counter");
   const checkinHistory = document.querySelector("#checkin-history");
+  let pendingScheduleDeleteId = null;
 
   function unlockDashboard() {
     gateSection.classList.add("is-hidden");
@@ -196,9 +200,23 @@ if (bookingApi) {
 
   function populateClassOptions() {
     adminClass.innerHTML = Object.entries(bookingApi.classTypes)
-      .filter(([, value]) => value.reservable)
+      .filter(([, value]) => value.schedulable)
       .map(([key, value]) => `<option value="${key}">${escapeHtml(value.label)}</option>`)
       .join("");
+  }
+
+  function closeScheduleDeleteModal() {
+    pendingScheduleDeleteId = null;
+    scheduleDeleteModal.classList.add("is-hidden");
+    scheduleDeleteModal.setAttribute("aria-hidden", "true");
+  }
+
+  function openScheduleDeleteModal(schedule) {
+    pendingScheduleDeleteId = schedule.id;
+    scheduleDeleteModalCopy.textContent = `Si confirmás, ${schedule.classLabel} del ${bookingApi.formatDateFull(schedule.date)} a las ${schedule.time} desaparece del panel y de la home. También se eliminan las reservas asociadas a ese bloque.`;
+    scheduleDeleteModal.classList.remove("is-hidden");
+    scheduleDeleteModal.setAttribute("aria-hidden", "false");
+    scheduleDeleteConfirm.focus();
   }
 
   function populatePlanOptions() {
@@ -401,7 +419,7 @@ if (bookingApi) {
   }
 
   function renderSchedules() {
-    const schedules = bookingApi.getSchedules({ futureOnly: true, reservableOnly: true });
+    const schedules = bookingApi.getSchedules({ futureOnly: true, schedulableOnly: true });
     schedulesCounter.textContent = `${schedules.length} horario${schedules.length === 1 ? "" : "s"}`;
 
     if (!schedules.length) {
@@ -458,10 +476,16 @@ if (bookingApi) {
           <form class="admin-capacity-form" data-update-schedule-id="${schedule.id}">
             <label class="form-field admin-capacity-field">
               <span>Editar cupos</span>
-              <input type="number" min="${Math.max(1, schedule.reservedCount)}" max="50" value="${schedule.capacity}" required>
+              <input type="number" min="${Math.max(1, schedule.reservedCount)}" max="50" step="1" value="${schedule.capacity}" required>
             </label>
             <button class="btn btn-secondary admin-btn" type="submit">Guardar cupos</button>
           </form>
+
+          <div class="admin-schedule-actions">
+            <button class="btn btn-secondary admin-btn admin-btn-danger" type="button" data-delete-schedule-id="${schedule.id}">
+              🗑️ Eliminar
+            </button>
+          </div>
         </article>
       `)
       .join("");
@@ -753,6 +777,7 @@ if (bookingApi) {
     const cancelReservationButton = event.target.closest("[data-cancel-reservation-id]");
     const renewButton = event.target.closest("[data-renew-member-id]");
     const deleteButton = event.target.closest("[data-delete-member-id]");
+    const deleteScheduleButton = event.target.closest("[data-delete-schedule-id]");
 
     if (approveButton) {
       try {
@@ -844,6 +869,20 @@ if (bookingApi) {
         showToast(error.message, "error");
       }
 
+      return;
+    }
+
+    if (deleteScheduleButton) {
+      const schedule = bookingApi
+        .getSchedules({ futureOnly: true, schedulableOnly: true })
+        .find((item) => item.id === deleteScheduleButton.dataset.deleteScheduleId);
+
+      if (!schedule) {
+        showToast("No encontramos ese horario para eliminar.", "error");
+        return;
+      }
+
+      openScheduleDeleteModal(schedule);
       return;
     }
 
@@ -949,6 +988,50 @@ if (bookingApi) {
     } finally {
       submit.classList.remove("is-loading");
       submit.disabled = false;
+    }
+  });
+
+  scheduleDeleteModal.addEventListener("click", (event) => {
+    if (event.target.closest("[data-close-schedule-modal]")) {
+      closeScheduleDeleteModal();
+    }
+  });
+
+  scheduleDeleteConfirm.addEventListener("click", async () => {
+    if (!pendingScheduleDeleteId) {
+      closeScheduleDeleteModal();
+      return;
+    }
+
+    scheduleDeleteConfirm.classList.add("is-loading");
+    scheduleDeleteConfirm.disabled = true;
+    setFeedback(adminFormFeedback, "loading", "Eliminando horario de la agenda...");
+
+    try {
+      await wait(280);
+      const removedSchedule = bookingApi.deleteSchedule(pendingScheduleDeleteId);
+      const reservationsNote = removedSchedule.removedReservationsCount
+        ? ` También se eliminaron ${removedSchedule.removedReservationsCount} reserva${removedSchedule.removedReservationsCount === 1 ? "" : "s"} asociada${removedSchedule.removedReservationsCount === 1 ? "" : "s"}.`
+        : "";
+      setFeedback(
+        adminFormFeedback,
+        "success",
+        `Horario eliminado correctamente. ${removedSchedule.classLabel} del ${removedSchedule.dateLabel} a las ${removedSchedule.time} ya no figura en la agenda.${reservationsNote}`
+      );
+      showToast("Horario eliminado correctamente", "success");
+      closeScheduleDeleteModal();
+    } catch (error) {
+      setFeedback(adminFormFeedback, "error", error.message);
+      showToast(error.message, "error");
+    } finally {
+      scheduleDeleteConfirm.classList.remove("is-loading");
+      scheduleDeleteConfirm.disabled = false;
+    }
+  });
+
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !scheduleDeleteModal.classList.contains("is-hidden")) {
+      closeScheduleDeleteModal();
     }
   });
 

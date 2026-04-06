@@ -166,6 +166,35 @@ const updateHeaderState = () => {
   header.classList.toggle("is-scrolled", window.scrollY > 20);
 };
 
+function setupScheduleBoard() {
+  if (!bookingApi) {
+    return;
+  }
+
+  const scheduleGrid = document.querySelector("#schedule-grid");
+
+  if (!scheduleGrid) {
+    return;
+  }
+
+  function renderScheduleBoard() {
+    const board = bookingApi.getScheduleBoardData();
+    const headers = [
+      '<div class="schedule-head schedule-head-time">Turno</div>',
+      ...board.columns.map((column) => `<div class="schedule-head">${escapeHtml(column.label)}</div>`),
+    ];
+    const rows = board.rows.flatMap((row) => [
+      `<div class="schedule-time">${escapeHtml(row.label)}</div>`,
+      ...row.cells.map((cell) => `<div class="${escapeHtml(cell.className)}">${escapeHtml(cell.label)}</div>`),
+    ]);
+
+    scheduleGrid.innerHTML = [...headers, ...rows].join("");
+  }
+
+  window.addEventListener(bookingApi.changeEvent, renderScheduleBoard);
+  renderScheduleBoard();
+}
+
 function setupBookings() {
   if (!bookingApi) {
     return;
@@ -704,5 +733,6 @@ window.addEventListener("resize", updateMediaMotion);
 
 setupBookings();
 setupClassReservations();
+setupScheduleBoard();
 updateHeaderState();
 updateMediaMotion();

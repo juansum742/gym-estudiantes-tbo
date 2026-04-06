@@ -5,14 +5,15 @@
   const HORIZON_DAYS = 21;
   const ADMIN_PIN = "TBO2026";
   const MS_PER_DAY = 1000 * 60 * 60 * 24;
+  const SCHEDULE_SCHEMA_VERSION = 3;
   const DUPLICATE_ACTIVE_PLAN_MESSAGE = "Este socio ya tiene activa esta disciplina. Solo se puede aprobar si se trata de otra disciplina o plan diferente.";
 
   const CLASS_TYPES = {
-    funcional: { label: "Funcional", accent: "available", capacity: 20, reservable: true },
-    indoor: { label: "Indoor Bike", accent: "accent", capacity: 15, reservable: true },
-    fullgap: { label: "Full Gap", accent: "highlight", capacity: 20, reservable: true },
-    kick: { label: "Kick Boxing", accent: "danger", capacity: 14, reservable: false },
-    musculacion: { label: "Musculación Guiada", accent: "neutral", capacity: 20, reservable: false },
+    funcional: { label: "Funcional", accent: "available", capacity: 20, reservable: true, schedulable: true },
+    indoor: { label: "Indoor Bike", accent: "accent", capacity: 15, reservable: true, schedulable: true },
+    fullgap: { label: "Full Gap", accent: "highlight", capacity: 20, reservable: true, schedulable: true },
+    kick: { label: "Kick Boxing", accent: "danger", capacity: 14, reservable: false, schedulable: true },
+    musculacion: { label: "Musculación Guiada", accent: "neutral", capacity: 20, reservable: false, schedulable: false },
   };
 
   const MEMBERSHIP_PLANS = {
@@ -121,32 +122,45 @@
     1: [
       { time: "08:00", classType: "funcional" },
       { time: "19:00", classType: "indoor" },
-      { time: "20:00", classType: "fullgap" },
+      { time: "20:00", classType: "funcional" },
     ],
     2: [
       { time: "08:15", classType: "indoor" },
-      { time: "19:00", classType: "fullgap" },
-      { time: "20:00", classType: "funcional" },
+      { time: "18:00", classType: "kick" },
+      { time: "20:00", classType: "fullgap" },
     ],
     3: [
       { time: "08:00", classType: "funcional" },
       { time: "19:00", classType: "indoor" },
-      { time: "20:00", classType: "fullgap" },
+      { time: "20:00", classType: "funcional" },
     ],
     4: [
       { time: "08:15", classType: "indoor" },
-      { time: "19:00", classType: "fullgap" },
-      { time: "20:00", classType: "funcional" },
+      { time: "18:00", classType: "kick" },
+      { time: "20:00", classType: "fullgap" },
     ],
     5: [
       { time: "08:00", classType: "funcional" },
       { time: "19:00", classType: "indoor" },
-      { time: "20:00", classType: "fullgap" },
+      { time: "20:00", classType: "funcional" },
     ],
-    6: [
-      { time: "10:00", classType: "funcional" },
-      { time: "11:15", classType: "indoor" },
-    ],
+  };
+
+  const HOME_BOARD_WEEKDAYS = [1, 2, 3, 4, 5];
+  const HOME_BOARD_LABELS = {
+    1: "Lunes",
+    2: "Martes",
+    3: "Miércoles",
+    4: "Jueves",
+    5: "Viernes",
+  };
+  const HOME_BASE_TIMES = ["08:00", "08:15", "18:00", "19:00", "20:00"];
+  const HOME_TIME_LABELS = {
+    "08:00": "8:00 a 9:00",
+    "08:15": "8:15 a 9:00",
+    "18:00": "18:00 a 19:00",
+    "19:00": "19:00 a 19:45",
+    "20:00": "20:00 a 21:00",
   };
 
   function pad(value) {
@@ -247,6 +261,17 @@
     };
   }
 
+  function parseScheduleCapacity(value, classType) {
+    const fallbackCapacity = getClassMeta(classType).capacity;
+    const numericCapacity = Number(value);
+
+    if (!Number.isFinite(numericCapacity)) {
+      return fallbackCapacity;
+    }
+
+    return Math.max(1, Math.round(numericCapacity));
+  }
+
   function getPlanMeta(planType) {
     return MEMBERSHIP_PLANS[planType] || {
       label: planType,
@@ -259,6 +284,10 @@
 
   function isReservableClassType(classType) {
     return Boolean(CLASS_TYPES[classType]?.reservable);
+  }
+
+  function isSchedulableClassType(classType) {
+    return Boolean(CLASS_TYPES[classType]?.schedulable);
   }
 
   function getPublicMembershipPlanEntries() {
@@ -363,7 +392,7 @@
       time: template.time,
       classType: template.classType,
       capacity: template.capacity || meta.capacity,
-      origin: "template",
+      origin: "official",
       createdAt: new Date().toISOString(),
     };
   }
@@ -384,6 +413,14 @@
 
   function ensureFutureSchedules(state) {
     const today = startOfToday();
+    const blockedIds = new Set(
+      (Array.isArray(state.deletedScheduleIds) ? state.deletedScheduleIds : [])
+        .filter((scheduleId) => {
+          const parts = String(scheduleId).split("-");
+          const dateKey = parts.length >= 4 ? `${parts[1]}-${parts[2]}-${parts[3]}` : "";
+          return dateKey ? parseDateKey(dateKey) >= addDays(today, -7) : false;
+        })
+    );
     const existingIds = new Set(state.schedules.map((schedule) => schedule.id));
 
     for (let offset = 0; offset <= HORIZON_DAYS; offset += 1) {
@@ -393,6 +430,10 @@
 
       templates.forEach((template) => {
         const schedule = buildTemplateSchedule(dateKey, template);
+
+        if (blockedIds.has(schedule.id)) {
+          return;
+        }
 
         if (!existingIds.has(schedule.id)) {
           existingIds.add(schedule.id);
@@ -404,6 +445,94 @@
     state.schedules = state.schedules
       .filter((schedule) => parseDateKey(schedule.date) >= addDays(today, -7))
       .sort(sortBySlot);
+    state.deletedScheduleIds = [...blockedIds].sort();
+  }
+
+  function sanitizeScheduleEntries(state) {
+    const priority = {
+      manual: 2,
+      official: 1,
+      template: 0,
+    };
+    const deduped = new Map();
+
+    state.schedules
+      .filter((schedule) => schedule && schedule.date && schedule.time && isSchedulableClassType(schedule.classType))
+      .sort((left, right) => {
+        const leftPriority = priority[left.origin] || 0;
+        const rightPriority = priority[right.origin] || 0;
+
+        if (leftPriority !== rightPriority) {
+          return rightPriority - leftPriority;
+        }
+
+        return String(right.updatedAt || right.createdAt || "").localeCompare(String(left.updatedAt || left.createdAt || ""));
+      })
+      .forEach((schedule) => {
+        const capacity = parseScheduleCapacity(schedule.capacity, schedule.classType);
+        const key = createScheduleId(schedule.date, schedule.time, schedule.classType);
+
+        if (!deduped.has(key)) {
+          deduped.set(key, {
+            ...schedule,
+            id: key,
+            capacity,
+          });
+        }
+      });
+
+    state.schedules = [...deduped.values()].sort(sortBySlot);
+  }
+
+  function sanitizeReservationEntries(state) {
+    const scheduleMap = new Map(state.schedules.map((schedule) => [schedule.id, schedule]));
+
+    state.reservations = state.reservations
+      .filter((reservation) => reservation && reservation.scheduleId)
+      .map((reservation) => {
+        const schedule = scheduleMap.get(reservation.scheduleId);
+
+        if (!schedule || !isReservableClassType(schedule.classType)) {
+          return null;
+        }
+
+        return {
+          ...reservation,
+          scheduleId: schedule.id,
+          classType: schedule.classType,
+          date: schedule.date,
+          time: schedule.time,
+          status: reservation.status === "confirmed" ? "confirmed" : "pending",
+          fullName: String(reservation.fullName || "").trim(),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
+  }
+
+  function migrateLegacySchedules(state) {
+    const legacyReservations = Array.isArray(state.reservations) ? state.reservations : [];
+    state.schedules = [];
+    state.deletedScheduleIds = [];
+    ensureFutureSchedules(state);
+
+    const validScheduleIds = new Set(state.schedules.map((schedule) => schedule.id));
+    state.reservations = legacyReservations
+      .map((reservation) => {
+        const scheduleId = createScheduleId(reservation.date, reservation.time, reservation.classType);
+
+        if (!validScheduleIds.has(scheduleId) || !isReservableClassType(reservation.classType)) {
+          return null;
+        }
+
+        return {
+          ...reservation,
+          scheduleId,
+          status: reservation.status || "pending",
+          fullName: String(reservation.fullName || "").trim(),
+        };
+      })
+      .filter(Boolean);
   }
 
   function normalizeState(state) {
@@ -421,9 +550,18 @@
       requests: Array.isArray(state?.requests) ? state.requests : [],
       members: Array.isArray(state?.members) ? state.members : [],
       checkIns: Array.isArray(state?.checkIns) ? state.checkIns : [],
+      deletedScheduleIds: Array.isArray(state?.deletedScheduleIds) ? state.deletedScheduleIds : [],
+      scheduleSchemaVersion: Number(state?.scheduleSchemaVersion || 0),
     };
 
+    if (safeState.scheduleSchemaVersion < SCHEDULE_SCHEMA_VERSION) {
+      migrateLegacySchedules(safeState);
+      safeState.scheduleSchemaVersion = SCHEDULE_SCHEMA_VERSION;
+    }
+
+    sanitizeScheduleEntries(safeState);
     ensureFutureSchedules(safeState);
+    sanitizeReservationEntries(safeState);
     normalizeSharedAccessCodes(safeState);
     safeState.reservations.sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
     safeState.requests.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -743,6 +881,10 @@
           return false;
         }
 
+        if (filters.schedulableOnly && !isSchedulableClassType(schedule.classType)) {
+          return false;
+        }
+
         if (filters.reservableOnly && !schedule.isReservable) {
           return false;
         }
@@ -768,6 +910,81 @@
     });
 
     return dates.slice(0, limit);
+  }
+
+  function getDisplayWeekStart(referenceDate = new Date()) {
+    const weekStart = startOfWeek(referenceDate);
+    const weekday = referenceDate.getDay();
+
+    return weekday === 0 || weekday === 6 ? addDays(weekStart, 7) : weekStart;
+  }
+
+  function getScheduleSlotToneClass(schedules) {
+    if (!schedules.length) {
+      return "is-empty";
+    }
+
+    if (schedules.length > 1) {
+      return "is-highlight";
+    }
+
+    const accent = schedules[0].accent;
+
+    if (accent === "accent") {
+      return "is-accent";
+    }
+
+    if (accent === "danger") {
+      return "is-danger";
+    }
+
+    if (accent === "highlight") {
+      return "is-highlight";
+    }
+
+    return "is-active";
+  }
+
+  function getScheduleBoardData() {
+    const weekStart = getDisplayWeekStart();
+    const columns = HOME_BOARD_WEEKDAYS.map((weekday) => {
+      const date = addDays(weekStart, weekday - 1);
+      return {
+        weekday,
+        label: HOME_BOARD_LABELS[weekday],
+        date: toDateKey(date),
+      };
+    });
+    const dateIndex = new Set(columns.map((column) => column.date));
+    const schedules = getSchedules({ futureOnly: false, schedulableOnly: true }).filter((schedule) => dateIndex.has(schedule.date));
+    const uniqueTimes = [...new Set([...HOME_BASE_TIMES, ...schedules.map((schedule) => schedule.time)])].sort();
+
+    return {
+      columns,
+      rows: uniqueTimes.map((time) => ({
+        time,
+        label: HOME_TIME_LABELS[time] || `${time} hs`,
+        cells: columns.map((column) => {
+          const slotSchedules = schedules.filter((schedule) => schedule.date === column.date && schedule.time === time);
+
+          if (!slotSchedules.length) {
+            return {
+              date: column.date,
+              time,
+              label: "Libre",
+              className: "schedule-slot is-empty",
+            };
+          }
+
+          return {
+            date: column.date,
+            time,
+            label: slotSchedules.map((schedule) => schedule.classLabel).join(" / "),
+            className: `schedule-slot ${getScheduleSlotToneClass(slotSchedules)}`,
+          };
+        }),
+      })),
+    };
   }
 
   function getReservations(filters = {}) {
@@ -1033,17 +1250,21 @@
     const date = String(payload.date || "").trim();
     const time = String(payload.time || "").trim();
     const classType = String(payload.classType || "").trim();
-    const capacity = Math.max(1, Number(payload.capacity || 0));
+    const capacity = Number(payload.capacity);
     const duplicate = state.schedules.find(
       (schedule) => schedule.date === date && schedule.time === time && schedule.classType === classType
     );
 
-    if (!date || !time || !classType || !capacity) {
+    if (!date || !time || !classType || Number.isNaN(capacity)) {
       throw new Error("Completá fecha, hora, clase y capacidad.");
     }
 
-    if (!isReservableClassType(classType)) {
-      throw new Error("Solo podés crear horarios para Indoor Bike, Full Gap o Funcional.");
+    if (!isSchedulableClassType(classType)) {
+      throw new Error("Solo podés crear horarios para disciplinas habilitadas en la agenda.");
+    }
+
+    if (!Number.isInteger(capacity) || capacity < 1) {
+      throw new Error("Ingresá un cupo válido.");
     }
 
     if (duplicate) {
@@ -1051,7 +1272,7 @@
     }
 
     state.schedules.push({
-      id: `manual-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      id: createScheduleId(date, time, classType),
       date,
       time,
       classType,
@@ -1072,7 +1293,7 @@
       throw new Error("No encontramos ese horario para editar.");
     }
 
-    if (!Number.isFinite(nextCapacity) || nextCapacity < 1) {
+    if (!Number.isFinite(nextCapacity) || !Number.isInteger(nextCapacity) || nextCapacity < 1) {
       throw new Error("Ingresá un cupo válido.");
     }
 
@@ -1086,6 +1307,37 @@
     schedule.updatedAt = new Date().toISOString();
     persistState(state);
     return enrichSchedule(schedule, state);
+  }
+
+  function deleteSchedule(scheduleId) {
+    const state = loadState();
+    const schedule = state.schedules.find((item) => item.id === scheduleId);
+
+    if (!schedule) {
+      throw new Error("No encontramos ese horario para eliminar.");
+    }
+
+    const removedReservations = state.reservations.filter((reservation) => reservation.scheduleId === scheduleId);
+
+    state.schedules = state.schedules.filter((item) => item.id !== scheduleId);
+    state.reservations = state.reservations.filter((reservation) => reservation.scheduleId !== scheduleId);
+
+    if (schedule.origin === "official") {
+      const blockedIds = new Set(Array.isArray(state.deletedScheduleIds) ? state.deletedScheduleIds : []);
+      blockedIds.add(scheduleId);
+      state.deletedScheduleIds = [...blockedIds].sort();
+    }
+
+    persistState(state);
+
+    return {
+      ...enrichSchedule(schedule, {
+        ...state,
+        schedules: [...state.schedules, schedule],
+        reservations: removedReservations,
+      }),
+      removedReservationsCount: removedReservations.length,
+    };
   }
 
   function getMembers(filters = {}) {
@@ -1418,6 +1670,7 @@
     classTypes: CLASS_TYPES,
     membershipPlans: MEMBERSHIP_PLANS,
     getSchedules,
+    getScheduleBoardData,
     getReservations,
     getRequests,
     getUniqueUpcomingDates,
@@ -1433,6 +1686,7 @@
     confirmReservation,
     deleteMember,
     addSchedule,
+    deleteSchedule,
     updateScheduleCapacity,
     createMember,
     renewMembership,

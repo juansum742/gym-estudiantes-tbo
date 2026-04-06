@@ -118,7 +118,7 @@
 
                 <label class="form-field">
                   <span>Capacidad</span>
-                  <input id="admin-capacity" type="number" min="1" max="40" value="12" required>
+                  <input id="admin-capacity" type="number" min="1" max="40" step="1" value="12" required>
                 </label>
 
                 <button class="btn btn-primary admin-btn" type="submit" id="admin-schedule-button">
@@ -310,6 +310,26 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <div class="admin-modal-shell is-hidden" id="schedule-delete-modal" aria-hidden="true">
+    <div class="admin-modal-backdrop" data-close-schedule-modal></div>
+    <div class="admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="schedule-delete-modal-title">
+      <p class="section-kicker">Eliminar horario</p>
+      <h3 id="schedule-delete-modal-title">¿Seguro que querés eliminar este horario?</h3>
+      <p id="schedule-delete-modal-copy">
+        Si confirmás, el horario desaparece del panel y de la home. También se eliminan las reservas asociadas a ese bloque.
+      </p>
+
+      <div class="admin-modal-actions">
+        <button class="btn btn-secondary admin-btn" type="button" data-close-schedule-modal>
+          Cancelar
+        </button>
+        <button class="btn btn-secondary admin-btn admin-btn-danger" type="button" id="schedule-delete-confirm">
+          Confirmar
+        </button>
+      </div>
+    </div>
   </div>
 
   <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
