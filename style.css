@@ -810,6 +810,119 @@ select {
   transform: translateX(4px);
 }
 
+.section-memberships {
+  background:
+    radial-gradient(circle at top left, rgba(197, 64, 53, 0.12), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
+}
+
+.memberships-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.membership-card,
+.access-highlight {
+  position: relative;
+  overflow: hidden;
+  padding: 1.4rem;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(15, 18, 29, 0.98), rgba(9, 12, 20, 0.94));
+  box-shadow: var(--shadow-deep);
+}
+
+.membership-card::before,
+.access-highlight::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, var(--red), var(--blue-bright));
+}
+
+.membership-tag {
+  display: inline-flex;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--silver);
+}
+
+.membership-card h3,
+.access-highlight h3 {
+  margin: 0.95rem 0 0;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.membership-price {
+  margin: 0.85rem 0 0;
+  font-family: var(--font-display);
+  font-size: 2.8rem;
+  letter-spacing: 0.08em;
+}
+
+.membership-price-alt {
+  font-size: 2rem;
+}
+
+.membership-copy,
+.access-highlight p {
+  margin: 0.85rem 0 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.membership-list {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0;
+  margin: 1rem 0 0;
+  list-style: none;
+}
+
+.membership-list li {
+  position: relative;
+  padding-left: 1.2rem;
+  color: var(--silver);
+  line-height: 1.45;
+}
+
+.membership-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.45rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 2px;
+  background: linear-gradient(135deg, var(--red), var(--blue-bright));
+}
+
+.membership-card-classes {
+  background:
+    radial-gradient(circle at top right, rgba(78, 93, 255, 0.18), transparent 30%),
+    linear-gradient(180deg, rgba(15, 18, 29, 0.98), rgba(9, 12, 20, 0.94));
+}
+
+.access-highlight {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.2rem;
+  margin-top: 1rem;
+}
+
 .section-schedule {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.01), rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
 }
@@ -1865,6 +1978,7 @@ select {
   }
 
   .plans-grid,
+  .memberships-grid,
   .coaches-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1943,6 +2057,11 @@ select {
     grid-auto-rows: 78px;
   }
 
+  .access-highlight {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .card-large,
   .card-wide {
     grid-column: span 6;
@@ -1993,6 +2112,7 @@ select {
 
   .hero-stats,
   .plans-grid,
+  .memberships-grid,
   .program-grid,
   .coaches-grid,
   .testimonials-grid,
