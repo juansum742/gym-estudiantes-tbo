@@ -1066,13 +1066,13 @@
   function updateScheduleCapacity(scheduleId, capacity) {
     const state = loadState();
     const schedule = state.schedules.find((item) => item.id === scheduleId);
-    const nextCapacity = Math.max(1, Number(capacity || 0));
+    const nextCapacity = Number(capacity);
 
     if (!schedule) {
       throw new Error("No encontramos ese horario para editar.");
     }
 
-    if (!nextCapacity) {
+    if (!Number.isFinite(nextCapacity) || nextCapacity < 1) {
       throw new Error("Ingresá un cupo válido.");
     }
 
