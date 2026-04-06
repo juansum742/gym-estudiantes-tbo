@@ -12,7 +12,7 @@
     funcional: { label: "Funcional", accent: "available", capacity: 20, reservable: true, schedulable: true },
     indoor: { label: "Indoor Bike", accent: "accent", capacity: 15, reservable: true, schedulable: true },
     fullgap: { label: "Full Gap", accent: "highlight", capacity: 20, reservable: true, schedulable: true },
-    kick: { label: "Kick Boxing", accent: "danger", capacity: 14, reservable: false, schedulable: true },
+    kick: { label: "Kick Boxing", accent: "danger", capacity: 14, reservable: true, schedulable: true },
     musculacion: { label: "Musculación Guiada", accent: "neutral", capacity: 20, reservable: false, schedulable: false },
   };
 
