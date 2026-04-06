@@ -1321,8 +1321,27 @@ select {
 }
 
 .partner-media {
-  aspect-ratio: 0.94;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1.08;
   overflow: hidden;
+  padding: 1.15rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 244, 255, 0.96));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.partner-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  transform: scale(1);
+  transition: transform 0.28s ease;
+}
+
+.partner-card:hover .partner-media img {
+  transform: scale(1.03);
 }
 
 .partner-copy {
@@ -1345,9 +1364,10 @@ select {
 .partner-copy h3 {
   margin: 0.8rem 0 0;
   font-family: var(--font-display);
-  font-size: 1.9rem;
+  font-size: 1.55rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  line-height: 1;
 }
 
 .partner-copy p {
