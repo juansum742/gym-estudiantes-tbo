@@ -202,6 +202,21 @@
     };
   }
 
+  function belongsToSamePlanFamily(existingPlanType, nextPlanType) {
+    const existingMeta = getPlanMeta(existingPlanType);
+    const nextMeta = getPlanMeta(nextPlanType);
+
+    if (existingMeta.category !== nextMeta.category) {
+      return false;
+    }
+
+    if (nextMeta.category === "musculacion") {
+      return true;
+    }
+
+    return existingMeta.classType === nextMeta.classType;
+  }
+
   function formatDateLabel(dateKey) {
     return parseDateKey(dateKey).toLocaleDateString("es-UY", {
       weekday: "short",
@@ -435,6 +450,119 @@
     };
   }
 
+  function sortProfilePlans(left, right) {
+    const toneRank = (plan) => (plan.isActive ? 0 : plan.isScheduled ? 1 : 2);
+    const leftRank = toneRank(left);
+    const rightRank = toneRank(right);
+
+    if (leftRank !== rightRank) {
+      return leftRank - rightRank;
+    }
+
+    if (left.isActive && right.isActive) {
+      return left.daysRemaining - right.daysRemaining;
+    }
+
+    if (left.isScheduled && right.isScheduled) {
+      return left.daysUntilStart - right.daysUntilStart;
+    }
+
+    return right.endDate.localeCompare(left.endDate);
+  }
+
+  function buildProfileFromMembers(members, matchedMemberId = null) {
+    const enrichedPlans = members.map((member) => enrichMember(member)).sort(sortProfilePlans);
+    const activePlans = enrichedPlans.filter((plan) => plan.isActive);
+    const scheduledPlans = enrichedPlans.filter((plan) => plan.isScheduled);
+    const expiredPlans = enrichedPlans.filter((plan) => !plan.isActive && !plan.isScheduled);
+    const matchedPlan = enrichedPlans.find((plan) => plan.id === matchedMemberId)
+      || activePlans[0]
+      || scheduledPlans[0]
+      || enrichedPlans[0]
+      || null;
+
+    let status = "expired";
+    let statusLabel = "Vencido";
+    let statusTone = "danger";
+    let accessMessage = "Todos los planes de esta cédula están vencidos.";
+
+    if (activePlans.length) {
+      status = "active";
+      statusLabel = "Activo";
+      statusTone = activePlans.some((plan) => plan.daysRemaining <= 7) ? "limited" : "available";
+      accessMessage = activePlans.length === 1
+        ? activePlans[0].accessMessage
+        : `${activePlans.length} planes activos en esta cédula.`;
+    } else if (scheduledPlans.length) {
+      status = "scheduled";
+      statusLabel = "Programado";
+      statusTone = "accent";
+      accessMessage = scheduledPlans.length === 1
+        ? scheduledPlans[0].accessMessage
+        : `${scheduledPlans.length} planes programados para esta cédula.`;
+    }
+
+    return {
+      id: `profile-${matchedPlan?.nationalId || members[0]?.nationalId || "unknown"}`,
+      fullName: matchedPlan?.fullName || members[0]?.fullName || "Socio no disponible",
+      nationalId: matchedPlan?.nationalId || members[0]?.nationalId || "",
+      phone: matchedPlan?.phone || members[0]?.phone || "",
+      planLabel: enrichedPlans.length === 1 ? (matchedPlan?.planLabel || "Plan") : `${enrichedPlans.length} planes asociados`,
+      planSummary: enrichedPlans.map((plan) => plan.planLabel).join(" + "),
+      accessCode: matchedPlan?.accessCode || "",
+      endDate: matchedPlan?.endDate || "",
+      endDateLabel: matchedPlan?.endDateLabel || "",
+      planCategory: matchedPlan?.planCategory || "multiple",
+      relatedClassLabel: matchedPlan?.relatedClassLabel || "Múltiples planes",
+      status,
+      statusLabel,
+      statusTone,
+      accessMessage,
+      isActive: activePlans.length > 0,
+      isScheduled: activePlans.length === 0 && scheduledPlans.length > 0,
+      daysRemaining: matchedPlan?.daysRemaining || 0,
+      daysUntilStart: matchedPlan?.daysUntilStart || 0,
+      activePlanCount: activePlans.length,
+      scheduledPlanCount: scheduledPlans.length,
+      expiredPlanCount: expiredPlans.length,
+      matchedPlanId: matchedPlan?.id || null,
+      plans: enrichedPlans,
+    };
+  }
+
+  function resolveMembersByIdentifier(state, normalizedQuery) {
+    const matchedByCode = state.members.find((member) => member.accessCode === normalizedQuery);
+
+    if (matchedByCode) {
+      return {
+        members: state.members.filter((member) => member.nationalId === matchedByCode.nationalId),
+        matchedMemberId: matchedByCode.id,
+      };
+    }
+
+    const matchedByNationalId = state.members.filter((member) => member.nationalId === normalizedQuery);
+
+    if (!matchedByNationalId.length) {
+      return null;
+    }
+
+    return {
+      members: matchedByNationalId,
+      matchedMemberId: null,
+    };
+  }
+
+  function syncSharedMemberIdentity(state, nationalId, fullName, phone) {
+    const now = new Date().toISOString();
+    state.members.forEach((member) => {
+      if (member.nationalId === nationalId) {
+        member.fullName = fullName;
+        member.phone = phone;
+        member.updatedAt = now;
+      }
+    });
+  }
+
   function getSchedules(filters = {}) {
     const state = loadState();
     const now = new Date();
@@ -514,7 +642,29 @@
     }
 
     state.members = state.members.filter((item) => item.id !== memberId);
-    state.checkIns = state.checkIns.filter((checkIn) => checkIn.memberId !== memberId);
+    state.checkIns = state.checkIns
+      .map((checkIn) => {
+        if (Array.isArray(checkIn.memberIds)) {
+          const memberIds = checkIn.memberIds.filter((id) => id !== memberId);
+
+          if (!memberIds.length) {
+            return null;
+          }
+
+          return {
+            ...checkIn,
+            memberIds,
+            matchedMemberId: checkIn.matchedMemberId === memberId ? memberIds[0] || null : checkIn.matchedMemberId,
+          };
+        }
+
+        if (checkIn.memberId === memberId) {
+          return null;
+        }
+
+        return checkIn;
+      })
+      .filter(Boolean);
     persistState(state);
 
     return enrichMember(member);
@@ -590,6 +740,22 @@
       .sort((a, b) => a.fullName.localeCompare(b.fullName, "es"));
   }
 
+  function getProfiles(filters = {}) {
+    const groupedProfiles = new Map();
+
+    getMembers(filters).forEach((member) => {
+      if (!groupedProfiles.has(member.nationalId)) {
+        groupedProfiles.set(member.nationalId, []);
+      }
+
+      groupedProfiles.get(member.nationalId).push(member);
+    });
+
+    return [...groupedProfiles.values()]
+      .map((members) => buildProfileFromMembers(members))
+      .sort((left, right) => left.fullName.localeCompare(right.fullName, "es"));
+  }
+
   function createMember(payload) {
     const state = loadState();
     const fullName = String(payload.fullName || "").trim();
@@ -597,7 +763,10 @@
     const phone = validatePhone(payload.phone);
     const planType = String(payload.planType || "").trim();
     const startDate = String(payload.startDate || "").trim();
-    const existingMember = state.members.find((member) => member.nationalId === nationalId);
+    const samePlanMembers = state.members
+      .filter((member) => member.nationalId === nationalId && belongsToSamePlanFamily(member.planType, planType))
+      .map((member) => enrichMember(member))
+      .sort(sortProfilePlans);
 
     if (!fullName || !nationalId || !phone || !planType || !startDate) {
       throw new Error("Completá nombre, cédula, teléfono, plan y fecha de inicio.");
@@ -607,8 +776,27 @@
       throw new Error("Elegí un plan válido para dar de alta.");
     }
 
-    if (existingMember) {
-      throw new Error("Ya existe un socio con esa cédula. Usá renovar para extender la membresía.");
+    const activeDuplicate = samePlanMembers.find((member) => member.isActive || member.isScheduled);
+
+    if (activeDuplicate) {
+      throw new Error("Ese socio ya tiene un plan activo o programado para ese acceso. Usá renovar si querés extenderlo.");
+    }
+
+    syncSharedMemberIdentity(state, nationalId, fullName, phone);
+
+    if (samePlanMembers.length) {
+      const renewableMember = state.members.find((member) => member.id === samePlanMembers[0].id);
+
+      renewableMember.fullName = fullName;
+      renewableMember.phone = phone;
+      renewableMember.startDate = startDate;
+      renewableMember.endDate = computePlanEndDate(planType, startDate);
+      renewableMember.renewalCount = Number(renewableMember.renewalCount || 0) + 1;
+      renewableMember.lastRenewedAt = new Date().toISOString();
+      renewableMember.updatedAt = new Date().toISOString();
+
+      persistState(state);
+      return enrichMember(renewableMember);
     }
 
     const member = {
@@ -626,6 +814,7 @@
     };
 
     state.members.push(member);
+    syncSharedMemberIdentity(state, nationalId, fullName, phone);
     persistState(state);
     return enrichMember(member);
   }
@@ -648,6 +837,16 @@
       throw new Error("Elegí un plan válido para renovar.");
     }
 
+    const conflictingPlan = state.members
+      .filter((item) => item.id !== memberId && item.nationalId === member.nationalId)
+      .filter((item) => belongsToSamePlanFamily(item.planType, planType))
+      .map((item) => enrichMember(item))
+      .find((item) => item.isActive || item.isScheduled);
+
+    if (conflictingPlan) {
+      throw new Error("Ese socio ya tiene un plan activo o programado para ese acceso.");
+    }
+
     member.planType = planType;
     member.startDate = explicitStartDate || (current.isActive ? member.startDate : extensionStartDate);
     member.endDate = computePlanEndDate(planType, extensionStartDate);
@@ -667,19 +866,28 @@
       return null;
     }
 
-    const member = state.members.find(
-      (item) => item.accessCode === normalizedQuery || item.nationalId === normalizedQuery
-    );
-
-    return member ? enrichMember(member) : null;
+    const resolved = resolveMembersByIdentifier(state, normalizedQuery);
+    return resolved ? buildProfileFromMembers(resolved.members, resolved.matchedMemberId) : null;
   }
 
   function getCheckIns(limit) {
     const state = loadState();
     const records = state.checkIns
       .map((checkIn) => {
-        const member = state.members.find((item) => item.id === checkIn.memberId);
-        const enrichedMember = member ? enrichMember(member) : null;
+        const memberIds = Array.isArray(checkIn.memberIds)
+          ? checkIn.memberIds
+          : checkIn.memberId
+            ? [checkIn.memberId]
+            : [];
+        const directMembers = memberIds.length
+          ? state.members.filter((item) => memberIds.includes(item.id))
+          : checkIn.nationalId
+            ? state.members.filter((item) => item.nationalId === checkIn.nationalId)
+            : [];
+        const members = directMembers.length
+          ? state.members.filter((item) => item.nationalId === directMembers[0].nationalId)
+          : [];
+        const enrichedMember = members.length ? buildProfileFromMembers(members, checkIn.matchedMemberId || checkIn.memberId || null) : null;
 
         return {
           ...checkIn,
@@ -702,21 +910,20 @@
   function checkInMember(query) {
     const state = loadState();
     const normalizedQuery = validateCheckinQuery(query);
+    const resolved = resolveMembersByIdentifier(state, normalizedQuery);
 
-    const member = state.members.find(
-      (item) => item.accessCode === normalizedQuery || item.nationalId === normalizedQuery
-    );
-
-    if (!member) {
+    if (!resolved) {
       throw new Error("No encontramos un socio con ese código o cédula.");
     }
 
-    const enrichedMember = enrichMember(member);
-    const result = enrichedMember.isActive ? "active" : enrichedMember.isScheduled ? "scheduled" : "expired";
+    const profile = buildProfileFromMembers(resolved.members, resolved.matchedMemberId);
+    const result = profile.isActive ? "active" : profile.isScheduled ? "scheduled" : "expired";
 
     state.checkIns.unshift({
       id: `chk-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-      memberId: member.id,
+      memberIds: resolved.members.map((member) => member.id),
+      matchedMemberId: resolved.matchedMemberId,
+      nationalId: profile.nationalId,
       query: normalizedQuery,
       result,
       createdAt: new Date().toISOString(),
@@ -726,7 +933,7 @@
     persistState(state);
 
     return {
-      ...enrichedMember,
+      ...profile,
       checkInResult: result,
     };
   }
@@ -739,14 +946,20 @@
     const checkIns = getCheckIns();
 
     const activeClassPlans = members.filter((member) => member.planCategory === "clases" && member.isActive);
-    const classPlansToday = members.filter((member) => member.planCategory === "clases" && toDateKey(new Date(member.createdAt)) === today).length;
+    const classPlansToday = members.filter((member) => {
+      if (member.planCategory !== "clases") {
+        return false;
+      }
+
+      return toDateKey(new Date(member.lastRenewedAt || member.createdAt)) === today;
+    }).length;
     const classPlansWeek = members.filter((member) => {
       if (member.planCategory !== "clases") {
         return false;
       }
 
-      const createdAt = new Date(member.createdAt);
-      return createdAt >= weekStart && createdAt < weekEnd;
+      const activityDate = new Date(member.lastRenewedAt || member.createdAt);
+      return activityDate >= weekStart && activityDate < weekEnd;
     }).length;
     const byClass = activeClassPlans.reduce((accumulator, member) => {
       if (!member.relatedClassType) {
@@ -757,8 +970,10 @@
       return accumulator;
     }, {});
     const topClassKey = Object.keys(byClass).sort((left, right) => byClass[right] - byClass[left])[0];
-    const activeMembers = members.filter((member) => member.isActive).length;
-    const expiringThisWeek = members.filter((member) => member.isActive && member.daysRemaining <= 7).length;
+    const activeMembers = new Set(members.filter((member) => member.isActive).map((member) => member.nationalId)).size;
+    const expiringThisWeek = new Set(
+      members.filter((member) => member.isActive && member.daysRemaining <= 7).map((member) => member.nationalId)
+    ).size;
     const checkInsToday = checkIns.filter((checkIn) => toDateKey(new Date(checkIn.createdAt)) === today).length;
     const renewalsThisWeek = members.filter((member) => {
       if (!member.lastRenewedAt) {
@@ -801,6 +1016,7 @@
     getUniqueUpcomingDates,
     getStats,
     getMembers,
+    getProfiles,
     getCheckIns,
     createReservation,
     cancelReservation,

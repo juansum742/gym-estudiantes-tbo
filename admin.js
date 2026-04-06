@@ -296,11 +296,11 @@ if (bookingApi) {
   }
 
   function renderMembers() {
-    const members = bookingApi.getMembers({ includeScheduled: true });
-    const visibleMembers = members.filter((member) => member.isActive || member.isScheduled);
-    membersCounter.textContent = `${visibleMembers.length} socio${visibleMembers.length === 1 ? "" : "s"}`;
+    const profiles = bookingApi.getProfiles({ includeScheduled: true });
+    const visibleProfiles = profiles.filter((profile) => profile.isActive || profile.isScheduled);
+    membersCounter.textContent = `${visibleProfiles.length} socio${visibleProfiles.length === 1 ? "" : "s"}`;
 
-    if (!visibleMembers.length) {
+    if (!visibleProfiles.length) {
       adminMembersList.innerHTML = `
         <article class="admin-empty-card">
           <strong>Sin socios cargados</strong>
@@ -310,49 +310,84 @@ if (bookingApi) {
       return;
     }
 
-    adminMembersList.innerHTML = visibleMembers
-      .map((member) => `
+    adminMembersList.innerHTML = visibleProfiles
+      .map((profile) => {
+        const visiblePlans = profile.plans.filter((plan) => plan.isActive || plan.isScheduled);
+        const activePlans = visiblePlans.filter((plan) => plan.isActive).length;
+
+        return `
         <article class="member-card">
           <div class="member-card-head">
             <div>
-              <strong>${escapeHtml(member.fullName)}</strong>
-              <span>${escapeHtml(member.planLabel)}</span>
+              <strong>${escapeHtml(profile.fullName)}</strong>
+              <span>${escapeHtml(visiblePlans.map((plan) => plan.planLabel).join(" + "))}</span>
             </div>
-            <span class="admin-class-pill accent-${member.statusTone}">${escapeHtml(member.statusLabel)}</span>
+            <span class="admin-class-pill accent-${profile.statusTone}">${escapeHtml(profile.statusLabel)}</span>
           </div>
 
           <div class="member-card-grid">
             <div>
               <span>Cédula</span>
-              <strong>${escapeHtml(member.nationalId)}</strong>
+              <strong>${escapeHtml(profile.nationalId)}</strong>
             </div>
             <div>
-              <span>Código</span>
-              <strong>${escapeHtml(member.accessCode)}</strong>
+              <span>Teléfono</span>
+              <strong>${escapeHtml(profile.phone)}</strong>
             </div>
             <div>
-              <span>Vence</span>
-              <strong>${escapeHtml(member.endDateLabel)}</strong>
+              <span>Planes</span>
+              <strong>${activePlans} activo${activePlans === 1 ? "" : "s"} | ${visiblePlans.length} vigente${visiblePlans.length === 1 ? "" : "s"}</strong>
             </div>
             <div>
               <span>Estado</span>
-              <strong>${escapeHtml(member.accessMessage)}</strong>
+              <strong>${escapeHtml(profile.accessMessage)}</strong>
             </div>
           </div>
 
-          <div class="member-card-footer">
-            <span>${escapeHtml(member.planAccess)}</span>
-            <div class="member-card-actions">
-              <button class="btn btn-secondary admin-btn" type="button" data-renew-member-id="${member.id}">
-                Renovar plan
-              </button>
-              <button class="btn btn-secondary admin-btn admin-btn-danger" type="button" data-delete-member-id="${member.id}">
-                Eliminar
-              </button>
-            </div>
+          <div class="member-profile-list">
+            ${visiblePlans.map((plan) => `
+              <article class="member-profile-item accent-${plan.statusTone}">
+                <div class="member-profile-item-head">
+                  <div>
+                    <strong>${escapeHtml(plan.planLabel)}</strong>
+                    <span>${escapeHtml(plan.planCategory === "clases" ? plan.relatedClassLabel : plan.planAccess)}</span>
+                  </div>
+                  <span class="admin-class-pill accent-${plan.statusTone}">${escapeHtml(plan.statusLabel)}</span>
+                </div>
+
+                <div class="member-profile-item-grid">
+                  <div>
+                    <span>Código</span>
+                    <strong>${escapeHtml(plan.accessCode)}</strong>
+                  </div>
+                  <div>
+                    <span>Vence</span>
+                    <strong>${escapeHtml(plan.endDateLabel)}</strong>
+                  </div>
+                  <div>
+                    <span>Días restantes</span>
+                    <strong>${escapeHtml(plan.accessMessage)}</strong>
+                  </div>
+                  <div>
+                    <span>Tipo</span>
+                    <strong>${escapeHtml(plan.planCategory === "clases" ? plan.relatedClassLabel : "Musculación")}</strong>
+                  </div>
+                </div>
+
+                <div class="member-profile-item-actions">
+                  <button class="btn btn-secondary admin-btn" type="button" data-renew-member-id="${plan.id}">
+                    Renovar plan
+                  </button>
+                  <button class="btn btn-secondary admin-btn admin-btn-danger" type="button" data-delete-member-id="${plan.id}">
+                    Eliminar
+                  </button>
+                </div>
+              </article>
+            `).join("")}
           </div>
         </article>
-      `)
+      `;
+      })
       .join("");
   }
 
@@ -436,7 +471,7 @@ if (bookingApi) {
               <strong>${escapeHtml(entry.member?.fullName || "Socio no disponible")}</strong>
               <span class="admin-class-pill accent-${tone}">${status}</span>
             </div>
-            <p>${escapeHtml(entry.member?.planLabel || "Sin plan")} | ${escapeHtml(entry.timeLabel)} del ${escapeHtml(entry.dateLabel)}</p>
+            <p>${escapeHtml(entry.member?.planSummary || entry.member?.planLabel || "Sin plan")} | ${escapeHtml(entry.timeLabel)} del ${escapeHtml(entry.dateLabel)}</p>
             <span>${escapeHtml(entry.member?.accessMessage || "Registro histórico")}</span>
           </article>
         `;
@@ -444,7 +479,55 @@ if (bookingApi) {
       .join("");
   }
 
+  function getCheckinDisplayPlans(member) {
+    if (Array.isArray(member.plans) && member.plans.length) {
+      return member.plans;
+    }
+
+    if (!member.planLabel) {
+      return [];
+    }
+
+    return [
+      {
+        ...member,
+        id: member.id || member.accessCode || member.planLabel,
+        statusTone: member.statusTone || (member.isActive ? "available" : member.isScheduled ? "accent" : "danger"),
+      },
+    ];
+  }
+
+  function renderCheckinPlanList(member) {
+    const displayPlans = getCheckinDisplayPlans(member);
+
+    if (!displayPlans.length) {
+      return "";
+    }
+
+    return `
+      <div class="checkin-plan-list">
+        ${displayPlans.map((plan) => `
+          <article class="checkin-plan-item accent-${plan.statusTone}${plan.id === member.matchedPlanId ? " is-matched" : ""}">
+            <div class="checkin-plan-item-head">
+              <strong>${escapeHtml(plan.planLabel)}</strong>
+              <span>${escapeHtml(plan.planCategory === "clases" ? plan.relatedClassLabel : "Musculación")}</span>
+            </div>
+            <div class="checkin-plan-item-meta">
+              <span>Código ${escapeHtml(plan.accessCode)}</span>
+              <span>Vence ${escapeHtml(plan.endDateLabel)}</span>
+              <span>${escapeHtml(plan.accessMessage)}</span>
+            </div>
+          </article>
+        `).join("")}
+      </div>
+    `;
+  }
+
   function renderCheckinAlert(member) {
+    const displayPlans = getCheckinDisplayPlans(member);
+    const activePlanCount = member.activePlanCount ?? displayPlans.filter((plan) => plan.isActive).length;
+    const scheduledPlanCount = member.scheduledPlanCount ?? displayPlans.filter((plan) => plan.isScheduled).length;
+    const expiredPlanCount = member.expiredPlanCount ?? displayPlans.filter((plan) => !plan.isActive && !plan.isScheduled).length;
     const alertClass =
       member.checkInResult === "active"
         ? "checkin-alert-success"
@@ -462,13 +545,13 @@ if (bookingApi) {
     checkinAlert.className = `checkin-alert ${alertClass}`;
     checkinAlert.innerHTML = `
       <strong>${headline}</strong>
-      <p>${escapeHtml(member.fullName)} | ${escapeHtml(member.planLabel)}</p>
+      <p>${escapeHtml(member.fullName)} | CI ${escapeHtml(member.nationalId)}</p>
       <div class="checkin-alert-grid">
-        <span>${member.planCategory === "clases" ? `Clase ${escapeHtml(member.relatedClassLabel)}` : "Acceso musculación libre"}</span>
-        <span>Código ${escapeHtml(member.accessCode)}</span>
-        <span>Vence ${escapeHtml(member.endDateLabel)}</span>
-        <span>Estado ${escapeHtml(member.statusLabel)}</span>
+        <span>${activePlanCount} activo${activePlanCount === 1 ? "" : "s"}</span>
+        <span>${scheduledPlanCount} programado${scheduledPlanCount === 1 ? "" : "s"}</span>
+        <span>${expiredPlanCount} vencido${expiredPlanCount === 1 ? "" : "s"}</span>
       </div>
+      ${renderCheckinPlanList(member)}
       <small>${escapeHtml(member.accessMessage)}</small>
     `;
   }
@@ -487,19 +570,23 @@ if (bookingApi) {
     const deleteButton = event.target.closest("[data-delete-member-id]");
 
     if (deleteButton) {
+      const memberProfileItem = deleteButton.closest(".member-profile-item");
       const memberCard = deleteButton.closest(".member-card");
       const classPlanCard = deleteButton.closest(".admin-reservation-card");
+      const planName = memberProfileItem?.querySelector(".member-profile-item-head strong")?.textContent?.trim()
+        || classPlanCard?.querySelector(".admin-reservation-head .admin-class-pill")?.textContent?.trim()
+        || "este plan";
       const memberName = memberCard?.querySelector(".member-card-head strong")?.textContent?.trim()
         || classPlanCard?.querySelector(".admin-reservation-head strong")?.textContent?.trim()
         || "este socio";
 
-      if (!window.confirm(`Vas a eliminar la membresía de ${memberName}. También se borra su historial de check-ins.`)) {
+      if (!window.confirm(`Vas a eliminar ${planName} de ${memberName}. También se ajusta su historial de check-ins.`)) {
         return;
       }
 
       try {
         const removed = bookingApi.deleteMember(deleteButton.dataset.deleteMemberId);
-        showToast(`Membresía eliminada para ${removed.fullName}.`, "success");
+        showToast(`Plan eliminado para ${removed.fullName}.`, "success");
       } catch (error) {
         showToast(error.message, "error");
       }
@@ -512,11 +599,14 @@ if (bookingApi) {
     }
 
     try {
+      const memberProfileItem = renewButton.closest(".member-profile-item");
+      const planName = memberProfileItem?.querySelector(".member-profile-item-head strong")?.textContent?.trim();
       const renewed = bookingApi.renewMembership(renewButton.dataset.renewMemberId);
-      showToast(`Membresía renovada para ${renewed.fullName}.`, "success");
+      const profile = bookingApi.findMemberByIdentifier(renewed.nationalId) || renewed;
+      showToast(`Plan ${planName || renewed.planLabel} renovado para ${renewed.fullName}.`, "success");
       renderCheckinAlert({
-        ...renewed,
-        checkInResult: renewed.isActive ? "active" : renewed.isScheduled ? "scheduled" : "expired",
+        ...profile,
+        checkInResult: profile.isActive ? "active" : profile.isScheduled ? "scheduled" : "expired",
       });
     } catch (error) {
       showToast(error.message, "error");
@@ -653,9 +743,11 @@ if (bookingApi) {
       renderCheckinAlert(member);
       showToast(
         member.checkInResult === "active"
-          ? `Ingreso validado para ${member.fullName}.`
-          : `Atención: ${member.fullName} no tiene una membresía activa.`,
-        member.checkInResult === "active" ? "success" : "error"
+          ? `Ingreso validado para ${member.fullName}. ${member.activePlanCount} plan${member.activePlanCount === 1 ? "" : "es"} activo${member.activePlanCount === 1 ? "" : "s"}.`
+          : member.checkInResult === "scheduled"
+            ? `${member.fullName} tiene ${member.scheduledPlanCount} plan${member.scheduledPlanCount === 1 ? "" : "es"} programado${member.scheduledPlanCount === 1 ? "" : "s"}.`
+            : `Atención: ${member.fullName} no tiene una membresía activa.`,
+        member.checkInResult === "active" ? "success" : member.checkInResult === "scheduled" ? "warning" : "error"
       );
       checkinForm.reset();
     } catch (error) {
