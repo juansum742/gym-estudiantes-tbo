@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Estudiantes TBÓ | Fuerza, disciplina y resultados</title>
-  <meta name="description" content="Landing premium profesional para Estudiantes TBÓ con foco en fuerza, disciplina, reservas en tiempo real y experiencia fitness de alto nivel.">
+  <meta name="description" content="Landing premium profesional para Estudiantes TBÓ con foco en fuerza, disciplina, membresías reales y control de acceso fitness de alto nivel.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -32,7 +32,7 @@
           <a href="#planes">Planes</a>
           <a href="#membresias">Membresías</a>
           <a href="#horarios">Horarios</a>
-          <a href="#reservas">Reservas</a>
+          <a href="#reservas">Clases premium</a>
           <a href="#galeria">Galería</a>
           <a href="#profes">Profes</a>
           <a href="#ubicacion">Ubicación</a>
@@ -245,12 +245,12 @@
 
             <article class="membership-card membership-card-classes" data-reveal="up" style="--delay: 320ms;">
               <span class="membership-tag">Clases</span>
-              <h3>Inscripción a clases</h3>
+              <h3>Planes mensuales de clases</h3>
               <p class="membership-price membership-price-alt">Funcional / FullGap / Indoor Bike</p>
-              <p class="membership-copy">La membresía habilita al socio y las clases siguen gestionándose con reservas por cupos dentro del sistema premium actual.</p>
+              <p class="membership-copy">Cada disciplina se activa como suscripción mensual de 30 días con código corto, vencimiento automático y check-in directo.</p>
               <ul class="membership-list">
                 <li>Alta por disciplina</li>
-                <li>Reserva en tiempo real</li>
+                <li>Sin reserva diaria por horario</li>
                 <li>Seguimiento desde admin</li>
               </ul>
             </article>
@@ -385,7 +385,7 @@
 
               <p class="schedule-note">
                 La sala de musculación permanece operativa durante todo el horario extendido para entrenar con libertad y acompañamiento en piso.
-                Debajo encontrás la capa premium de reservas con estados en tiempo real, bloqueo automático y confirmación instantánea.
+                Debajo activás planes mensuales de clases con validación premium, código corto automático y control de acceso inmediato.
               </p>
             </div>
           </div>
@@ -395,11 +395,11 @@
       <section class="section section-booking" id="reservas">
         <div class="container">
           <div class="section-heading" data-reveal="up">
-            <p class="section-kicker">Reservas premium</p>
-            <h2 class="section-title">Tu lugar se confirma en segundos y los cupos se mueven en tiempo real</h2>
+            <p class="section-kicker">Planes de clases premium</p>
+            <h2 class="section-title">Activá tu disciplina mensual y entrá con código o cédula</h2>
             <div class="section-divider" aria-hidden="true"></div>
             <p class="section-text">
-              Elegí fecha, clase y hora con una experiencia integrada al estilo del sitio. Los turnos agotados se bloquean automáticamente y desaparecen del selector disponible.
+              Funcional, Full Gap e Indoor Bike pasan a operar como suscripción mensual. Elegís el plan, la fecha de inicio y el sistema calcula vencimiento, días restantes y acceso premium.
             </p>
           </div>
 
@@ -407,26 +407,26 @@
             <div class="booking-shell" data-reveal="left">
               <div class="booking-shell-head">
                 <p class="booking-label">Sistema activo</p>
-                <h3>Reservá tu clase</h3>
+                <h3>Activá tu plan mensual</h3>
                 <p>
-                  Completá tus datos y confirmá el turno. Vas a ver loaders, alerta deportiva, bloqueo automático de cupos y confirmación visual premium.
+                  Completá tus datos, elegí la disciplina y generá tu acceso mensual. Vas a recibir validación de cédula, teléfono, loaders y confirmación visual premium.
                 </p>
               </div>
 
               <form class="booking-form" id="booking-form">
                 <label class="form-field">
-                  <span>Fecha</span>
-                  <input id="booking-date" name="date" type="date" required>
+                  <span>Plan mensual</span>
+                  <select id="booking-class" name="planType" required></select>
                 </label>
 
                 <label class="form-field">
-                  <span>Clase</span>
-                  <select id="booking-class" name="classType" required></select>
+                  <span>Inicio</span>
+                  <input id="booking-date" name="startDate" type="date" required>
                 </label>
 
                 <label class="form-field">
-                  <span>Hora</span>
-                  <select id="booking-time" name="scheduleId" required></select>
+                  <span>Cédula</span>
+                  <input id="booking-id" name="nationalId" type="text" inputmode="numeric" minlength="7" maxlength="8" pattern="[0-9]{7,8}" placeholder="12345678" required>
                 </label>
 
                 <label class="form-field">
@@ -436,45 +436,45 @@
 
                 <label class="form-field">
                   <span>Teléfono</span>
-                  <input id="booking-phone" name="phone" type="tel" placeholder="098 000 000" required>
+                  <input id="booking-phone" name="phone" type="tel" inputmode="numeric" minlength="9" maxlength="9" pattern="[0-9]{9}" placeholder="098000000" required>
                 </label>
 
                 <button class="btn btn-primary booking-submit" id="booking-submit" type="submit">
-                  <span class="btn-text">Reservar</span>
+                  <span class="btn-text">Activar plan</span>
                   <span class="btn-loader" aria-hidden="true"></span>
                 </button>
               </form>
 
               <div class="booking-feedback booking-feedback-idle" id="booking-feedback" aria-live="polite">
-                Elegí un horario disponible para ver cupos restantes y confirmar tu reserva.
+                Elegí una disciplina mensual para ver su vigencia, el vencimiento automático y confirmar tu alta.
               </div>
             </div>
 
             <div class="booking-live-shell" data-reveal="right">
               <div class="booking-live-head">
                 <div>
-                  <p class="booking-label">Horarios en tiempo real</p>
-                  <h3>Disponibilidad y cupos</h3>
+                  <p class="booking-label">Suscripciones en tiempo real</p>
+                  <h3>Panorama de clases mensuales</h3>
                 </div>
 
                 <div class="booking-legend">
-                  <span class="slot-badge slot-badge-available">Disponible</span>
-                  <span class="slot-badge slot-badge-limited">Últimos cupos</span>
-                  <span class="slot-badge slot-badge-occupied">Ocupado</span>
+                  <span class="slot-badge slot-badge-available">Mensual</span>
+                  <span class="slot-badge slot-badge-limited">Activos</span>
+                  <span class="slot-badge slot-badge-occupied">Por vencer</span>
                 </div>
               </div>
 
               <div class="booking-summary" id="booking-summary">
                 <article class="booking-summary-card">
-                  <span>Clases activas</span>
+                  <span>Planes</span>
                   <strong id="summary-classes">0</strong>
                 </article>
                 <article class="booking-summary-card">
-                  <span>Cupos libres</span>
+                  <span>Activos</span>
                   <strong id="summary-spots">0</strong>
                 </article>
                 <article class="booking-summary-card">
-                  <span>Bloques ocupados</span>
+                  <span>Vencen esta semana</span>
                   <strong id="summary-occupied">0</strong>
                 </article>
               </div>
@@ -754,7 +754,7 @@
           </div>
         </a>
 
-        <p>Estudiantes TBÓ. Gimnasio premium con reservas reales, panel privado y experiencia deportiva de producto.</p>
+        <p>Estudiantes TBÓ. Gimnasio premium con membresías reales, panel privado y control de acceso deportivo.</p>
       </div>
     </footer>
   </div>

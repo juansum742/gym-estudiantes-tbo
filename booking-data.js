@@ -37,28 +37,28 @@
       access: "Acceso por 1 día al gimnasio.",
     },
     clase_funcional: {
-      label: "Inscripción Funcional",
+      label: "Funcional mensual",
       price: null,
       durationDays: 30,
       category: "clases",
       classType: "funcional",
-      access: "Inscripción por 30 días. Las clases siguen operando con reserva por cupos.",
+      access: "Suscripción mensual de Funcional por 30 días, sin reserva diaria por horario.",
     },
     clase_fullgap: {
-      label: "Inscripción FullGap",
+      label: "Full Gap mensual",
       price: null,
       durationDays: 30,
       category: "clases",
       classType: "fullgap",
-      access: "Inscripción por 30 días. Las clases siguen operando con reserva por cupos.",
+      access: "Suscripción mensual de Full Gap por 30 días, sin reserva diaria por horario.",
     },
     clase_indoor: {
-      label: "Inscripción Indoor Bike",
+      label: "Indoor Bike mensual",
       price: null,
       durationDays: 30,
       category: "clases",
       classType: "indoor",
-      access: "Inscripción por 30 días. Las clases siguen operando con reserva por cupos.",
+      access: "Suscripción mensual de Indoor Bike por 30 días, sin reserva diaria por horario.",
     },
   };
 
@@ -140,6 +140,48 @@
 
   function stripDigits(value) {
     return String(value || "").replace(/\D+/g, "");
+  }
+
+  function sanitizePhoneInput(value) {
+    return stripDigits(value).slice(0, 9);
+  }
+
+  function sanitizeNationalIdInput(value) {
+    return stripDigits(value).slice(0, 8);
+  }
+
+  function sanitizeCheckinInput(value) {
+    return stripDigits(value).slice(0, 8);
+  }
+
+  function validatePhone(value) {
+    const digits = sanitizePhoneInput(value);
+
+    if (!/^\d{9}$/.test(digits)) {
+      throw new Error("Ingresá un número válido de 9 dígitos");
+    }
+
+    return digits;
+  }
+
+  function validateNationalId(value) {
+    const digits = sanitizeNationalIdInput(value);
+
+    if (!/^\d{7,8}$/.test(digits)) {
+      throw new Error("Ingresá una cédula válida");
+    }
+
+    return digits;
+  }
+
+  function validateCheckinQuery(value) {
+    const digits = sanitizeCheckinInput(value);
+
+    if (!/^(\d{4,6}|\d{7,8})$/.test(digits)) {
+      throw new Error("Ingresá un código o una cédula válida.");
+    }
+
+    return digits;
   }
 
   function getClassMeta(classType) {
@@ -314,6 +356,10 @@
     return toDateKey(addDays(parseDateKey(startDate), durationDays - 1));
   }
 
+  function computePlanEndDate(planType, startDate) {
+    return computeEndDate(startDate, getPlanMeta(planType).durationDays);
+  }
+
   function generateAccessCode(state) {
     const usedCodes = new Set(state.members.map((member) => member.accessCode));
     const lengths = [4, 5, 6];
@@ -338,6 +384,7 @@
     const today = startOfToday();
     const startDate = parseDateKey(member.startDate);
     const expiryEnd = endOfDay(member.endDate);
+    const relatedClassMeta = planMeta.classType ? getClassMeta(planMeta.classType) : null;
     const isStarted = startDate <= today;
     const isActive = isStarted && expiryEnd >= today;
     const isScheduled = !isStarted;
@@ -347,18 +394,18 @@
     const expiredDaysAgo = !isActive && !isScheduled ? Math.abs(Math.floor((today - endOfDay(member.endDate)) / MS_PER_DAY)) : 0;
 
     let status = "expired";
-    let statusLabel = "Vencida";
+    let statusLabel = "Vencido";
     let statusTone = "danger";
-    let accessMessage = `Venció el ${formatDateFull(member.endDate)}.`;
+    let accessMessage = `Plan vencido el ${formatDateFull(member.endDate)}.`;
 
     if (isScheduled) {
       status = "scheduled";
-      statusLabel = "Programada";
+      statusLabel = "Programado";
       statusTone = "accent";
-      accessMessage = `Inicia en ${daysUntilStart} día${daysUntilStart === 1 ? "" : "s"}.`;
+      accessMessage = `El plan inicia en ${daysUntilStart} día${daysUntilStart === 1 ? "" : "s"}.`;
     } else if (isActive) {
       status = "active";
-      statusLabel = "Activa";
+      statusLabel = "Activo";
       statusTone = daysRemaining <= 7 ? "limited" : "available";
       accessMessage = `Te quedan ${daysRemaining} día${daysRemaining === 1 ? "" : "s"}.`;
     }
@@ -372,6 +419,7 @@
       planCategory: planMeta.category,
       planAccess: planMeta.access,
       relatedClassType: planMeta.classType || null,
+      relatedClassLabel: relatedClassMeta?.label || "Acceso libre",
       status,
       statusLabel,
       statusTone,
@@ -448,40 +496,7 @@
   }
 
   function createReservation(payload) {
-    const state = loadState();
-    const name = String(payload.name || "").trim();
-    const phone = String(payload.phone || "").trim();
-    const scheduleId = payload.scheduleId;
-    const schedule = state.schedules.find((item) => item.id === scheduleId);
-
-    if (!name || !phone || !schedule) {
-      throw new Error("Completá los datos y elegí un horario válido.");
-    }
-
-    const hydratedSchedule = enrichSchedule(schedule, state);
-
-    if (scheduleToDateTime(hydratedSchedule) < new Date()) {
-      throw new Error("Ese horario ya pasó. Elegí uno futuro.");
-    }
-
-    if (!hydratedSchedule.isAvailable) {
-      throw new Error("Ese horario ya se agotó. Elegí otro disponible.");
-    }
-
-    const reservation = {
-      id: `res-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-      scheduleId: hydratedSchedule.id,
-      name,
-      phone,
-      date: hydratedSchedule.date,
-      time: hydratedSchedule.time,
-      classType: hydratedSchedule.classType,
-      createdAt: new Date().toISOString(),
-    };
-
-    state.reservations.push(reservation);
-    persistState(state);
-    return reservation;
+    throw new Error("Las clases ahora se activan como plan mensual. Elegí un plan de clases y registrate con cédula.");
   }
 
   function cancelReservation(reservationId) {
@@ -554,6 +569,14 @@
           return false;
         }
 
+        if (filters.planCategory && member.planCategory !== filters.planCategory) {
+          return false;
+        }
+
+        if (filters.classType && member.relatedClassType !== filters.classType) {
+          return false;
+        }
+
         if (filters.expiresWithin && (!member.isActive || member.daysRemaining > filters.expiresWithin)) {
           return false;
         }
@@ -570,11 +593,10 @@
   function createMember(payload) {
     const state = loadState();
     const fullName = String(payload.fullName || "").trim();
-    const nationalId = stripDigits(payload.nationalId);
-    const phone = String(payload.phone || "").trim();
+    const nationalId = validateNationalId(payload.nationalId);
+    const phone = validatePhone(payload.phone);
     const planType = String(payload.planType || "").trim();
     const startDate = String(payload.startDate || "").trim();
-    const planMeta = getPlanMeta(planType);
     const existingMember = state.members.find((member) => member.nationalId === nationalId);
 
     if (!fullName || !nationalId || !phone || !planType || !startDate) {
@@ -596,7 +618,7 @@
       phone,
       planType,
       startDate,
-      endDate: computeEndDate(startDate, planMeta.durationDays),
+      endDate: computePlanEndDate(planType, startDate),
       accessCode: generateAccessCode(state),
       renewalCount: 0,
       createdAt: new Date().toISOString(),
@@ -618,14 +640,17 @@
 
     const current = enrichMember(member);
     const planType = String(payload.planType || member.planType).trim();
-    const planMeta = getPlanMeta(planType);
     const explicitStartDate = String(payload.startDate || "").trim();
     const renewalAnchor = current.isActive ? addDays(parseDateKey(member.endDate), 1) : new Date();
     const extensionStartDate = explicitStartDate || toDateKey(renewalAnchor);
 
+    if (!MEMBERSHIP_PLANS[planType]) {
+      throw new Error("Elegí un plan válido para renovar.");
+    }
+
     member.planType = planType;
     member.startDate = explicitStartDate || (current.isActive ? member.startDate : extensionStartDate);
-    member.endDate = computeEndDate(extensionStartDate, planMeta.durationDays);
+    member.endDate = computePlanEndDate(planType, extensionStartDate);
     member.renewalCount = Number(member.renewalCount || 0) + 1;
     member.lastRenewedAt = new Date().toISOString();
     member.updatedAt = new Date().toISOString();
@@ -676,11 +701,7 @@
 
   function checkInMember(query) {
     const state = loadState();
-    const normalizedQuery = stripDigits(query);
-
-    if (!normalizedQuery) {
-      throw new Error("Ingresá un código o una cédula para validar el ingreso.");
-    }
+    const normalizedQuery = validateCheckinQuery(query);
 
     const member = state.members.find(
       (item) => item.accessCode === normalizedQuery || item.nationalId === normalizedQuery
@@ -711,23 +732,28 @@
   }
 
   function getStats() {
-    const reservations = getReservations();
-    const schedules = getSchedules({ futureOnly: true });
-    const members = getMembers();
+    const members = getMembers({ includeScheduled: true });
     const today = toDateKey(new Date());
     const weekStart = startOfWeek(new Date());
     const weekEnd = addDays(weekStart, 7);
     const checkIns = getCheckIns();
 
-    const reservationsToday = reservations.filter((reservation) => reservation.date === today).length;
-    const reservationsWeek = reservations.filter((reservation) => {
-      const date = parseDateKey(reservation.date);
-      return date >= weekStart && date < weekEnd;
-    }).length;
+    const activeClassPlans = members.filter((member) => member.planCategory === "clases" && member.isActive);
+    const classPlansToday = members.filter((member) => member.planCategory === "clases" && toDateKey(new Date(member.createdAt)) === today).length;
+    const classPlansWeek = members.filter((member) => {
+      if (member.planCategory !== "clases") {
+        return false;
+      }
 
-    const freeSpots = schedules.reduce((total, schedule) => total + schedule.remaining, 0);
-    const byClass = reservations.reduce((accumulator, reservation) => {
-      accumulator[reservation.classType] = (accumulator[reservation.classType] || 0) + 1;
+      const createdAt = new Date(member.createdAt);
+      return createdAt >= weekStart && createdAt < weekEnd;
+    }).length;
+    const byClass = activeClassPlans.reduce((accumulator, member) => {
+      if (!member.relatedClassType) {
+        return accumulator;
+      }
+
+      accumulator[member.relatedClassType] = (accumulator[member.relatedClassType] || 0) + 1;
       return accumulator;
     }, {});
     const topClassKey = Object.keys(byClass).sort((left, right) => byClass[right] - byClass[left])[0];
@@ -744,9 +770,12 @@
     }).length;
 
     return {
-      reservationsToday,
-      reservationsWeek,
-      freeSpots,
+      reservationsToday: classPlansToday,
+      reservationsWeek: classPlansWeek,
+      freeSpots: activeClassPlans.length,
+      classPlansToday,
+      classPlansWeek,
+      activeClassPlans: activeClassPlans.length,
       topClass: topClassKey ? getClassMeta(topClassKey).label : "Sin datos",
       topClassCount: topClassKey ? byClass[topClassKey] : 0,
       activeMembers,
@@ -781,6 +810,13 @@
     renewMembership,
     checkInMember,
     findMemberByIdentifier,
+    sanitizePhoneInput,
+    sanitizeNationalIdInput,
+    sanitizeCheckinInput,
+    validatePhone,
+    validateNationalId,
+    validateCheckinQuery,
+    computePlanEndDate,
     formatDateLabel,
     formatDateFull,
     formatCurrency,

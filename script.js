@@ -173,7 +173,7 @@ function setupBookings() {
 
   const dateInput = document.querySelector("#booking-date");
   const classSelect = document.querySelector("#booking-class");
-  const timeSelect = document.querySelector("#booking-time");
+  const nationalIdInput = document.querySelector("#booking-id");
   const nameInput = document.querySelector("#booking-name");
   const phoneInput = document.querySelector("#booking-phone");
   const feedback = document.querySelector("#booking-feedback");
@@ -183,11 +183,7 @@ function setupBookings() {
   const summarySpots = document.querySelector("#summary-spots");
   const summaryOccupied = document.querySelector("#summary-occupied");
 
-  const statusLabel = {
-    available: "Disponible",
-    limited: "Últimos cupos",
-    occupied: "Ocupado",
-  };
+  const classPlanEntries = Object.entries(bookingApi.membershipPlans).filter(([, plan]) => plan.category === "clases");
 
   function setFeedback(tone, message) {
     feedback.className = `booking-feedback booking-feedback-${tone}`;
@@ -195,138 +191,148 @@ function setupBookings() {
   }
 
   function syncDateBounds() {
-    const upcomingDates = bookingApi.getUniqueUpcomingDates();
+    const today = new Date();
+    const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    dateInput.min = todayKey;
+    dateInput.value ||= todayKey;
+  }
 
-    if (!upcomingDates.length) {
-      dateInput.value = "";
-      return;
-    }
+  function syncPhoneValidity() {
+    phoneInput.value = bookingApi.sanitizePhoneInput(phoneInput.value);
 
-    dateInput.min = upcomingDates[0];
-    dateInput.max = upcomingDates[upcomingDates.length - 1];
-
-    if (!upcomingDates.includes(dateInput.value)) {
-      dateInput.value = upcomingDates[0];
+    try {
+      bookingApi.validatePhone(phoneInput.value);
+      phoneInput.setCustomValidity("");
+      return true;
+    } catch (error) {
+      phoneInput.setCustomValidity(error.message);
+      return false;
     }
   }
 
-  function populateClasses() {
-    const currentValue = classSelect.value;
-    const schedules = bookingApi.getSchedules({ futureOnly: true });
-    const classTypes = [...new Set(schedules.map((schedule) => schedule.classType))];
+  function syncNationalIdValidity() {
+    nationalIdInput.value = bookingApi.sanitizeNationalIdInput(nationalIdInput.value);
 
-    classSelect.innerHTML = classTypes
-      .map((classType) => {
-        const classMeta = bookingApi.classTypes[classType];
-        return `<option value="${classType}">${escapeHtml(classMeta.label)}</option>`;
+    try {
+      bookingApi.validateNationalId(nationalIdInput.value);
+      nationalIdInput.setCustomValidity("");
+      return true;
+    } catch (error) {
+      nationalIdInput.setCustomValidity(error.message);
+      return false;
+    }
+  }
+
+  function bindValidatedField(input, syncValidity) {
+    input.addEventListener("input", syncValidity);
+    input.addEventListener("blur", syncValidity);
+    input.addEventListener("invalid", syncValidity);
+  }
+
+  function populateClasses(preferredPlanType) {
+    const currentValue = preferredPlanType || classSelect.value;
+
+    classSelect.innerHTML = classPlanEntries
+      .map(([planType, planMeta]) => {
+        return `<option value="${planType}">${escapeHtml(planMeta.label)}</option>`;
       })
       .join("");
 
-    if (classTypes.includes(currentValue)) {
+    if (classPlanEntries.some(([planType]) => planType === currentValue)) {
       classSelect.value = currentValue;
+    } else if (classPlanEntries[0]) {
+      classSelect.value = classPlanEntries[0][0];
     }
   }
 
-  function getFilteredSchedules() {
-    return bookingApi.getSchedules({
-      futureOnly: true,
-      date: dateInput.value || undefined,
-      classType: classSelect.value || undefined,
+  function getPlanSnapshots() {
+    const classMembers = bookingApi
+      .getMembers({ planCategory: "clases", includeScheduled: true })
+      .filter((member) => member.isActive || member.isScheduled);
+
+    return classPlanEntries.map(([planType, planMeta]) => {
+      const classMeta = bookingApi.classTypes[planMeta.classType];
+      const members = classMembers.filter((member) => member.planType === planType);
+      const activeCount = members.filter((member) => member.isActive).length;
+      const expiringCount = members.filter((member) => member.isActive && member.daysRemaining <= 7).length;
+      const scheduledCount = members.filter((member) => member.isScheduled).length;
+
+      return {
+        planType,
+        ...planMeta,
+        classLabel: classMeta.label,
+        priceLabel: bookingApi.formatCurrency(planMeta.price),
+        activeCount,
+        expiringCount,
+        scheduledCount,
+      };
     });
   }
 
-  function populateTimeOptions(preferredScheduleId) {
-    const availableSchedules = bookingApi.getSchedules({
-      futureOnly: true,
-      date: dateInput.value || undefined,
-      classType: classSelect.value || undefined,
-      availableOnly: true,
-    });
+  function updateSummaryCards(plans) {
+    const activePlans = plans.reduce((total, plan) => total + plan.activeCount, 0);
+    const expiringPlans = plans.reduce((total, plan) => total + plan.expiringCount, 0);
 
-    if (!availableSchedules.length) {
-      timeSelect.innerHTML = '<option value="">Sin horarios disponibles</option>';
-      timeSelect.disabled = true;
-      return;
-    }
-
-    timeSelect.disabled = false;
-    timeSelect.innerHTML = availableSchedules
-      .map((schedule) => {
-        const selected = preferredScheduleId === schedule.id ? " selected" : "";
-        return `<option value="${schedule.id}"${selected}>${escapeHtml(schedule.time)} | ${escapeHtml(schedule.classLabel)} | ${schedule.remaining} cupos</option>`;
-      })
-      .join("");
-
-    if (!availableSchedules.some((schedule) => schedule.id === timeSelect.value)) {
-      timeSelect.value = preferredScheduleId && availableSchedules.some((schedule) => schedule.id === preferredScheduleId)
-        ? preferredScheduleId
-        : availableSchedules[0].id;
-    }
-  }
-
-  function updateSummaryCards(schedules) {
-    const classCount = new Set(schedules.map((schedule) => schedule.classType)).size;
-    const freeSpots = schedules.reduce((total, schedule) => total + schedule.remaining, 0);
-    const occupiedCount = schedules.filter((schedule) => schedule.status === "occupied").length;
-
-    animateValue(summaryClasses, classCount);
-    animateValue(summarySpots, freeSpots);
-    animateValue(summaryOccupied, occupiedCount);
+    animateValue(summaryClasses, plans.length);
+    animateValue(summarySpots, activePlans);
+    animateValue(summaryOccupied, expiringPlans);
   }
 
   function syncSelectionFeedback() {
-    const selectedId = timeSelect.value;
-    const selectedSchedule = bookingApi
-      .getSchedules({ futureOnly: true, date: dateInput.value || undefined, classType: classSelect.value || undefined })
-      .find((schedule) => schedule.id === selectedId);
+    const selectedPlan = bookingApi.membershipPlans[classSelect.value];
 
-    if (!selectedSchedule) {
-      setFeedback("warning", "No quedan cupos para la combinación elegida. Probá otra fecha o clase.");
+    if (!selectedPlan || !dateInput.value) {
+      setFeedback("idle", "Elegí una disciplina mensual para ver su vigencia y confirmar el alta.");
       return;
     }
 
-    if (selectedSchedule.status === "limited") {
-      setFeedback("warning", `Te queda ${selectedSchedule.remaining} cupo${selectedSchedule.remaining === 1 ? "" : "s"} en ${selectedSchedule.classLabel} a las ${selectedSchedule.time}.`);
-      return;
-    }
+    const classMeta = bookingApi.classTypes[selectedPlan.classType];
+    const endDate = bookingApi.computePlanEndDate(classSelect.value, dateInput.value);
+    const priceLabel = bookingApi.formatCurrency(selectedPlan.price);
 
-    setFeedback("idle", `${selectedSchedule.classLabel} el ${selectedSchedule.dateLabel} a las ${selectedSchedule.time}. Cupos restantes: ${selectedSchedule.remaining}.`);
+    setFeedback(
+      "idle",
+      `${classMeta.label} mensual | ${priceLabel} | inicia ${bookingApi.formatDateLabel(dateInput.value)} | vence ${bookingApi.formatDateFull(endDate)}.`
+    );
   }
 
   function renderLiveList() {
-    const schedules = getFilteredSchedules();
-    const selectedId = timeSelect.value;
+    const plans = getPlanSnapshots();
+    updateSummaryCards(plans);
 
-    updateSummaryCards(schedules);
-
-    if (!schedules.length) {
+    if (!plans.length) {
       liveList.innerHTML = `
         <article class="live-slot-empty">
-          <strong>Sin turnos en esta combinación</strong>
-          <p>No hay bloques cargados para la fecha o clase elegida. Probá otra combinación o agregá horarios desde el panel admin.</p>
+          <strong>Sin planes cargados</strong>
+          <p>No hay planes mensuales configurados para clases. Revisá la membresía de clases desde el panel admin.</p>
         </article>
       `;
       return;
     }
 
-    liveList.innerHTML = schedules
-      .map((schedule) => {
-        const disabled = schedule.status === "occupied" ? " disabled" : "";
-        const selected = schedule.id === selectedId ? " is-selected" : "";
+    liveList.innerHTML = plans
+      .map((plan) => {
+        const selected = plan.planType === classSelect.value ? " is-selected" : "";
+        const badgeTone = plan.expiringCount > 0 ? "occupied" : plan.activeCount > 0 ? "limited" : "available";
+        const badgeLabel = plan.expiringCount > 0
+          ? `${plan.expiringCount} por vencer`
+          : plan.activeCount > 0
+            ? `${plan.activeCount} activos`
+            : "Disponible";
 
         return `
-          <button class="live-slot-card status-${schedule.status}${selected}" type="button" data-schedule-id="${schedule.id}"${disabled}>
+          <button class="live-slot-card status-${badgeTone}${selected}" type="button" data-plan-type="${plan.planType}">
             <div class="live-slot-card-head">
-              <span class="live-slot-class">${escapeHtml(schedule.classLabel)}</span>
-              <span class="slot-badge slot-badge-${schedule.status}">${statusLabel[schedule.status]}</span>
+              <span class="live-slot-class">${escapeHtml(plan.classLabel)}</span>
+              <span class="slot-badge slot-badge-${badgeTone}">${escapeHtml(badgeLabel)}</span>
             </div>
             <div class="live-slot-card-main">
-              <strong>${escapeHtml(schedule.time)}</strong>
-              <span>${escapeHtml(schedule.dateLabel)}</span>
+              <strong>${plan.durationDays} días</strong>
+              <span>${escapeHtml(plan.priceLabel)} | código corto automático</span>
             </div>
             <div class="live-slot-card-meta">
-              <span>${schedule.remaining} cupos</span>
-              <span>Cap. ${schedule.capacity}</span>
+              <span>${plan.activeCount} activos</span>
+              <span>${plan.scheduledCount} programados</span>
             </div>
           </button>
         `;
@@ -334,81 +340,88 @@ function setupBookings() {
       .join("");
   }
 
-  function renderBookingState(preferredScheduleId) {
+  function renderBookingState(preferredPlanType) {
     syncDateBounds();
-    populateClasses();
-    populateTimeOptions(preferredScheduleId);
+    populateClasses(preferredPlanType);
     renderLiveList();
     syncSelectionFeedback();
   }
 
   liveList.addEventListener("click", (event) => {
-    const slotButton = event.target.closest("[data-schedule-id]");
+    const planButton = event.target.closest("[data-plan-type]");
 
-    if (!slotButton || slotButton.disabled) {
+    if (!planButton) {
       return;
     }
 
-    const slot = bookingApi
-      .getSchedules({ futureOnly: true, date: dateInput.value || undefined, classType: classSelect.value || undefined })
-      .find((schedule) => schedule.id === slotButton.dataset.scheduleId);
-
-    if (!slot) {
-      return;
-    }
-
-    dateInput.value = slot.date;
-    classSelect.value = slot.classType;
-    populateTimeOptions(slot.id);
-    timeSelect.value = slot.id;
+    classSelect.value = planButton.dataset.planType;
     renderLiveList();
     syncSelectionFeedback();
   });
 
   dateInput.addEventListener("change", () => {
-    renderBookingState(timeSelect.value);
+    syncSelectionFeedback();
   });
 
   classSelect.addEventListener("change", () => {
-    renderBookingState(timeSelect.value);
-  });
-
-  timeSelect.addEventListener("change", () => {
     renderLiveList();
     syncSelectionFeedback();
   });
 
+  bindValidatedField(phoneInput, syncPhoneValidity);
+  bindValidatedField(nationalIdInput, syncNationalIdValidity);
+
   bookingForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    if (!timeSelect.value) {
-      setFeedback("error", "Primero elegí un horario disponible.");
-      showToast("No quedan cupos en esa combinación.", "error");
+    if (!syncNationalIdValidity()) {
+      setFeedback("error", nationalIdInput.validationMessage);
+      nationalIdInput.reportValidity();
+      return;
+    }
+
+    if (!syncPhoneValidity()) {
+      setFeedback("error", phoneInput.validationMessage);
+      phoneInput.reportValidity();
       return;
     }
 
     submitButton.classList.add("is-loading");
     submitButton.disabled = true;
-    setFeedback("loading", "Procesando tu reserva...");
+    setFeedback("loading", "Activando tu plan mensual...");
 
     try {
       await wait(780);
+      nameInput.value = nameInput.value.trim();
 
-      const reservation = bookingApi.createReservation({
-        scheduleId: timeSelect.value,
-        name: nameInput.value,
+      const member = bookingApi.createMember({
+        fullName: nameInput.value,
+        nationalId: nationalIdInput.value,
         phone: phoneInput.value,
+        planType: classSelect.value,
+        startDate: dateInput.value,
       });
 
       nameInput.value = "";
+      nationalIdInput.value = "";
       phoneInput.value = "";
-      renderBookingState(reservation.scheduleId);
-      setFeedback("success", `Reserva confirmada para ${bookingApi.classTypes[reservation.classType].label} el ${bookingApi.formatDateLabel(reservation.date)} a las ${reservation.time}.`);
-      showToast("Reserva confirmada. Tu lugar ya quedó bloqueado.", "success");
+      renderBookingState(member.planType);
+      setFeedback(
+        "success",
+        member.isScheduled
+          ? `Plan registrado para ${member.planLabel}. Comienza el ${member.startDateLabel}. Código ${member.accessCode}.`
+          : `Plan activo: ${member.planLabel}. Código ${member.accessCode}. Vence el ${member.endDateLabel}.`
+      );
+      showToast(
+        member.isScheduled
+          ? "Plan registrado con inicio programado."
+          : "Plan mensual activado con éxito.",
+        "success"
+      );
     } catch (error) {
       setFeedback("error", error.message);
       showToast(error.message, "error");
-      renderBookingState(timeSelect.value);
+      renderBookingState(classSelect.value);
     } finally {
       submitButton.classList.remove("is-loading");
       submitButton.disabled = false;
@@ -416,7 +429,7 @@ function setupBookings() {
   });
 
   window.addEventListener(bookingApi.changeEvent, () => {
-    renderBookingState(timeSelect.value);
+    renderBookingState(classSelect.value);
   });
 
   renderBookingState();

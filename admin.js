@@ -35,6 +35,12 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function bindValidatedField(input, syncValidity) {
+  input.addEventListener("input", syncValidity);
+  input.addEventListener("blur", syncValidity);
+  input.addEventListener("invalid", syncValidity);
+}
+
 function animateValue(element, target) {
   const previous = Number(element.dataset.adminValue || 0);
   const duration = 700;
@@ -146,6 +152,45 @@ if (bookingApi) {
     input.value ||= minDate;
   }
 
+  function syncMemberPhoneValidity() {
+    memberPhone.value = bookingApi.sanitizePhoneInput(memberPhone.value);
+
+    try {
+      bookingApi.validatePhone(memberPhone.value);
+      memberPhone.setCustomValidity("");
+      return true;
+    } catch (error) {
+      memberPhone.setCustomValidity(error.message);
+      return false;
+    }
+  }
+
+  function syncMemberIdValidity() {
+    memberId.value = bookingApi.sanitizeNationalIdInput(memberId.value);
+
+    try {
+      bookingApi.validateNationalId(memberId.value);
+      memberId.setCustomValidity("");
+      return true;
+    } catch (error) {
+      memberId.setCustomValidity(error.message);
+      return false;
+    }
+  }
+
+  function syncCheckinValidity() {
+    checkinQuery.value = bookingApi.sanitizeCheckinInput(checkinQuery.value);
+
+    try {
+      bookingApi.validateCheckinQuery(checkinQuery.value);
+      checkinQuery.setCustomValidity("");
+      return true;
+    } catch (error) {
+      checkinQuery.setCustomValidity(error.message);
+      return false;
+    }
+  }
+
   function populateClassOptions() {
     adminClass.innerHTML = Object.entries(bookingApi.classTypes)
       .map(([key, value]) => `<option value="${key}">${escapeHtml(value.label)}</option>`)
@@ -169,12 +214,13 @@ if (bookingApi) {
       return;
     }
 
-    const endDate = toDateKey(addDays(parseDateKey(memberStart.value), planMeta.durationDays - 1));
+    const endDate = bookingApi.computePlanEndDate(memberPlan.value, memberStart.value);
     const priceLabel = planMeta.price ? bookingApi.formatCurrency(planMeta.price) : "Consultar";
+    const classLabel = planMeta.classType ? bookingApi.classTypes[planMeta.classType].label : "Acceso libre";
 
     membershipPreview.innerHTML = `
       <strong>${escapeHtml(planMeta.label)}</strong>
-      <span>${escapeHtml(priceLabel)} | ${planMeta.durationDays} día${planMeta.durationDays === 1 ? "" : "s"} | vence el ${escapeHtml(bookingApi.formatDateFull(endDate))}</span>
+      <span>${escapeHtml(priceLabel)} | ${escapeHtml(classLabel)} | ${planMeta.durationDays} día${planMeta.durationDays === 1 ? "" : "s"} | vence el ${escapeHtml(bookingApi.formatDateFull(endDate))}</span>
     `;
   }
 
@@ -183,58 +229,65 @@ if (bookingApi) {
     animateValue(statActiveMembers, stats.activeMembers);
     animateValue(statExpiringWeek, stats.expiringThisWeek);
     animateValue(statCheckinsDay, stats.checkInsToday);
-    animateValue(statDay, stats.reservationsToday);
-    animateValue(statSpots, stats.freeSpots);
+    animateValue(statDay, stats.classPlansToday);
+    animateValue(statSpots, stats.activeClassPlans);
     statTopClass.textContent = stats.topClass;
-    statTopClassCount.textContent = `${stats.topClassCount} reserva${stats.topClassCount === 1 ? "" : "s"}`;
+    statTopClassCount.textContent = `${stats.topClassCount} plan${stats.topClassCount === 1 ? "" : "es"} activo${stats.topClassCount === 1 ? "" : "s"}`;
   }
 
   function renderReservations() {
-    const reservations = bookingApi.getReservations();
-    listCounter.textContent = `${reservations.length} reserva${reservations.length === 1 ? "" : "s"}`;
+    const classPlans = bookingApi
+      .getMembers({ planCategory: "clases", includeScheduled: true })
+      .filter((member) => member.isActive);
 
-    if (!reservations.length) {
+    listCounter.textContent = `${classPlans.length} plan${classPlans.length === 1 ? "" : "es"}`;
+
+    if (!classPlans.length) {
       reservationsList.innerHTML = `
         <article class="admin-empty-card">
-          <strong>No hay reservas activas</strong>
-          <p>Cuando alguien reserve desde la home, vas a verlo inmediatamente acá.</p>
+          <strong>No hay planes de clases activos</strong>
+          <p>Cuando activen un plan mensual desde la home o desde caja, lo vas a ver inmediatamente acá.</p>
         </article>
       `;
       return;
     }
 
-    reservationsList.innerHTML = reservations
-      .map((reservation) => {
-        const meta = bookingApi.classTypes[reservation.classType];
-        const phoneLink = reservation.phone.replace(/\s+/g, "");
+    reservationsList.innerHTML = classPlans
+      .map((member) => {
+        const meta = bookingApi.classTypes[member.relatedClassType];
+        const statusDetail = `Te quedan ${member.daysRemaining} día${member.daysRemaining === 1 ? "" : "s"}`;
 
         return `
           <article class="admin-reservation-card">
             <div class="admin-reservation-head">
               <div>
-                <strong>${escapeHtml(reservation.name)}</strong>
-                <span>${escapeHtml(reservation.phone)}</span>
+                <strong>${escapeHtml(member.fullName)}</strong>
+                <span>CI ${escapeHtml(member.nationalId)} | ${escapeHtml(member.phone)}</span>
               </div>
-              <span class="admin-class-pill accent-${meta.accent}">${escapeHtml(reservation.classLabel)}</span>
+              <span class="admin-class-pill accent-${meta?.accent || member.statusTone}">${escapeHtml(member.relatedClassLabel)}</span>
             </div>
 
             <div class="admin-reservation-grid">
               <div>
-                <span>Fecha</span>
-                <strong>${escapeHtml(bookingApi.formatDateLabel(reservation.date))}</strong>
+                <span>Cédula</span>
+                <strong>${escapeHtml(member.nationalId)}</strong>
               </div>
               <div>
-                <span>Hora</span>
-                <strong>${escapeHtml(reservation.time)}</strong>
+                <span>Clase</span>
+                <strong>${escapeHtml(member.relatedClassLabel)}</strong>
               </div>
               <div>
-                <span>Teléfono directo</span>
-                <a href="tel:${escapeHtml(phoneLink)}">${escapeHtml(reservation.phone)}</a>
+                <span>Días restantes</span>
+                <strong>${escapeHtml(statusDetail)}</strong>
+              </div>
+              <div>
+                <span>Vencimiento</span>
+                <strong>${escapeHtml(member.endDateLabel)}</strong>
               </div>
             </div>
 
-            <button class="btn btn-secondary admin-btn admin-cancel-button" type="button" data-reservation-id="${reservation.id}">
-              Eliminar reserva
+            <button class="btn btn-secondary admin-btn admin-btn-danger" type="button" data-delete-member-id="${member.id}">
+              Eliminar plan
             </button>
           </article>
         `;
@@ -375,7 +428,7 @@ if (bookingApi) {
     checkinHistory.innerHTML = history
       .map((entry) => {
         const tone = entry.result === "active" ? "available" : entry.result === "scheduled" ? "accent" : "danger";
-        const status = entry.result === "active" ? "Activa" : entry.result === "scheduled" ? "Programada" : "Vencida";
+        const status = entry.result === "active" ? "Activo" : entry.result === "scheduled" ? "Programado" : "Vencido";
 
         return `
           <article class="mini-status-card">
@@ -401,9 +454,9 @@ if (bookingApi) {
 
     const headline =
       member.checkInResult === "active"
-        ? "MEMBRESÍA ACTIVA"
+        ? "PLAN ACTIVO"
         : member.checkInResult === "scheduled"
-          ? "MEMBRESÍA AÚN NO ACTIVA"
+          ? "PLAN AÚN NO ACTIVO"
           : "MEMBRESÍA VENCIDA";
 
     checkinAlert.className = `checkin-alert ${alertClass}`;
@@ -411,8 +464,10 @@ if (bookingApi) {
       <strong>${headline}</strong>
       <p>${escapeHtml(member.fullName)} | ${escapeHtml(member.planLabel)}</p>
       <div class="checkin-alert-grid">
+        <span>${member.planCategory === "clases" ? `Clase ${escapeHtml(member.relatedClassLabel)}` : "Acceso musculación libre"}</span>
         <span>Código ${escapeHtml(member.accessCode)}</span>
         <span>Vence ${escapeHtml(member.endDateLabel)}</span>
+        <span>Estado ${escapeHtml(member.statusLabel)}</span>
       </div>
       <small>${escapeHtml(member.accessMessage)}</small>
     `;
@@ -427,31 +482,16 @@ if (bookingApi) {
     renderCheckinHistory();
   }
 
-  reservationsList.addEventListener("click", (event) => {
-    const cancelButton = event.target.closest("[data-reservation-id]");
-
-    if (!cancelButton) {
-      return;
-    }
-
-    const reservationCard = cancelButton.closest("[data-reservation-id]")?.closest(".admin-reservation-card");
-    const reservationName = reservationCard?.querySelector("strong")?.textContent?.trim() || "esta reserva";
-
-    if (!window.confirm(`Vas a eliminar la reserva de ${reservationName}. Esta acción libera el cupo automáticamente.`)) {
-      return;
-    }
-
-    bookingApi.cancelReservation(cancelButton.dataset.reservationId);
-    showToast("Reserva eliminada y cupo liberado.", "success");
-  });
-
   dashboard.addEventListener("click", (event) => {
     const renewButton = event.target.closest("[data-renew-member-id]");
     const deleteButton = event.target.closest("[data-delete-member-id]");
 
     if (deleteButton) {
       const memberCard = deleteButton.closest(".member-card");
-      const memberName = memberCard?.querySelector(".member-card-head strong")?.textContent?.trim() || "este socio";
+      const classPlanCard = deleteButton.closest(".admin-reservation-card");
+      const memberName = memberCard?.querySelector(".member-card-head strong")?.textContent?.trim()
+        || classPlanCard?.querySelector(".admin-reservation-head strong")?.textContent?.trim()
+        || "este socio";
 
       if (!window.confirm(`Vas a eliminar la membresía de ${memberName}. También se borra su historial de check-ins.`)) {
         return;
@@ -513,7 +553,7 @@ if (bookingApi) {
 
     scheduleButton.classList.add("is-loading");
     scheduleButton.disabled = true;
-    setFeedback(adminFormFeedback, "loading", "Creando horario premium...");
+    setFeedback(adminFormFeedback, "loading", "Actualizando agenda premium...");
 
     try {
       await wait(620);
@@ -525,7 +565,7 @@ if (bookingApi) {
         capacity: Number(adminCapacity.value),
       });
 
-      setFeedback(adminFormFeedback, "success", "Horario agregado. Ya está disponible en la home y en este panel.");
+      setFeedback(adminFormFeedback, "success", "Horario agregado. Ya quedó visible en la agenda del sitio y en este panel.");
       showToast("Nuevo horario agregado con éxito.", "success");
       scheduleForm.reset();
       syncDateField(adminDate);
@@ -542,12 +582,25 @@ if (bookingApi) {
   memberForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
+    if (!syncMemberIdValidity()) {
+      setFeedback(memberFormFeedback, "error", memberId.validationMessage);
+      memberId.reportValidity();
+      return;
+    }
+
+    if (!syncMemberPhoneValidity()) {
+      setFeedback(memberFormFeedback, "error", memberPhone.validationMessage);
+      memberPhone.reportValidity();
+      return;
+    }
+
     memberButton.classList.add("is-loading");
     memberButton.disabled = true;
     setFeedback(memberFormFeedback, "loading", "Generando membresía y código de acceso...");
 
     try {
       await wait(620);
+      memberName.value = memberName.value.trim();
 
       const member = bookingApi.createMember({
         fullName: memberName.value,
@@ -560,7 +613,9 @@ if (bookingApi) {
       setFeedback(
         memberFormFeedback,
         "success",
-        `Socio creado con éxito. Código ${member.accessCode}. Vence el ${member.endDateLabel}.`
+        member.isScheduled
+          ? `Plan creado con éxito. Código ${member.accessCode}. Inicia el ${member.startDateLabel}.`
+          : `Socio creado con éxito. Código ${member.accessCode}. Vence el ${member.endDateLabel}.`
       );
       showToast(`Socio ${member.fullName} creado con código ${member.accessCode}.`, "success");
       memberForm.reset();
@@ -577,6 +632,17 @@ if (bookingApi) {
 
   checkinForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+
+    if (!syncCheckinValidity()) {
+      checkinAlert.className = "checkin-alert checkin-alert-error";
+      checkinAlert.innerHTML = `
+        <strong>DATOS INVÁLIDOS</strong>
+        <p>${escapeHtml(checkinQuery.validationMessage)}</p>
+        <small>Usá un código de 4 a 6 dígitos o una cédula de 7 a 8 dígitos.</small>
+      `;
+      checkinQuery.reportValidity();
+      return;
+    }
 
     checkinButton.classList.add("is-loading");
     checkinButton.disabled = true;
@@ -611,6 +677,9 @@ if (bookingApi) {
     adminCapacity.value = classMeta.capacity;
   });
 
+  bindValidatedField(memberPhone, syncMemberPhoneValidity);
+  bindValidatedField(memberId, syncMemberIdValidity);
+  bindValidatedField(checkinQuery, syncCheckinValidity);
   memberPlan.addEventListener("change", updateMembershipPreview);
   memberStart.addEventListener("change", updateMembershipPreview);
 

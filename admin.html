@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Panel Privado | Estudiantes TBÓ</title>
-  <meta name="description" content="Panel privado de gestión premium para reservas y horarios de Estudiantes TBÓ.">
+  <meta name="description" content="Panel privado de gestión premium para membresías, clases y control de acceso de Estudiantes TBÓ.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -34,9 +34,9 @@
         <div class="container">
           <div class="admin-gate-card">
             <p class="section-kicker">Panel privado</p>
-            <h1 class="section-title">Gestión premium de reservas TBÓ</h1>
+            <h1 class="section-title">Gestión premium TBÓ</h1>
             <p class="section-text">
-              Ingresá al panel para administrar reservas, liberar cupos, sumar horarios y seguir la operación diaria desde una interfaz oscura y deportiva.
+              Ingresá al panel para administrar membresías, planes mensuales de clases, horarios y control de acceso desde una interfaz oscura y deportiva.
             </p>
 
             <form class="admin-login-form" id="admin-login-form">
@@ -61,9 +61,9 @@
           <div class="admin-intro">
             <div>
               <p class="section-kicker">Dashboard premium</p>
-              <h2 class="section-title">Reservas, socios y acceso en tiempo real</h2>
+              <h2 class="section-title">Socios, clases y acceso en tiempo real</h2>
               <p class="section-text">
-                Todo lo que se reserve o se gestione desde la home y desde caja impacta acá. Reservas, membresías, check-ins y renovaciones viven en el mismo panel premium.
+                Todo lo que se active o se gestione desde la home y desde caja impacta acá. Membresías, planes mensuales de clases, check-ins y renovaciones viven en el mismo panel premium.
               </p>
             </div>
 
@@ -87,17 +87,17 @@
               <strong id="stat-checkins-day" data-admin-value="0">0</strong>
             </article>
             <article class="admin-stat-card">
-              <span>Reservas del día</span>
+              <span>Altas del día</span>
               <strong id="stat-day" data-admin-value="0">0</strong>
             </article>
             <article class="admin-stat-card">
-              <span>Cupos libres</span>
+              <span>Planes de clases activos</span>
               <strong id="stat-spots" data-admin-value="0">0</strong>
             </article>
             <article class="admin-stat-card admin-stat-card-wide">
-              <span>Clases con más reservas</span>
+              <span>Clase con más planes activos</span>
               <strong id="stat-top-class">Sin datos</strong>
-              <small id="stat-top-class-count">0 reservas</small>
+              <small id="stat-top-class-count">0 planes activos</small>
             </article>
           </div>
 
@@ -106,7 +106,7 @@
               <div class="admin-panel-head">
                 <p class="section-kicker">Alta de horarios</p>
                 <h3>Nueva agenda</h3>
-                <p>Agregá bloques manuales para clases especiales, refuerzo de cupos o nuevos turnos.</p>
+                <p>Agregá bloques manuales para mostrar horarios especiales, refuerzos de agenda o nuevos turnos del gimnasio.</p>
               </div>
 
               <form class="admin-schedule-form" id="admin-schedule-form">
@@ -137,17 +137,17 @@
               </form>
 
               <div class="booking-feedback booking-feedback-idle" id="admin-form-feedback" aria-live="polite">
-                Cargá un nuevo horario para que aparezca en la home y en el panel en tiempo real.
+                Cargá un nuevo horario para que aparezca en la agenda del sitio y quede disponible en este panel.
               </div>
             </aside>
 
             <section class="admin-list-shell">
               <div class="admin-panel-head admin-panel-head-inline">
                 <div>
-                  <p class="section-kicker">Reservas activas</p>
-                  <h3>Listado completo</h3>
+                  <p class="section-kicker">Planes de clases activos</p>
+                  <h3>Listado mensual</h3>
                 </div>
-                <div class="admin-list-counter" id="admin-list-counter">0 reservas</div>
+                <div class="admin-list-counter" id="admin-list-counter">0 planes</div>
               </div>
 
               <div class="admin-reservations" id="admin-reservations"></div>
@@ -171,12 +171,12 @@
 
                   <label class="form-field">
                     <span>Número de cédula</span>
-                    <input id="member-id" type="text" inputmode="numeric" placeholder="12345678" required>
+                    <input id="member-id" type="text" inputmode="numeric" minlength="7" maxlength="8" pattern="[0-9]{7,8}" placeholder="12345678" required>
                   </label>
 
                   <label class="form-field">
                     <span>Teléfono</span>
-                    <input id="member-phone" type="tel" placeholder="098 000 000" required>
+                    <input id="member-phone" type="tel" inputmode="numeric" minlength="9" maxlength="9" pattern="[0-9]{9}" placeholder="098000000" required>
                   </label>
 
                   <label class="form-field">
@@ -214,7 +214,7 @@
                 <form class="admin-checkin-form" id="admin-checkin-form">
                   <label class="form-field">
                     <span>Ingresar código o cédula</span>
-                    <input id="checkin-query" type="text" inputmode="numeric" placeholder="4832 o 12345678" required>
+                    <input id="checkin-query" type="text" inputmode="numeric" minlength="4" maxlength="8" pattern="[0-9]{4,8}" placeholder="4832 o 12345678" required>
                   </label>
 
                   <button class="btn btn-primary admin-btn" type="submit" id="checkin-submit">
