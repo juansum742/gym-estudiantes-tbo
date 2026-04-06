@@ -234,7 +234,7 @@ if (bookingApi) {
             </div>
 
             <button class="btn btn-secondary admin-btn admin-cancel-button" type="button" data-reservation-id="${reservation.id}">
-              Cancelar reserva
+              Eliminar reserva
             </button>
           </article>
         `;
@@ -289,9 +289,14 @@ if (bookingApi) {
 
           <div class="member-card-footer">
             <span>${escapeHtml(member.planAccess)}</span>
-            <button class="btn btn-secondary admin-btn" type="button" data-renew-member-id="${member.id}">
-              Renovar plan
-            </button>
+            <div class="member-card-actions">
+              <button class="btn btn-secondary admin-btn" type="button" data-renew-member-id="${member.id}">
+                Renovar plan
+              </button>
+              <button class="btn btn-secondary admin-btn admin-btn-danger" type="button" data-delete-member-id="${member.id}">
+                Eliminar
+              </button>
+            </div>
           </div>
         </article>
       `)
@@ -429,12 +434,38 @@ if (bookingApi) {
       return;
     }
 
+    const reservationCard = cancelButton.closest("[data-reservation-id]")?.closest(".admin-reservation-card");
+    const reservationName = reservationCard?.querySelector("strong")?.textContent?.trim() || "esta reserva";
+
+    if (!window.confirm(`Vas a eliminar la reserva de ${reservationName}. Esta acción libera el cupo automáticamente.`)) {
+      return;
+    }
+
     bookingApi.cancelReservation(cancelButton.dataset.reservationId);
-    showToast("Reserva cancelada y cupo liberado.", "success");
+    showToast("Reserva eliminada y cupo liberado.", "success");
   });
 
   dashboard.addEventListener("click", (event) => {
     const renewButton = event.target.closest("[data-renew-member-id]");
+    const deleteButton = event.target.closest("[data-delete-member-id]");
+
+    if (deleteButton) {
+      const memberCard = deleteButton.closest(".member-card");
+      const memberName = memberCard?.querySelector(".member-card-head strong")?.textContent?.trim() || "este socio";
+
+      if (!window.confirm(`Vas a eliminar la membresía de ${memberName}. También se borra su historial de check-ins.`)) {
+        return;
+      }
+
+      try {
+        const removed = bookingApi.deleteMember(deleteButton.dataset.deleteMemberId);
+        showToast(`Membresía eliminada para ${removed.fullName}.`, "success");
+      } catch (error) {
+        showToast(error.message, "error");
+      }
+
+      return;
+    }
 
     if (!renewButton) {
       return;

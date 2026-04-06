@@ -490,6 +490,21 @@
     persistState(state);
   }
 
+  function deleteMember(memberId) {
+    const state = loadState();
+    const member = state.members.find((item) => item.id === memberId);
+
+    if (!member) {
+      throw new Error("No encontramos ese socio para eliminar.");
+    }
+
+    state.members = state.members.filter((item) => item.id !== memberId);
+    state.checkIns = state.checkIns.filter((checkIn) => checkIn.memberId !== memberId);
+    persistState(state);
+
+    return enrichMember(member);
+  }
+
   function addSchedule(payload) {
     const state = loadState();
     const date = String(payload.date || "").trim();
@@ -760,6 +775,7 @@
     getCheckIns,
     createReservation,
     cancelReservation,
+    deleteMember,
     addSchedule,
     createMember,
     renewMembership,
