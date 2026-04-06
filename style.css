@@ -284,15 +284,14 @@ select {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(500px, 0.92fr);
-  gap: clamp(2rem, 4vw, 4.5rem);
+  grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
+  gap: clamp(1.5rem, 4vw, 4rem);
   align-items: center;
   padding: 4.5rem 0 6rem;
 }
 
 .hero-copy {
   max-width: 680px;
-  width: 100%;
 }
 
 .eyebrow,
@@ -319,7 +318,7 @@ select {
   margin: 0;
   font-family: var(--font-display);
   font-size: clamp(4.9rem, 11vw, 9.4rem);
-  line-height: 0.94;
+  line-height: 0.86;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   text-shadow: 0 10px 34px rgba(0, 0, 0, 0.55);
@@ -327,11 +326,6 @@ select {
 
 .hero-title span {
   display: block;
-  padding-top: 0.04em;
-}
-
-.hero-title span:first-child {
-  padding-top: 0;
 }
 
 .hero-title span:last-child {
@@ -440,15 +434,14 @@ select {
 
 .hero-stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1rem;
   margin-top: 2rem;
 }
 
 .stat-card {
   position: relative;
-  min-height: 150px;
-  padding: 1.15rem 1.1rem 1rem;
+  padding: 1.15rem 1rem 1rem;
   border-radius: 24px;
   background: linear-gradient(180deg, rgba(17, 20, 33, 0.96), rgba(11, 13, 22, 0.92));
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -468,22 +461,20 @@ select {
 .stat-card strong {
   display: block;
   font-family: var(--font-display);
-  font-size: clamp(2.9rem, 4vw, 3.8rem);
+  font-size: 2.5rem;
   letter-spacing: 0.08em;
-  line-height: 0.94;
 }
 
 .stat-card span:last-child {
   display: block;
   color: var(--muted);
-  font-size: 1.02rem;
   font-weight: 600;
   line-height: 1.4;
 }
 
 .hero-visual {
   position: relative;
-  min-height: 740px;
+  min-height: 650px;
 }
 
 .hero-card,
@@ -519,28 +510,27 @@ select {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center;
   border-radius: 24px;
 }
 
 .hero-main {
   inset: 2rem 0 auto auto;
-  width: min(100%, 560px);
-  height: 640px;
+  width: min(100%, 470px);
+  height: 540px;
   transform: rotate(2deg);
 }
 
 .hero-top {
   inset: 0 auto auto 0;
-  width: min(60%, 320px);
-  height: 270px;
+  width: min(58%, 280px);
+  height: 240px;
   transform: rotate(-8deg);
 }
 
 .hero-bottom {
-  inset: auto auto 1.25rem 1.25rem;
-  width: min(56%, 300px);
-  height: 300px;
+  inset: auto auto 1.25rem 2rem;
+  width: min(54%, 250px);
+  height: 260px;
   transform: rotate(-4deg);
 }
 
@@ -2077,8 +2067,6 @@ select {
   }
 
   .hero-main {
-    width: min(100%, 500px);
-    height: 560px;
     right: 0;
     left: auto;
   }
@@ -2141,16 +2129,15 @@ select {
     padding-top: 3rem;
   }
 
-  .hero-stats,
+  .hero-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .contact-grid,
   .testimonials-grid,
   .program-grid,
   .booking-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .hero-stats {
-    grid-template-columns: repeat(2, minmax(160px, 1fr));
   }
 
   .schedule-grid {
