@@ -97,7 +97,7 @@
               <div class="admin-panel-head">
                 <p class="section-kicker">Alta de horarios</p>
                 <h3>Nueva agenda</h3>
-                <p>Agregá bloques manuales para mostrar horarios especiales, refuerzos de agenda o nuevos turnos del gimnasio.</p>
+                <p>Creá nuevos horarios para Indoor Bike, Full Gap o Funcional y definí sus cupos disponibles desde el panel.</p>
               </div>
 
               <form class="admin-schedule-form" id="admin-schedule-form">
@@ -146,6 +146,36 @@
               <div class="booking-feedback booking-feedback-idle" id="pending-feedback" aria-live="polite">
                 Las solicitudes enviadas desde la home esperan confirmación manual del pago.
               </div>
+            </section>
+          </div>
+
+          <div class="admin-class-bookings-grid">
+            <section class="admin-list-shell">
+              <div class="admin-panel-head admin-panel-head-inline">
+                <div>
+                  <p class="section-kicker">Reservas de clases</p>
+                  <h3>Reservas activas</h3>
+                </div>
+                <div class="admin-list-counter" id="class-reservations-counter">0 reservas</div>
+              </div>
+
+              <div class="admin-reservations" id="class-reservations"></div>
+
+              <div class="booking-feedback booking-feedback-idle" id="class-reservations-feedback" aria-live="polite">
+                Acá vas a ver las reservas creadas desde la home para confirmar o cancelar cada lugar.
+              </div>
+            </section>
+
+            <section class="admin-list-shell">
+              <div class="admin-panel-head admin-panel-head-inline">
+                <div>
+                  <p class="section-kicker">Horarios y cupos</p>
+                  <h3>Agenda de clases</h3>
+                </div>
+                <div class="admin-list-counter" id="admin-schedules-counter">0 horarios</div>
+              </div>
+
+              <div class="admin-reservations" id="admin-schedules-list"></div>
             </section>
           </div>
 

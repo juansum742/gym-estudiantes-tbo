@@ -97,9 +97,14 @@ if (bookingApi) {
   const statActivePlans = document.querySelector("#stat-active-plans");
   const statExpiringWeek = document.querySelector("#stat-expiring-week");
 
-  const reservationsList = document.querySelector("#admin-requests");
+  const pendingRequestsList = document.querySelector("#admin-requests");
   const listCounter = document.querySelector("#admin-requests-counter");
   const pendingFeedback = document.querySelector("#pending-feedback");
+  const classReservationsList = document.querySelector("#class-reservations");
+  const classReservationsCounter = document.querySelector("#class-reservations-counter");
+  const classReservationsFeedback = document.querySelector("#class-reservations-feedback");
+  const schedulesList = document.querySelector("#admin-schedules-list");
+  const schedulesCounter = document.querySelector("#admin-schedules-counter");
   const scheduleForm = document.querySelector("#admin-schedule-form");
   const scheduleButton = document.querySelector("#admin-schedule-button");
   const adminDate = document.querySelector("#admin-date");
@@ -191,12 +196,13 @@ if (bookingApi) {
 
   function populateClassOptions() {
     adminClass.innerHTML = Object.entries(bookingApi.classTypes)
+      .filter(([, value]) => value.reservable)
       .map(([key, value]) => `<option value="${key}">${escapeHtml(value.label)}</option>`)
       .join("");
   }
 
   function populatePlanOptions() {
-    memberPlan.innerHTML = Object.entries(bookingApi.membershipPlans)
+    memberPlan.innerHTML = bookingApi.getPublicMembershipPlanEntries()
       .map(([key, value]) => {
         const price = value.price ? ` | ${escapeHtml(bookingApi.formatCurrency(value.price))}` : "";
         return `<option value="${key}">${escapeHtml(value.label)}${price}</option>`;
@@ -214,7 +220,11 @@ if (bookingApi) {
 
     const endDate = bookingApi.computePlanEndDate(memberPlan.value, memberStart.value);
     const priceLabel = planMeta.price ? bookingApi.formatCurrency(planMeta.price) : "Consultar";
-    const classLabel = planMeta.classType ? bookingApi.classTypes[planMeta.classType].label : "Acceso libre";
+    const classLabel = planMeta.classType
+      ? bookingApi.classTypes[planMeta.classType].label
+      : planMeta.category === "general"
+        ? "Acceso completo"
+        : "Musculación";
 
     membershipPreview.innerHTML = `
       <strong>${escapeHtml(planMeta.label)}</strong>
@@ -236,7 +246,7 @@ if (bookingApi) {
     listCounter.textContent = `${pendingRequests.length} pendiente${pendingRequests.length === 1 ? "" : "s"}`;
 
     if (!pendingRequests.length) {
-      reservationsList.innerHTML = `
+      pendingRequestsList.innerHTML = `
         <article class="admin-empty-card">
           <strong>Sin solicitudes pendientes</strong>
           <p>Cuando llegue una nueva solicitud desde la home, vas a poder confirmarla o rechazarla desde este bloque.</p>
@@ -245,7 +255,7 @@ if (bookingApi) {
       return;
     }
 
-    reservationsList.innerHTML = pendingRequests
+    pendingRequestsList.innerHTML = pendingRequests
       .map((request) => {
         const notes = [];
 
@@ -313,6 +323,147 @@ if (bookingApi) {
           </article>
         `;
       })
+      .join("");
+  }
+
+  function renderClassReservations() {
+    const reservations = bookingApi.getReservations({ futureOnly: true, reservableOnly: true });
+    classReservationsCounter.textContent = `${reservations.length} reserva${reservations.length === 1 ? "" : "s"}`;
+
+    if (!reservations.length) {
+      classReservationsList.innerHTML = `
+        <article class="admin-empty-card">
+          <strong>Sin reservas de clases</strong>
+          <p>Las reservas que hagan los socios desde la home se van a mostrar acá para confirmar o cancelar.</p>
+        </article>
+      `;
+      return;
+    }
+
+    classReservationsList.innerHTML = reservations
+      .map((reservation) => {
+        const confirmLabel = reservation.status === "confirmed" ? "Confirmada" : "Confirmar";
+        const confirmAttributes = reservation.status === "confirmed" ? 'disabled aria-disabled="true"' : "";
+        const availabilityLabel = reservation.schedule?.statusLabel || "Horario cargado";
+
+        return `
+          <article class="admin-reservation-card">
+            <div class="admin-reservation-head">
+              <div>
+                <strong>${escapeHtml(reservation.fullName)}</strong>
+                <span>CI ${escapeHtml(reservation.nationalId)} | ${escapeHtml(reservation.accessCode || "sin código")}</span>
+              </div>
+              <div class="admin-pill-group">
+                <span class="admin-class-pill accent-${reservation.accent}">${escapeHtml(reservation.classLabel)}</span>
+                <span class="admin-class-pill accent-${reservation.statusTone}">${escapeHtml(reservation.statusLabel)}</span>
+              </div>
+            </div>
+
+            <div class="admin-reservation-grid">
+              <div>
+                <span>Disciplina</span>
+                <strong>${escapeHtml(reservation.classLabel)}</strong>
+              </div>
+              <div>
+                <span>Fecha</span>
+                <strong>${escapeHtml(bookingApi.formatDateFull(reservation.date))}</strong>
+              </div>
+              <div>
+                <span>Horario</span>
+                <strong>${escapeHtml(reservation.time)}</strong>
+              </div>
+              <div>
+                <span>Estado</span>
+                <strong>${escapeHtml(reservation.statusLabel)}</strong>
+              </div>
+              <div>
+                <span>Cupos</span>
+                <strong>${escapeHtml(availabilityLabel)}</strong>
+              </div>
+              <div>
+                <span>Reserva creada</span>
+                <strong>${escapeHtml(new Date(reservation.createdAt).toLocaleDateString("es-UY"))}</strong>
+              </div>
+            </div>
+
+            <div class="admin-request-actions">
+              <button class="btn btn-primary admin-btn" type="button" data-confirm-reservation-id="${reservation.id}" ${confirmAttributes}>
+                ${confirmLabel}
+              </button>
+              <button class="btn btn-secondary admin-btn admin-btn-danger" type="button" data-cancel-reservation-id="${reservation.id}">
+                Cancelar
+              </button>
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+  }
+
+  function renderSchedules() {
+    const schedules = bookingApi.getSchedules({ futureOnly: true, reservableOnly: true });
+    schedulesCounter.textContent = `${schedules.length} horario${schedules.length === 1 ? "" : "s"}`;
+
+    if (!schedules.length) {
+      schedulesList.innerHTML = `
+        <article class="admin-empty-card">
+          <strong>Sin horarios cargados</strong>
+          <p>Usá el formulario de alta para crear bloques nuevos con sus cupos correspondientes.</p>
+        </article>
+      `;
+      return;
+    }
+
+    schedulesList.innerHTML = schedules
+      .map((schedule) => `
+        <article class="admin-reservation-card">
+          <div class="admin-reservation-head">
+            <div>
+              <strong>${escapeHtml(schedule.classLabel)}</strong>
+              <span>${escapeHtml(schedule.dateLabel)} | ${escapeHtml(schedule.time)}</span>
+            </div>
+            <div class="admin-pill-group">
+              <span class="admin-class-pill accent-${schedule.accent}">${escapeHtml(schedule.classLabel)}</span>
+              <span class="admin-class-pill accent-${schedule.status === "occupied" ? "danger" : schedule.status === "limited" ? "limited" : "available"}">${escapeHtml(schedule.status === "occupied" ? "Completo" : schedule.status === "limited" ? "Últimos cupos" : "Disponible")}</span>
+            </div>
+          </div>
+
+          <div class="admin-reservation-grid">
+            <div>
+              <span>Fecha</span>
+              <strong>${escapeHtml(bookingApi.formatDateFull(schedule.date))}</strong>
+            </div>
+            <div>
+              <span>Horario</span>
+              <strong>${escapeHtml(schedule.time)}</strong>
+            </div>
+            <div>
+              <span>Reservados</span>
+              <strong>${schedule.reservedCount}</strong>
+            </div>
+            <div>
+              <span>Cupos totales</span>
+              <strong>${schedule.capacity}</strong>
+            </div>
+            <div>
+              <span>Disponibles</span>
+              <strong>${schedule.remaining}</strong>
+            </div>
+            <div>
+              <span>Estado</span>
+              <strong>${escapeHtml(schedule.statusLabel)}</strong>
+            </div>
+          </div>
+
+          <form class="admin-capacity-form" data-update-schedule-id="${schedule.id}">
+            <label class="form-field admin-capacity-field">
+              <span>Editar cupos</span>
+              <input type="number" min="${Math.max(1, schedule.reservedCount)}" max="50" value="${schedule.capacity}" required>
+            </label>
+            <button class="btn btn-secondary admin-btn" type="submit">Guardar cupos</button>
+          </form>
+        </article>
+      `)
       .join("");
   }
 
@@ -391,7 +542,7 @@ if (bookingApi) {
                   </div>
                   <div>
                     <span>Tipo</span>
-                    <strong>${escapeHtml(plan.planCategory === "clases" ? plan.relatedClassLabel : "Musculación")}</strong>
+                    <strong>${escapeHtml(plan.planCategory === "clases" ? plan.relatedClassLabel : plan.planCategory === "general" ? "Acceso completo" : "Musculación")}</strong>
                   </div>
                 </div>
 
@@ -538,7 +689,7 @@ if (bookingApi) {
           <article class="checkin-plan-item accent-${plan.statusTone}${plan.id === member.matchedPlanId ? " is-matched" : ""}">
             <div class="checkin-plan-item-head">
               <strong>${escapeHtml(plan.planLabel)}</strong>
-              <span>${escapeHtml(plan.planCategory === "clases" ? plan.relatedClassLabel : "Musculación")}</span>
+              <span>${escapeHtml(plan.planCategory === "clases" ? plan.relatedClassLabel : plan.planCategory === "general" ? "Acceso completo" : "Musculación")}</span>
             </div>
             <div class="checkin-plan-item-meta">
               <span>Código ${escapeHtml(plan.accessCode)}</span>
@@ -587,6 +738,8 @@ if (bookingApi) {
   function renderDashboard() {
     renderStats();
     renderReservations();
+    renderClassReservations();
+    renderSchedules();
     renderMembers();
     renderExpiring();
     renderRenewals();
@@ -596,6 +749,8 @@ if (bookingApi) {
   dashboard.addEventListener("click", async (event) => {
     const approveButton = event.target.closest("[data-approve-request-id]");
     const rejectButton = event.target.closest("[data-reject-request-id]");
+    const confirmReservationButton = event.target.closest("[data-confirm-reservation-id]");
+    const cancelReservationButton = event.target.closest("[data-cancel-reservation-id]");
     const renewButton = event.target.closest("[data-renew-member-id]");
     const deleteButton = event.target.closest("[data-delete-member-id]");
 
@@ -626,6 +781,41 @@ if (bookingApi) {
         showToast(`Solicitud rechazada para ${rejected.fullName}.`, "warning");
       } catch (error) {
         setFeedback(pendingFeedback, "error", error.message);
+        showToast(error.message, "error");
+      }
+
+      return;
+    }
+
+    if (confirmReservationButton) {
+      try {
+        setFeedback(classReservationsFeedback, "loading", "Confirmando reserva de clase...");
+        await wait(320);
+        const reservation = bookingApi.confirmReservation(confirmReservationButton.dataset.confirmReservationId);
+        setFeedback(classReservationsFeedback, "success", `Reserva confirmada para ${reservation.fullName} en ${reservation.classLabel} a las ${reservation.time}.`);
+        showToast(`Reserva confirmada para ${reservation.fullName}.`, "success");
+      } catch (error) {
+        setFeedback(classReservationsFeedback, "error", error.message);
+        showToast(error.message, "error");
+      }
+
+      return;
+    }
+
+    if (cancelReservationButton) {
+      const reservationCard = cancelReservationButton.closest(".admin-reservation-card");
+      const reservationName = reservationCard?.querySelector(".admin-reservation-head strong")?.textContent?.trim() || "esta reserva";
+
+      if (!window.confirm(`Vas a cancelar la reserva de ${reservationName}. El cupo vuelve a quedar libre.`)) {
+        return;
+      }
+
+      try {
+        const removed = bookingApi.cancelReservation(cancelReservationButton.dataset.cancelReservationId);
+        setFeedback(classReservationsFeedback, "warning", `Reserva cancelada para ${removed.fullName}. El horario volvió a quedar disponible.`);
+        showToast(`Reserva cancelada para ${removed.fullName}.`, "warning");
+      } catch (error) {
+        setFeedback(classReservationsFeedback, "error", error.message);
         showToast(error.message, "error");
       }
 
@@ -729,6 +919,36 @@ if (bookingApi) {
     } finally {
       scheduleButton.classList.remove("is-loading");
       scheduleButton.disabled = false;
+    }
+  });
+
+  dashboard.addEventListener("submit", async (event) => {
+    const capacityForm = event.target.closest("[data-update-schedule-id]");
+
+    if (!capacityForm) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const submit = capacityForm.querySelector('button[type="submit"]');
+    const input = capacityForm.querySelector('input[type="number"]');
+
+    submit.classList.add("is-loading");
+    submit.disabled = true;
+    setFeedback(adminFormFeedback, "loading", "Actualizando cupos del horario...");
+
+    try {
+      await wait(320);
+      const updatedSchedule = bookingApi.updateScheduleCapacity(capacityForm.dataset.updateScheduleId, Number(input.value));
+      setFeedback(adminFormFeedback, "success", `Cupos actualizados para ${updatedSchedule.classLabel} del ${updatedSchedule.dateLabel} a las ${updatedSchedule.time}.`);
+      showToast(`Cupos actualizados para ${updatedSchedule.classLabel}.`, "success");
+    } catch (error) {
+      setFeedback(adminFormFeedback, "error", error.message);
+      showToast(error.message, "error");
+    } finally {
+      submit.classList.remove("is-loading");
+      submit.disabled = false;
     }
   });
 

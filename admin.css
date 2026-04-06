@@ -147,6 +147,13 @@
   margin-top: 1.4rem;
 }
 
+.admin-class-bookings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
 .admin-form-shell,
 .admin-list-shell {
   padding: 1.3rem;
@@ -575,6 +582,18 @@
   margin-top: 1rem;
 }
 
+.admin-capacity-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.admin-capacity-field {
+  margin: 0;
+}
+
 .admin-request-actions .admin-btn[disabled] {
   cursor: not-allowed;
   opacity: 0.68;
@@ -653,11 +672,13 @@
 @media (max-width: 1100px) {
   .admin-stats-grid,
   .admin-workspace,
+  .admin-class-bookings-grid,
   .admin-membership-workspace {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .admin-workspace,
+  .admin-class-bookings-grid,
   .admin-membership-workspace {
     grid-template-columns: 1fr;
   }
@@ -679,6 +700,7 @@
 
   .admin-stats-grid,
   .admin-reservation-grid,
+  .admin-capacity-form,
   .member-card-grid,
   .member-profile-item-grid {
     grid-template-columns: 1fr;

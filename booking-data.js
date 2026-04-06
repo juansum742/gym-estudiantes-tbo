@@ -8,11 +8,11 @@
   const DUPLICATE_ACTIVE_PLAN_MESSAGE = "Este socio ya tiene activa esta disciplina. Solo se puede aprobar si se trata de otra disciplina o plan diferente.";
 
   const CLASS_TYPES = {
-    funcional: { label: "Funcional", accent: "available", capacity: 12 },
-    indoor: { label: "Indoor Bike", accent: "accent", capacity: 10 },
-    kick: { label: "Kick Boxing", accent: "danger", capacity: 14 },
-    fullgap: { label: "FullGap", accent: "highlight", capacity: 14 },
-    musculacion: { label: "Musculación Guiada", accent: "neutral", capacity: 8 },
+    funcional: { label: "Funcional", accent: "available", capacity: 20, reservable: true },
+    indoor: { label: "Indoor Bike", accent: "accent", capacity: 15, reservable: true },
+    fullgap: { label: "Full Gap", accent: "highlight", capacity: 20, reservable: true },
+    kick: { label: "Kick Boxing", accent: "danger", capacity: 14, reservable: false },
+    musculacion: { label: "Musculación Guiada", accent: "neutral", capacity: 20, reservable: false },
   };
 
   const MEMBERSHIP_PLANS = {
@@ -21,14 +21,32 @@
       price: 250,
       durationDays: 1,
       category: "general",
-      access: "Acceso general por 1 día a sala, cardio y sectores habilitados.",
+      access: "Acceso por 1 día con ingreso a musculación, indoor bike, full gap y funcional.",
+      isPublic: true,
+    },
+    general_semanal: {
+      label: "Pase semanal",
+      price: 550,
+      durationDays: 7,
+      category: "general",
+      access: "Acceso por 7 días para entrenar con libertad y sostener la semana completa.",
+      isPublic: true,
+    },
+    general_15dias: {
+      label: "Pase 15 días",
+      price: 850,
+      durationDays: 15,
+      category: "general",
+      access: "Acceso por 15 días con vencimiento automático y control ágil en recepción.",
+      isPublic: true,
     },
     general_mensual: {
       label: "Mensual",
-      price: 1950,
+      price: 1600,
       durationDays: 30,
       category: "general",
-      access: "Acceso general durante 30 días con control en caja y vencimiento automático.",
+      access: "Acceso por 30 días con musculación y clases habilitadas bajo la misma membresía.",
+      isPublic: true,
     },
     general_trimestral: {
       label: "Trimestral",
@@ -36,6 +54,7 @@
       durationDays: 90,
       category: "general",
       access: "Acceso general por 90 días para sostener continuidad y progreso.",
+      isPublic: false,
     },
     general_anual: {
       label: "Anual",
@@ -43,6 +62,7 @@
       durationDays: 365,
       category: "general",
       access: "Acceso general premium durante 365 días con control centralizado.",
+      isPublic: false,
     },
     musculacion_mensual: {
       label: "Mensual musculación",
@@ -50,6 +70,7 @@
       durationDays: 30,
       category: "musculacion",
       access: "Acceso libre durante 30 días a cualquier horario.",
+      isPublic: false,
     },
     musculacion_semanal: {
       label: "Semanal musculación",
@@ -57,6 +78,7 @@
       durationDays: 7,
       category: "musculacion",
       access: "Acceso libre por 7 días consecutivos.",
+      isPublic: false,
     },
     pase_diario: {
       label: "Pase diario musculación",
@@ -64,6 +86,7 @@
       durationDays: 1,
       category: "musculacion",
       access: "Acceso por 1 día al gimnasio.",
+      isPublic: false,
     },
     clase_funcional: {
       label: "Funcional mensual",
@@ -72,6 +95,7 @@
       category: "clases",
       classType: "funcional",
       access: "Suscripción mensual de Funcional por 30 días, sin reserva diaria por horario.",
+      isPublic: false,
     },
     clase_fullgap: {
       label: "Full Gap mensual",
@@ -80,6 +104,7 @@
       category: "clases",
       classType: "fullgap",
       access: "Suscripción mensual de Full Gap por 30 días, sin reserva diaria por horario.",
+      isPublic: false,
     },
     clase_indoor: {
       label: "Indoor Bike mensual",
@@ -88,6 +113,7 @@
       category: "clases",
       classType: "indoor",
       access: "Suscripción mensual de Indoor Bike por 30 días, sin reserva diaria por horario.",
+      isPublic: false,
     },
   };
 
@@ -95,30 +121,30 @@
     1: [
       { time: "08:00", classType: "funcional" },
       { time: "19:00", classType: "indoor" },
-      { time: "20:00", classType: "funcional" },
+      { time: "20:00", classType: "fullgap" },
     ],
     2: [
       { time: "08:15", classType: "indoor" },
-      { time: "18:00", classType: "kick" },
-      { time: "20:00", classType: "fullgap" },
+      { time: "19:00", classType: "fullgap" },
+      { time: "20:00", classType: "funcional" },
     ],
     3: [
       { time: "08:00", classType: "funcional" },
       { time: "19:00", classType: "indoor" },
-      { time: "20:00", classType: "funcional" },
+      { time: "20:00", classType: "fullgap" },
     ],
     4: [
       { time: "08:15", classType: "indoor" },
-      { time: "18:00", classType: "kick" },
-      { time: "20:00", classType: "fullgap" },
+      { time: "19:00", classType: "fullgap" },
+      { time: "20:00", classType: "funcional" },
     ],
     5: [
       { time: "08:00", classType: "funcional" },
       { time: "19:00", classType: "indoor" },
-      { time: "20:00", classType: "funcional" },
+      { time: "20:00", classType: "fullgap" },
     ],
     6: [
-      { time: "10:00", classType: "musculacion" },
+      { time: "10:00", classType: "funcional" },
       { time: "11:15", classType: "indoor" },
     ],
   };
@@ -229,6 +255,14 @@
       category: "musculacion",
       access: "Acceso configurado manualmente.",
     };
+  }
+
+  function isReservableClassType(classType) {
+    return Boolean(CLASS_TYPES[classType]?.reservable);
+  }
+
+  function getPublicMembershipPlanEntries() {
+    return Object.entries(MEMBERSHIP_PLANS).filter(([, plan]) => plan.isPublic !== false);
   }
 
   function belongsToSamePlanFamily(existingPlanType, nextPlanType) {
@@ -375,7 +409,15 @@
   function normalizeState(state) {
     const safeState = {
       schedules: Array.isArray(state?.schedules) ? state.schedules : [],
-      reservations: Array.isArray(state?.reservations) ? state.reservations : [],
+      reservations: Array.isArray(state?.reservations)
+        ? state.reservations
+          .filter((reservation) => reservation && reservation.scheduleId)
+          .map((reservation) => ({
+            ...reservation,
+            status: reservation.status || "pending",
+            fullName: String(reservation.fullName || "").trim(),
+          }))
+        : [],
       requests: Array.isArray(state?.requests) ? state.requests : [],
       members: Array.isArray(state?.members) ? state.members : [],
       checkIns: Array.isArray(state?.checkIns) ? state.checkIns : [],
@@ -422,6 +464,11 @@
     const reservedCount = countReservationsForSchedule(state, schedule.id);
     const remaining = Math.max(schedule.capacity - reservedCount, 0);
     const status = remaining === 0 ? "occupied" : remaining <= Math.max(2, Math.ceil(schedule.capacity * 0.25)) ? "limited" : "available";
+    const statusLabel = status === "occupied"
+      ? "Sin cupos disponibles"
+      : status === "limited"
+        ? `${remaining} cupo${remaining === 1 ? "" : "s"} restantes`
+        : `${remaining} cupo${remaining === 1 ? "" : "s"} disponibles`;
 
     return {
       ...schedule,
@@ -430,8 +477,10 @@
       reservedCount,
       remaining,
       status,
+      statusLabel,
       dateLabel: formatDateLabel(schedule.date),
       isAvailable: remaining > 0,
+      isReservable: isReservableClassType(schedule.classType),
     };
   }
 
@@ -694,6 +743,10 @@
           return false;
         }
 
+        if (filters.reservableOnly && !schedule.isReservable) {
+          return false;
+        }
+
         if (filters.availableOnly && !schedule.isAvailable) {
           return false;
         }
@@ -703,11 +756,11 @@
       .sort(sortBySlot);
   }
 
-  function getUniqueUpcomingDates(limit = 12) {
+  function getUniqueUpcomingDates(limit = 12, filters = {}) {
     const dates = [];
     const seen = new Set();
 
-    getSchedules({ futureOnly: true }).forEach((schedule) => {
+    getSchedules({ futureOnly: true, ...filters }).forEach((schedule) => {
       if (!seen.has(schedule.date)) {
         seen.add(schedule.date);
         dates.push(schedule.date);
@@ -717,20 +770,61 @@
     return dates.slice(0, limit);
   }
 
-  function getReservations() {
+  function getReservations(filters = {}) {
     const state = loadState();
+    const now = new Date();
+    const statusMap = {
+      pending: { label: "Pendiente", tone: "limited" },
+      confirmed: { label: "Confirmada", tone: "available" },
+    };
 
     return state.reservations
       .map((reservation) => {
         const schedule = state.schedules.find((item) => item.id === reservation.scheduleId);
         const meta = getClassMeta(reservation.classType);
+        const status = reservation.status || "pending";
+        const statusMeta = statusMap[status] || statusMap.pending;
 
         return {
           ...reservation,
           classLabel: meta.label,
           accent: meta.accent,
-          schedule,
+          status,
+          statusLabel: statusMeta.label,
+          statusTone: statusMeta.tone,
+          schedule: schedule ? enrichSchedule(schedule, state) : null,
         };
+      })
+      .filter((reservation) => {
+        if (filters.status && reservation.status !== filters.status) {
+          return false;
+        }
+
+        if (filters.classType && reservation.classType !== filters.classType) {
+          return false;
+        }
+
+        if (filters.reservableOnly) {
+          const isReservable = reservation.schedule
+            ? reservation.schedule.isReservable
+            : isReservableClassType(reservation.classType);
+
+          if (!isReservable) {
+            return false;
+          }
+        }
+
+        if (filters.futureOnly) {
+          const scheduleDate = reservation.schedule
+            ? scheduleToDateTime(reservation.schedule)
+            : new Date(`${reservation.date}T${reservation.time}`);
+
+          if (scheduleDate < now) {
+            return false;
+          }
+        }
+
+        return true;
       })
       .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
   }
@@ -798,13 +892,103 @@
   }
 
   function createReservation(payload) {
-    throw new Error("Las clases ahora se activan como plan mensual. Elegí un plan de clases y registrate con cédula.");
+    const state = loadState();
+    const identifier = validateCheckinQuery(payload.identifier);
+    const fullName = String(payload.fullName || "").trim();
+    const classType = String(payload.classType || "").trim();
+    const date = String(payload.date || "").trim();
+    const time = String(payload.time || "").trim();
+
+    if (!fullName || !identifier || !classType || !date || !time) {
+      throw new Error("Completá cédula o código, nombre, disciplina, fecha y horario.");
+    }
+
+    if (!isReservableClassType(classType)) {
+      throw new Error("Elegí una disciplina válida para reservar.");
+    }
+
+    const resolved = resolveMembersByIdentifier(state, identifier);
+
+    if (!resolved) {
+      throw new Error("Necesitás una membresía activa para reservar tu lugar");
+    }
+
+    const profile = buildProfileFromMembers(resolved.members, resolved.matchedMemberId);
+
+    if (!profile.isActive) {
+      throw new Error("Necesitás una membresía activa para reservar tu lugar");
+    }
+
+    const schedule = state.schedules.find(
+      (item) => item.date === date && item.time === time && item.classType === classType
+    );
+
+    if (!schedule) {
+      throw new Error("Ese horario no está disponible para la disciplina elegida.");
+    }
+
+    const enrichedSchedule = enrichSchedule(schedule, state);
+
+    if (!enrichedSchedule.isReservable) {
+      throw new Error("Ese horario no está habilitado para reservas online.");
+    }
+
+    if (!enrichedSchedule.isAvailable) {
+      throw new Error("Sin cupos disponibles");
+    }
+
+    const duplicate = state.reservations.find(
+      (reservation) => reservation.scheduleId === schedule.id && reservation.nationalId === profile.nationalId
+    );
+
+    if (duplicate) {
+      throw new Error("Ya tenés una reserva registrada para ese horario.");
+    }
+
+    const reservation = {
+      id: `res-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      scheduleId: schedule.id,
+      fullName,
+      nationalId: profile.nationalId,
+      accessCode: profile.accessCode,
+      classType,
+      date,
+      time,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    state.reservations.push(reservation);
+    persistState(state);
+    return getReservations().find((item) => item.id === reservation.id) || reservation;
   }
 
   function cancelReservation(reservationId) {
     const state = loadState();
-    state.reservations = state.reservations.filter((reservation) => reservation.id !== reservationId);
+    const reservation = state.reservations.find((item) => item.id === reservationId);
+
+    if (!reservation) {
+      throw new Error("No encontramos esa reserva para cancelar.");
+    }
+
+    state.reservations = state.reservations.filter((item) => item.id !== reservationId);
     persistState(state);
+    return reservation;
+  }
+
+  function confirmReservation(reservationId) {
+    const state = loadState();
+    const reservation = state.reservations.find((item) => item.id === reservationId);
+
+    if (!reservation) {
+      throw new Error("No encontramos esa reserva para confirmar.");
+    }
+
+    reservation.status = "confirmed";
+    reservation.updatedAt = new Date().toISOString();
+    persistState(state);
+    return getReservations().find((item) => item.id === reservationId) || reservation;
   }
 
   function deleteMember(memberId) {
@@ -858,6 +1042,10 @@
       throw new Error("Completá fecha, hora, clase y capacidad.");
     }
 
+    if (!isReservableClassType(classType)) {
+      throw new Error("Solo podés crear horarios para Indoor Bike, Full Gap o Funcional.");
+    }
+
     if (duplicate) {
       throw new Error("Ese horario ya existe en la agenda.");
     }
@@ -873,6 +1061,31 @@
     });
 
     persistState(state);
+  }
+
+  function updateScheduleCapacity(scheduleId, capacity) {
+    const state = loadState();
+    const schedule = state.schedules.find((item) => item.id === scheduleId);
+    const nextCapacity = Math.max(1, Number(capacity || 0));
+
+    if (!schedule) {
+      throw new Error("No encontramos ese horario para editar.");
+    }
+
+    if (!nextCapacity) {
+      throw new Error("Ingresá un cupo válido.");
+    }
+
+    const reservedCount = countReservationsForSchedule(state, scheduleId);
+
+    if (nextCapacity < reservedCount) {
+      throw new Error(`La capacidad no puede ser menor a ${reservedCount}, que ya están reservados.`);
+    }
+
+    schedule.capacity = nextCapacity;
+    schedule.updatedAt = new Date().toISOString();
+    persistState(state);
+    return enrichSchedule(schedule, state);
   }
 
   function getMembers(filters = {}) {
@@ -1145,33 +1358,14 @@
   function getStats() {
     const members = getMembers({ includeScheduled: true });
     const requests = getRequests({ status: "pending" });
+    const reservations = getReservations({ futureOnly: true });
+    const futureSchedules = getSchedules({ futureOnly: true, reservableOnly: true });
     const today = toDateKey(new Date());
     const weekStart = startOfWeek(new Date());
     const weekEnd = addDays(weekStart, 7);
     const checkIns = getCheckIns();
-
-    const activeClassPlans = members.filter((member) => member.planCategory === "clases" && member.isActive);
-    const classPlansToday = members.filter((member) => {
-      if (member.planCategory !== "clases") {
-        return false;
-      }
-
-      return toDateKey(new Date(member.lastRenewedAt || member.createdAt)) === today;
-    }).length;
-    const classPlansWeek = members.filter((member) => {
-      if (member.planCategory !== "clases") {
-        return false;
-      }
-
-      const activityDate = new Date(member.lastRenewedAt || member.createdAt);
-      return activityDate >= weekStart && activityDate < weekEnd;
-    }).length;
-    const byClass = activeClassPlans.reduce((accumulator, member) => {
-      if (!member.relatedClassType) {
-        return accumulator;
-      }
-
-      accumulator[member.relatedClassType] = (accumulator[member.relatedClassType] || 0) + 1;
+    const byClass = reservations.reduce((accumulator, reservation) => {
+      accumulator[reservation.classType] = (accumulator[reservation.classType] || 0) + 1;
       return accumulator;
     }, {});
     const topClassKey = Object.keys(byClass).sort((left, right) => byClass[right] - byClass[left])[0];
@@ -1179,6 +1373,12 @@
     const activePlans = members.filter((member) => member.isActive).length;
     const expiringThisWeek = members.filter((member) => member.isActive && member.daysRemaining <= 7).length;
     const checkInsToday = checkIns.filter((checkIn) => toDateKey(new Date(checkIn.createdAt)) === today).length;
+    const reservationsToday = reservations.filter((reservation) => reservation.date === today).length;
+    const reservationsWeek = reservations.filter((reservation) => {
+      const scheduleDate = parseDateKey(reservation.date);
+      return scheduleDate >= weekStart && scheduleDate < weekEnd;
+    }).length;
+    const freeSpots = futureSchedules.reduce((total, schedule) => total + schedule.remaining, 0);
     const renewalsThisWeek = members.filter((member) => {
       if (!member.lastRenewedAt) {
         return false;
@@ -1189,12 +1389,12 @@
     }).length;
 
     return {
-      reservationsToday: classPlansToday,
-      reservationsWeek: classPlansWeek,
-      freeSpots: activeClassPlans.length,
-      classPlansToday,
-      classPlansWeek,
-      activeClassPlans: activeClassPlans.length,
+      reservationsToday,
+      reservationsWeek,
+      freeSpots,
+      classPlansToday: reservationsToday,
+      classPlansWeek: reservationsWeek,
+      activeClassPlans: reservations.length,
       topClass: topClassKey ? getClassMeta(topClassKey).label : "Sin datos",
       topClassCount: topClassKey ? byClass[topClassKey] : 0,
       pendingRequests: requests.length,
@@ -1230,12 +1430,15 @@
     approveMembershipRequest,
     rejectMembershipRequest,
     cancelReservation,
+    confirmReservation,
     deleteMember,
     addSchedule,
+    updateScheduleCapacity,
     createMember,
     renewMembership,
     checkInMember,
     findMemberByIdentifier,
+    getPublicMembershipPlanEntries,
     sanitizePhoneInput,
     sanitizeNationalIdInput,
     sanitizeCheckinInput,

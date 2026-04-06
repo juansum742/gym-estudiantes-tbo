@@ -481,6 +481,7 @@ select {
 .program-card,
 .plan-card,
 .gallery-card,
+.partner-card,
 .coach-card,
 .testimonial-card,
 .contact-card,
@@ -1036,6 +1037,7 @@ select {
 }
 
 .program-card:hover,
+.partner-card:hover,
 .coach-card:hover,
 .testimonial-card:hover,
 .contact-card:hover {
@@ -1044,6 +1046,7 @@ select {
 }
 
 .program-card::before,
+.partner-card::before,
 .coach-card::before,
 .testimonial-card::before,
 .contact-card::before {
@@ -1073,6 +1076,7 @@ select {
 
 .program-card:hover .program-media img,
 .gallery-card:hover img,
+.partner-card:hover .partner-media img,
 .coach-card:hover .coach-media img,
 .hero-card:hover img {
   transform: translate3d(0, var(--scroll-shift, 0px), 0) scale(1.14);
@@ -1289,11 +1293,67 @@ select {
   grid-row: span 5;
 }
 
+.section-partners {
+  background:
+    radial-gradient(circle at top right, rgba(78, 93, 255, 0.14), transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
+}
+
+.partners-grid,
 .coaches-grid,
 .testimonials-grid,
 .contact-grid {
   display: grid;
   gap: 1rem;
+}
+
+.partners-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.partner-card {
+  position: relative;
+  border-radius: 28px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(15, 17, 28, 0.98), rgba(10, 12, 20, 0.94));
+  transition: transform 0.28s ease, border-color 0.28s ease;
+}
+
+.partner-media {
+  aspect-ratio: 0.94;
+  overflow: hidden;
+}
+
+.partner-copy {
+  padding: 1.15rem 1.1rem 1.25rem;
+}
+
+.partner-tag {
+  display: inline-flex;
+  padding: 0.48rem 0.72rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--silver);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.partner-copy h3 {
+  margin: 0.8rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.partner-copy p {
+  margin: 0.65rem 0 0;
+  color: var(--muted);
+  line-height: 1.6;
 }
 
 .coaches-grid {
@@ -1402,11 +1462,22 @@ select {
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
 }
 
+.section-class-reservation {
+  background:
+    radial-gradient(circle at top left, rgba(197, 64, 53, 0.14), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.015), rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015));
+}
+
 .booking-layout {
   display: grid;
   grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
   gap: 1.2rem;
   align-items: start;
+}
+
+.booking-layout-classes .booking-shell,
+.booking-layout-classes .booking-live-shell {
+  min-height: 100%;
 }
 
 .booking-shell,
@@ -2073,6 +2144,7 @@ select {
 
   .plans-grid,
   .memberships-grid,
+  .partners-grid,
   .coaches-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2134,6 +2206,7 @@ select {
   }
 
   .contact-grid,
+  .partners-grid,
   .testimonials-grid,
   .program-grid,
   .booking-summary {
@@ -2219,6 +2292,7 @@ select {
   .plans-grid,
   .memberships-grid,
   .program-grid,
+  .partners-grid,
   .coaches-grid,
   .testimonials-grid,
   .contact-grid,
