@@ -519,6 +519,11 @@
   padding: 1.2rem;
 }
 
+.admin-modal-shell.is-hidden,
+.admin-modal-shell[hidden] {
+  display: none;
+}
+
 .admin-modal-backdrop {
   position: absolute;
   inset: 0;

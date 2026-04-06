@@ -1,6 +1,4 @@
 const bookingApi = window.EstudiantesTboBooking;
-const SESSION_KEY = "estudiantes-tbo-admin-session";
-
 function wait(duration) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, duration);
@@ -209,11 +207,13 @@ if (bookingApi) {
     pendingScheduleDeleteId = null;
     scheduleDeleteModal.classList.add("is-hidden");
     scheduleDeleteModal.setAttribute("aria-hidden", "true");
+    scheduleDeleteModal.hidden = true;
   }
 
   function openScheduleDeleteModal(schedule) {
     pendingScheduleDeleteId = schedule.id;
     scheduleDeleteModalCopy.textContent = `Si confirmás, ${schedule.classLabel} del ${bookingApi.formatDateFull(schedule.date)} a las ${schedule.time} desaparece del panel y de la home. También se eliminan las reservas asociadas a ese bloque.`;
+    scheduleDeleteModal.hidden = false;
     scheduleDeleteModal.classList.remove("is-hidden");
     scheduleDeleteModal.setAttribute("aria-hidden", "false");
     scheduleDeleteConfirm.focus();
@@ -921,7 +921,6 @@ if (bookingApi) {
         return;
       }
 
-      sessionStorage.setItem(SESSION_KEY, "true");
       unlockDashboard();
       showToast("Acceso concedido al panel privado.", "success");
     } finally {
@@ -1154,7 +1153,5 @@ if (bookingApi) {
   adminCapacity.value = bookingApi.classTypes[adminClass.value || "funcional"].capacity;
   updateMembershipPreview();
 
-  if (sessionStorage.getItem(SESSION_KEY) === "true") {
-    unlockDashboard();
-  }
+  closeScheduleDeleteModal();
 }
