@@ -5,6 +5,7 @@
   const HORIZON_DAYS = 21;
   const ADMIN_PIN = "TBO2026";
   const MS_PER_DAY = 1000 * 60 * 60 * 24;
+  const DUPLICATE_ACTIVE_PLAN_MESSAGE = "Este socio ya tiene activa esta disciplina. Solo se puede aprobar si se trata de otra disciplina o plan diferente.";
 
   const CLASS_TYPES = {
     funcional: { label: "Funcional", accent: "available", capacity: 12 },
@@ -15,6 +16,34 @@
   };
 
   const MEMBERSHIP_PLANS = {
+    general_diario: {
+      label: "Pase diario",
+      price: 250,
+      durationDays: 1,
+      category: "general",
+      access: "Acceso general por 1 día a sala, cardio y sectores habilitados.",
+    },
+    general_mensual: {
+      label: "Mensual",
+      price: 1950,
+      durationDays: 30,
+      category: "general",
+      access: "Acceso general durante 30 días con control en caja y vencimiento automático.",
+    },
+    general_trimestral: {
+      label: "Trimestral",
+      price: 5250,
+      durationDays: 90,
+      category: "general",
+      access: "Acceso general por 90 días para sostener continuidad y progreso.",
+    },
+    general_anual: {
+      label: "Anual",
+      price: 18900,
+      durationDays: 365,
+      category: "general",
+      access: "Acceso general premium durante 365 días con control centralizado.",
+    },
     musculacion_mensual: {
       label: "Mensual musculación",
       price: 1600,
@@ -24,21 +53,21 @@
     },
     musculacion_semanal: {
       label: "Semanal musculación",
-      price: null,
+      price: 600,
       durationDays: 7,
       category: "musculacion",
       access: "Acceso libre por 7 días consecutivos.",
     },
     pase_diario: {
-      label: "Pase diario",
-      price: null,
+      label: "Pase diario musculación",
+      price: 250,
       durationDays: 1,
       category: "musculacion",
       access: "Acceso por 1 día al gimnasio.",
     },
     clase_funcional: {
       label: "Funcional mensual",
-      price: null,
+      price: 1600,
       durationDays: 30,
       category: "clases",
       classType: "funcional",
@@ -46,7 +75,7 @@
     },
     clase_fullgap: {
       label: "Full Gap mensual",
-      price: null,
+      price: 1600,
       durationDays: 30,
       category: "clases",
       classType: "fullgap",
@@ -54,7 +83,7 @@
     },
     clase_indoor: {
       label: "Indoor Bike mensual",
-      price: null,
+      price: 1600,
       durationDays: 30,
       category: "clases",
       classType: "indoor",
@@ -217,6 +246,42 @@
     return existingMeta.classType === nextMeta.classType;
   }
 
+  function getMembersByNationalId(state, nationalId) {
+    return state.members.filter((member) => member.nationalId === nationalId);
+  }
+
+  function getCanonicalAccessCode(state, nationalId) {
+    return getMembersByNationalId(state, nationalId)
+      .filter((member) => String(member.accessCode || "").trim())
+      .sort((left, right) => String(left.createdAt || "").localeCompare(String(right.createdAt || "")))[0]
+      ?.accessCode || "";
+  }
+
+  function syncSharedAccessCode(state, nationalId, preferredCode = "") {
+    const sharedCode = String(preferredCode || getCanonicalAccessCode(state, nationalId) || "").trim();
+
+    if (!sharedCode) {
+      return "";
+    }
+
+    state.members.forEach((member) => {
+      if (member.nationalId === nationalId) {
+        member.accessCode = sharedCode;
+      }
+    });
+
+    return sharedCode;
+  }
+
+  function normalizeSharedAccessCodes(state) {
+    const nationalIds = [...new Set(state.members.map((member) => member.nationalId).filter(Boolean))];
+
+    nationalIds.forEach((nationalId) => {
+      const sharedCode = getCanonicalAccessCode(state, nationalId) || generateAccessCode(state, [4]);
+      syncSharedAccessCode(state, nationalId, sharedCode);
+    });
+  }
+
   function formatDateLabel(dateKey) {
     return parseDateKey(dateKey).toLocaleDateString("es-UY", {
       weekday: "short",
@@ -317,6 +382,7 @@
     };
 
     ensureFutureSchedules(safeState);
+    normalizeSharedAccessCodes(safeState);
     safeState.reservations.sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
     safeState.requests.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     safeState.members.sort((a, b) => a.fullName.localeCompare(b.fullName, "es"));
@@ -584,15 +650,29 @@
     };
   }
 
-  function syncSharedMemberIdentity(state, nationalId, fullName, phone) {
+  function syncSharedMemberIdentity(state, nationalId, fullName, phone, accessCode = "") {
     const now = new Date().toISOString();
+    const sharedCode = accessCode || getCanonicalAccessCode(state, nationalId);
+
     state.members.forEach((member) => {
       if (member.nationalId === nationalId) {
         member.fullName = fullName;
         member.phone = phone;
+        if (sharedCode) {
+          member.accessCode = sharedCode;
+        }
         member.updatedAt = now;
       }
     });
+  }
+
+  function findActivePlanConflictInState(state, nationalId, planType, excludedMemberId = null) {
+    const referenceDate = new Date();
+
+    return state.members
+      .filter((member) => member.nationalId === nationalId && member.planType === planType && member.id !== excludedMemberId)
+      .map((member) => enrichMember(member, referenceDate))
+      .find((member) => member.isActive) || null;
   }
 
   function getSchedules(filters = {}) {
@@ -659,7 +739,17 @@
     const state = loadState();
 
     return state.requests
-      .map((request) => enrichRequest(request))
+      .map((request) => {
+        const activeConflict = findActivePlanConflictInState(state, request.nationalId, request.planType);
+
+        return {
+          ...enrichRequest(request),
+          hasActiveConflict: Boolean(activeConflict),
+          activeConflictPlanId: activeConflict?.id || null,
+          activeConflictCode: activeConflict?.accessCode || "",
+          activeConflictPlanLabel: activeConflict?.planLabel || "",
+        };
+      })
       .filter((request) => {
         if (filters.status && request.status !== filters.status) {
           return false;
@@ -855,6 +945,14 @@
       throw new Error("Elegí un plan válido para dar de alta.");
     }
 
+    if (!payload.skipActivePlanConflictCheck && findActivePlanConflictInState(state, nationalId, planType)) {
+      throw new Error(DUPLICATE_ACTIVE_PLAN_MESSAGE);
+    }
+
+    const sharedAccessCode = String(
+      payload.accessCode || getCanonicalAccessCode(state, nationalId) || generateAccessCode(state, payload.codeLengths || [4, 5, 6])
+    );
+
     const member = {
       id: `mem-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
       fullName,
@@ -863,14 +961,14 @@
       planType,
       startDate,
       endDate: computePlanEndDate(planType, startDate),
-      accessCode: String(payload.accessCode || generateAccessCode(state, payload.codeLengths || [4, 5, 6])),
+      accessCode: sharedAccessCode,
       renewalCount: Number(payload.renewalCount || 0),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
     state.members.push(member);
-    syncSharedMemberIdentity(state, nationalId, fullName, phone);
+    syncSharedMemberIdentity(state, nationalId, fullName, phone, sharedAccessCode);
     return member;
   }
 
@@ -887,6 +985,10 @@
 
     if (!request || request.status !== "pending") {
       throw new Error("No encontramos esa solicitud pendiente.");
+    }
+
+    if (findActivePlanConflictInState(state, request.nationalId, request.planType)) {
+      throw new Error(DUPLICATE_ACTIVE_PLAN_MESSAGE);
     }
 
     const member = createMemberRecord(state, {
@@ -950,6 +1052,7 @@
       planType,
       startDate: extensionStartDate,
       renewalCount: Number(member.renewalCount || 0) + 1,
+      skipActivePlanConflictCheck: true,
     });
 
     renewedMember.lastRenewedAt = new Date().toISOString();

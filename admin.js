@@ -247,8 +247,25 @@ if (bookingApi) {
 
     reservationsList.innerHTML = pendingRequests
       .map((request) => {
-        const notesHtml = request.notes
-          ? `<p class="admin-request-note">${escapeHtml(request.notes)}</p>`
+        const notes = [];
+
+        if (request.notes) {
+          notes.push(`<p class="admin-request-note">${escapeHtml(request.notes)}</p>`);
+        }
+
+        if (request.hasActiveConflict) {
+          notes.push(`
+            <p class="admin-request-note admin-request-note-warning">
+              Este plan ya está activo para esta cédula con el código ${escapeHtml(request.activeConflictCode || "asignado")}.
+            </p>
+          `);
+        }
+
+        const notesHtml = notes.join("");
+        const approveLabel = request.hasActiveConflict ? "Ya activo" : "Confirmar pago y activar";
+        const approveAttributes = request.hasActiveConflict ? 'disabled aria-disabled="true"' : "";
+        const conflictBadge = request.hasActiveConflict
+          ? '<span class="admin-class-pill accent-limited">Ya activo</span>'
           : "";
 
         return `
@@ -258,7 +275,10 @@ if (bookingApi) {
                 <strong>${escapeHtml(request.fullName)}</strong>
                 <span>CI ${escapeHtml(request.nationalId)} | ${escapeHtml(request.phone)}</span>
               </div>
-              <span class="admin-class-pill accent-${request.statusTone}">${escapeHtml(request.statusLabel)}</span>
+              <div class="admin-pill-group">
+                <span class="admin-class-pill accent-${request.statusTone}">${escapeHtml(request.statusLabel)}</span>
+                ${conflictBadge}
+              </div>
             </div>
 
             <div class="admin-reservation-grid">
@@ -283,8 +303,8 @@ if (bookingApi) {
             ${notesHtml}
 
             <div class="admin-request-actions">
-              <button class="btn btn-primary admin-btn" type="button" data-approve-request-id="${request.id}">
-                Confirmar pago y activar
+              <button class="btn btn-primary admin-btn" type="button" data-approve-request-id="${request.id}" ${approveAttributes}>
+                ${approveLabel}
               </button>
               <button class="btn btn-secondary admin-btn admin-btn-danger" type="button" data-reject-request-id="${request.id}">
                 Rechazar

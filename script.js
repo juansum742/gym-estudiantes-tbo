@@ -253,7 +253,9 @@ function setupBookings() {
       return {
         planType,
         ...planMeta,
-        classLabel: classMeta?.label || "Musculación",
+        classLabel:
+          classMeta?.label
+          || (planMeta.category === "general" ? "Acceso general" : "Musculación"),
         priceLabel: bookingApi.formatCurrency(planMeta.price),
         activeCount: planMembers.length,
         pendingCount: planRequests.length,
@@ -281,7 +283,7 @@ function setupBookings() {
 
     const classMeta = selectedPlan.classType ? bookingApi.classTypes[selectedPlan.classType] : null;
     const priceLabel = bookingApi.formatCurrency(selectedPlan.price);
-    const accessLabel = classMeta ? classMeta.label : "Musculación";
+    const accessLabel = classMeta ? classMeta.label : selectedPlan.category === "general" ? "Acceso general" : "Musculación";
 
     setFeedback(
       "idle",

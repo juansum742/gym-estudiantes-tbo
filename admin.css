@@ -556,12 +556,29 @@
   line-height: 1.6;
 }
 
+.admin-request-note-warning {
+  color: #ffd27a;
+}
+
+.admin-pill-group {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
 .admin-request-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.7rem;
   margin-top: 1rem;
+}
+
+.admin-request-actions .admin-btn[disabled] {
+  cursor: not-allowed;
+  opacity: 0.68;
+  filter: saturate(0.8);
 }
 
 .admin-reservation-grid strong,
@@ -651,6 +668,7 @@
   .admin-intro,
   .admin-panel-head-inline,
   .admin-reservation-head,
+  .admin-pill-group,
   .member-card-head,
   .member-card-footer,
   .mini-status-card-action,
