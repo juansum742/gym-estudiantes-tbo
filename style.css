@@ -1409,7 +1409,8 @@ select {
 }
 
 .form-field input,
-.form-field select {
+.form-field select,
+.form-field textarea {
   width: 100%;
   min-height: 56px;
   padding: 0.95rem 1rem;
@@ -1421,8 +1422,14 @@ select {
   transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
 }
 
+.form-field textarea {
+  min-height: 124px;
+  resize: vertical;
+}
+
 .form-field input:focus,
-.form-field select:focus {
+.form-field select:focus,
+.form-field textarea:focus {
   border-color: rgba(78, 93, 255, 0.55);
   box-shadow: 0 0 0 4px rgba(78, 93, 255, 0.14);
   background: rgba(255, 255, 255, 0.06);
@@ -1686,6 +1693,10 @@ select {
 
 .toast-success {
   border-color: rgba(51, 209, 122, 0.2);
+}
+
+.toast-warning {
+  border-color: rgba(255, 191, 71, 0.26);
 }
 
 .toast-error {

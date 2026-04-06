@@ -92,16 +92,14 @@ if (bookingApi) {
   const pinInput = document.querySelector("#admin-pin");
   const gateNote = document.querySelector("#admin-gate-note");
 
+  const statPendingRequests = document.querySelector("#stat-pending-requests");
   const statActiveMembers = document.querySelector("#stat-active-members");
+  const statActivePlans = document.querySelector("#stat-active-plans");
   const statExpiringWeek = document.querySelector("#stat-expiring-week");
-  const statCheckinsDay = document.querySelector("#stat-checkins-day");
-  const statDay = document.querySelector("#stat-day");
-  const statSpots = document.querySelector("#stat-spots");
-  const statTopClass = document.querySelector("#stat-top-class");
-  const statTopClassCount = document.querySelector("#stat-top-class-count");
 
-  const reservationsList = document.querySelector("#admin-reservations");
-  const listCounter = document.querySelector("#admin-list-counter");
+  const reservationsList = document.querySelector("#admin-requests");
+  const listCounter = document.querySelector("#admin-requests-counter");
+  const pendingFeedback = document.querySelector("#pending-feedback");
   const scheduleForm = document.querySelector("#admin-schedule-form");
   const scheduleButton = document.querySelector("#admin-schedule-button");
   const adminDate = document.querySelector("#admin-date");
@@ -226,69 +224,72 @@ if (bookingApi) {
 
   function renderStats() {
     const stats = bookingApi.getStats();
+    animateValue(statPendingRequests, stats.pendingRequests);
     animateValue(statActiveMembers, stats.activeMembers);
+    animateValue(statActivePlans, stats.activePlans);
     animateValue(statExpiringWeek, stats.expiringThisWeek);
-    animateValue(statCheckinsDay, stats.checkInsToday);
-    animateValue(statDay, stats.classPlansToday);
-    animateValue(statSpots, stats.activeClassPlans);
-    statTopClass.textContent = stats.topClass;
-    statTopClassCount.textContent = `${stats.topClassCount} plan${stats.topClassCount === 1 ? "" : "es"} activo${stats.topClassCount === 1 ? "" : "s"}`;
   }
 
   function renderReservations() {
-    const classPlans = bookingApi
-      .getMembers({ planCategory: "clases", includeScheduled: true })
-      .filter((member) => member.isActive);
+    const pendingRequests = bookingApi.getRequests({ status: "pending" });
 
-    listCounter.textContent = `${classPlans.length} plan${classPlans.length === 1 ? "" : "es"}`;
+    listCounter.textContent = `${pendingRequests.length} pendiente${pendingRequests.length === 1 ? "" : "s"}`;
 
-    if (!classPlans.length) {
+    if (!pendingRequests.length) {
       reservationsList.innerHTML = `
         <article class="admin-empty-card">
-          <strong>No hay planes de clases activos</strong>
-          <p>Cuando activen un plan mensual desde la home o desde caja, lo vas a ver inmediatamente acá.</p>
+          <strong>Sin solicitudes pendientes</strong>
+          <p>Cuando llegue una nueva solicitud desde la home, vas a poder confirmarla o rechazarla desde este bloque.</p>
         </article>
       `;
       return;
     }
 
-    reservationsList.innerHTML = classPlans
-      .map((member) => {
-        const meta = bookingApi.classTypes[member.relatedClassType];
-        const statusDetail = `Te quedan ${member.daysRemaining} día${member.daysRemaining === 1 ? "" : "s"}`;
+    reservationsList.innerHTML = pendingRequests
+      .map((request) => {
+        const notesHtml = request.notes
+          ? `<p class="admin-request-note">${escapeHtml(request.notes)}</p>`
+          : "";
 
         return `
           <article class="admin-reservation-card">
             <div class="admin-reservation-head">
               <div>
-                <strong>${escapeHtml(member.fullName)}</strong>
-                <span>CI ${escapeHtml(member.nationalId)} | ${escapeHtml(member.phone)}</span>
+                <strong>${escapeHtml(request.fullName)}</strong>
+                <span>CI ${escapeHtml(request.nationalId)} | ${escapeHtml(request.phone)}</span>
               </div>
-              <span class="admin-class-pill accent-${meta?.accent || member.statusTone}">${escapeHtml(member.relatedClassLabel)}</span>
+              <span class="admin-class-pill accent-${request.statusTone}">${escapeHtml(request.statusLabel)}</span>
             </div>
 
             <div class="admin-reservation-grid">
               <div>
+                <span>Plan solicitado</span>
+                <strong>${escapeHtml(request.planLabel)}</strong>
+              </div>
+              <div>
+                <span>Fecha</span>
+                <strong>${escapeHtml(request.createdDateLabel)} | ${escapeHtml(request.createdTimeLabel)}</strong>
+              </div>
+              <div>
                 <span>Cédula</span>
-                <strong>${escapeHtml(member.nationalId)}</strong>
+                <strong>${escapeHtml(request.nationalId)}</strong>
               </div>
               <div>
-                <span>Clase</span>
-                <strong>${escapeHtml(member.relatedClassLabel)}</strong>
-              </div>
-              <div>
-                <span>Días restantes</span>
-                <strong>${escapeHtml(statusDetail)}</strong>
-              </div>
-              <div>
-                <span>Vencimiento</span>
-                <strong>${escapeHtml(member.endDateLabel)}</strong>
+                <span>Estado</span>
+                <strong>${escapeHtml(request.statusLabel)}</strong>
               </div>
             </div>
 
-            <button class="btn btn-secondary admin-btn admin-btn-danger" type="button" data-delete-member-id="${member.id}">
-              Eliminar plan
-            </button>
+            ${notesHtml}
+
+            <div class="admin-request-actions">
+              <button class="btn btn-primary admin-btn" type="button" data-approve-request-id="${request.id}">
+                Confirmar pago y activar
+              </button>
+              <button class="btn btn-secondary admin-btn admin-btn-danger" type="button" data-reject-request-id="${request.id}">
+                Rechazar
+              </button>
+            </div>
           </article>
         `;
       })
@@ -297,7 +298,7 @@ if (bookingApi) {
 
   function renderMembers() {
     const profiles = bookingApi.getProfiles({ includeScheduled: true });
-    const visibleProfiles = profiles.filter((profile) => profile.isActive || profile.isScheduled);
+    const visibleProfiles = profiles.filter((profile) => profile.isActive);
     membersCounter.textContent = `${visibleProfiles.length} socio${visibleProfiles.length === 1 ? "" : "s"}`;
 
     if (!visibleProfiles.length) {
@@ -312,7 +313,7 @@ if (bookingApi) {
 
     adminMembersList.innerHTML = visibleProfiles
       .map((profile) => {
-        const visiblePlans = profile.plans.filter((plan) => plan.isActive || plan.isScheduled);
+        const visiblePlans = profile.plans.filter((plan) => plan.isActive);
         const activePlans = visiblePlans.filter((plan) => plan.isActive).length;
 
         return `
@@ -481,7 +482,14 @@ if (bookingApi) {
 
   function getCheckinDisplayPlans(member) {
     if (Array.isArray(member.plans) && member.plans.length) {
-      return member.plans;
+      const activePlans = member.plans.filter((plan) => plan.isActive);
+
+      if (activePlans.length) {
+        return activePlans;
+      }
+
+      const scheduledPlans = member.plans.filter((plan) => plan.isScheduled);
+      return scheduledPlans.length ? scheduledPlans : member.plans;
     }
 
     if (!member.planLabel) {
@@ -537,7 +545,7 @@ if (bookingApi) {
 
     const headline =
       member.checkInResult === "active"
-        ? "PLAN ACTIVO"
+        ? activePlanCount > 1 ? "PLANES ACTIVOS" : "PLAN ACTIVO"
         : member.checkInResult === "scheduled"
           ? "PLAN AÚN NO ACTIVO"
           : "MEMBRESÍA VENCIDA";
@@ -565,9 +573,44 @@ if (bookingApi) {
     renderCheckinHistory();
   }
 
-  dashboard.addEventListener("click", (event) => {
+  dashboard.addEventListener("click", async (event) => {
+    const approveButton = event.target.closest("[data-approve-request-id]");
+    const rejectButton = event.target.closest("[data-reject-request-id]");
     const renewButton = event.target.closest("[data-renew-member-id]");
     const deleteButton = event.target.closest("[data-delete-member-id]");
+
+    if (approveButton) {
+      try {
+        setFeedback(pendingFeedback, "loading", "Confirmando pago y generando código premium...");
+        await wait(380);
+        const approved = bookingApi.approveMembershipRequest(approveButton.dataset.approveRequestId);
+        const profile = bookingApi.findMemberByIdentifier(approved.member.nationalId) || approved.member;
+        setFeedback(pendingFeedback, "success", `Pago confirmado. Código de acceso: ${approved.member.accessCode}`);
+        renderCheckinAlert({
+          ...profile,
+          checkInResult: profile.isActive ? "active" : profile.isScheduled ? "scheduled" : "expired",
+        });
+        showToast(`Pago confirmado para ${approved.member.fullName}. Código ${approved.member.accessCode}.`, "success");
+      } catch (error) {
+        setFeedback(pendingFeedback, "error", error.message);
+        showToast(error.message, "error");
+      }
+
+      return;
+    }
+
+    if (rejectButton) {
+      try {
+        const rejected = bookingApi.rejectMembershipRequest(rejectButton.dataset.rejectRequestId);
+        setFeedback(pendingFeedback, "warning", `Solicitud rechazada para ${rejected.fullName}.`);
+        showToast(`Solicitud rechazada para ${rejected.fullName}.`, "warning");
+      } catch (error) {
+        setFeedback(pendingFeedback, "error", error.message);
+        showToast(error.message, "error");
+      }
+
+      return;
+    }
 
     if (deleteButton) {
       const memberProfileItem = deleteButton.closest(".member-profile-item");

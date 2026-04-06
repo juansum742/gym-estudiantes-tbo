@@ -63,7 +63,7 @@
               <p class="section-kicker">Dashboard premium</p>
               <h2 class="section-title">Socios, clases y acceso en tiempo real</h2>
               <p class="section-text">
-                Todo lo que se active o se gestione desde la home y desde caja impacta acá. Membresías, planes mensuales de clases, check-ins y renovaciones viven en el mismo panel premium.
+                Todo lo que se solicite desde la home y se confirme desde caja impacta acá. Solicitudes pendientes, activaciones, check-ins y control de planes viven en el mismo panel premium.
               </p>
             </div>
 
@@ -75,29 +75,20 @@
 
           <div class="admin-stats-grid">
             <article class="admin-stat-card">
+              <span>Solicitudes pendientes</span>
+              <strong id="stat-pending-requests" data-admin-value="0">0</strong>
+            </article>
+            <article class="admin-stat-card">
               <span>Socios activos</span>
               <strong id="stat-active-members" data-admin-value="0">0</strong>
             </article>
             <article class="admin-stat-card">
+              <span>Planes activos</span>
+              <strong id="stat-active-plans" data-admin-value="0">0</strong>
+            </article>
+            <article class="admin-stat-card">
               <span>Vencen esta semana</span>
               <strong id="stat-expiring-week" data-admin-value="0">0</strong>
-            </article>
-            <article class="admin-stat-card">
-              <span>Check-ins del día</span>
-              <strong id="stat-checkins-day" data-admin-value="0">0</strong>
-            </article>
-            <article class="admin-stat-card">
-              <span>Altas del día</span>
-              <strong id="stat-day" data-admin-value="0">0</strong>
-            </article>
-            <article class="admin-stat-card">
-              <span>Planes de clases activos</span>
-              <strong id="stat-spots" data-admin-value="0">0</strong>
-            </article>
-            <article class="admin-stat-card admin-stat-card-wide">
-              <span>Clase con más planes activos</span>
-              <strong id="stat-top-class">Sin datos</strong>
-              <small id="stat-top-class-count">0 planes activos</small>
             </article>
           </div>
 
@@ -144,13 +135,17 @@
             <section class="admin-list-shell">
               <div class="admin-panel-head admin-panel-head-inline">
                 <div>
-                  <p class="section-kicker">Planes de clases activos</p>
-                  <h3>Listado mensual</h3>
+                  <p class="section-kicker">Solicitudes pendientes</p>
+                  <h3>Confirmación manual</h3>
                 </div>
-                <div class="admin-list-counter" id="admin-list-counter">0 planes</div>
+                <div class="admin-list-counter" id="admin-requests-counter">0 pendientes</div>
               </div>
 
-              <div class="admin-reservations" id="admin-reservations"></div>
+              <div class="admin-reservations" id="admin-requests"></div>
+
+              <div class="booking-feedback booking-feedback-idle" id="pending-feedback" aria-live="polite">
+                Las solicitudes enviadas desde la home esperan confirmación manual del pago.
+              </div>
             </section>
           </div>
 
@@ -158,9 +153,9 @@
             <div class="admin-membership-forms">
               <aside class="admin-form-shell">
                 <div class="admin-panel-head">
-                  <p class="section-kicker">Alta de socio</p>
+                  <p class="section-kicker">Alta directa en caja</p>
                   <h3>Nueva membresía</h3>
-                  <p>Creá socios de musculación o clases. El vencimiento se calcula automáticamente según el plan elegido.</p>
+                  <p>Creá planes manualmente desde recepción. Cada plan se guarda como registro independiente y la cédula puede tener varios activos.</p>
                 </div>
 
                 <form class="admin-member-form" id="admin-member-form">

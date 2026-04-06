@@ -32,7 +32,7 @@
           <a href="#planes">Planes</a>
           <a href="#membresias">Membresías</a>
           <a href="#horarios">Horarios</a>
-          <a href="#reservas">Clases premium</a>
+          <a href="#reservas">Reserva</a>
           <a href="#galeria">Galería</a>
           <a href="#profes">Profes</a>
           <a href="#ubicacion">Ubicación</a>
@@ -395,40 +395,25 @@
       <section class="section section-booking" id="reservas">
         <div class="container">
           <div class="section-heading" data-reveal="up">
-            <p class="section-kicker">Planes de clases premium</p>
-            <h2 class="section-title">Activá tu disciplina mensual y entrá con código o cédula</h2>
+            <p class="section-kicker">Reserva premium</p>
+            <h2 class="section-title">Dejá tu solicitud y activala al confirmar el pago en el gimnasio</h2>
             <div class="section-divider" aria-hidden="true"></div>
             <p class="section-text">
-              Funcional, Full Gap e Indoor Bike pasan a operar como suscripción mensual. Elegís el plan, la fecha de inicio y el sistema calcula vencimiento, días restantes y acceso premium.
+              Completá tus datos, elegí el plan y enviá una solicitud pendiente. El alta se confirma desde caja una vez validado el pago, manteniendo el mismo look premium y deportivo del sitio.
             </p>
           </div>
 
           <div class="booking-layout">
             <div class="booking-shell" data-reveal="left">
               <div class="booking-shell-head">
-                <p class="booking-label">Sistema activo</p>
-                <h3>Activá tu plan mensual</h3>
+                <p class="booking-label">Solicitud manual</p>
+                <h3>Enviá tu solicitud de inscripción</h3>
                 <p>
-                  Completá tus datos, elegí la disciplina y generá tu acceso mensual. Vas a recibir validación de cédula, teléfono, loaders y confirmación visual premium.
+                  La home ya no activa membresías automáticamente. Tu solicitud queda pendiente hasta que el equipo de Estudiantes TBÓ confirme el pago y genere tu código de acceso en el panel privado.
                 </p>
               </div>
 
               <form class="booking-form" id="booking-form">
-                <label class="form-field">
-                  <span>Plan mensual</span>
-                  <select id="booking-class" name="planType" required></select>
-                </label>
-
-                <label class="form-field">
-                  <span>Inicio</span>
-                  <input id="booking-date" name="startDate" type="date" required>
-                </label>
-
-                <label class="form-field">
-                  <span>Cédula</span>
-                  <input id="booking-id" name="nationalId" type="text" inputmode="numeric" minlength="7" maxlength="8" pattern="[0-9]{7,8}" placeholder="12345678" required>
-                </label>
-
                 <label class="form-field">
                   <span>Nombre</span>
                   <input id="booking-name" name="name" type="text" placeholder="Tu nombre y apellido" required>
@@ -439,28 +424,43 @@
                   <input id="booking-phone" name="phone" type="tel" inputmode="numeric" minlength="9" maxlength="9" pattern="[0-9]{9}" placeholder="098000000" required>
                 </label>
 
+                <label class="form-field">
+                  <span>Cédula</span>
+                  <input id="booking-id" name="nationalId" type="text" inputmode="numeric" minlength="7" maxlength="8" pattern="[0-9]{7,8}" placeholder="12345678" required>
+                </label>
+
+                <label class="form-field">
+                  <span>Tipo de plan</span>
+                  <select id="booking-class" name="planType" required></select>
+                </label>
+
+                <label class="form-field">
+                  <span>Observaciones</span>
+                  <textarea id="booking-notes" name="notes" rows="4" placeholder="Contanos si querés musculación, clases o alguna consulta puntual."></textarea>
+                </label>
+
                 <button class="btn btn-primary booking-submit" id="booking-submit" type="submit">
-                  <span class="btn-text">Activar plan</span>
+                  <span class="btn-text">Enviar solicitud</span>
                   <span class="btn-loader" aria-hidden="true"></span>
                 </button>
               </form>
 
               <div class="booking-feedback booking-feedback-idle" id="booking-feedback" aria-live="polite">
-                Elegí una disciplina mensual para ver su vigencia, el vencimiento automático y confirmar tu alta.
+                Elegí un plan para revisar su detalle y dejar tu solicitud pendiente.
               </div>
             </div>
 
             <div class="booking-live-shell" data-reveal="right">
               <div class="booking-live-head">
                 <div>
-                  <p class="booking-label">Suscripciones en tiempo real</p>
-                  <h3>Panorama de clases mensuales</h3>
+                  <p class="booking-label">Actividad en tiempo real</p>
+                  <h3>Planes y solicitudes del gimnasio</h3>
                 </div>
 
                 <div class="booking-legend">
-                  <span class="slot-badge slot-badge-available">Mensual</span>
-                  <span class="slot-badge slot-badge-limited">Activos</span>
-                  <span class="slot-badge slot-badge-occupied">Por vencer</span>
+                  <span class="slot-badge slot-badge-available">Activos</span>
+                  <span class="slot-badge slot-badge-limited">Pendientes</span>
+                  <span class="slot-badge slot-badge-occupied">Seguimiento</span>
                 </div>
               </div>
 
@@ -470,11 +470,11 @@
                   <strong id="summary-classes">0</strong>
                 </article>
                 <article class="booking-summary-card">
-                  <span>Activos</span>
+                  <span>Solicitudes</span>
                   <strong id="summary-spots">0</strong>
                 </article>
                 <article class="booking-summary-card">
-                  <span>Vencen esta semana</span>
+                  <span>Activos</span>
                   <strong id="summary-occupied">0</strong>
                 </article>
               </div>

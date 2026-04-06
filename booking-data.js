@@ -311,12 +311,14 @@
     const safeState = {
       schedules: Array.isArray(state?.schedules) ? state.schedules : [],
       reservations: Array.isArray(state?.reservations) ? state.reservations : [],
+      requests: Array.isArray(state?.requests) ? state.requests : [],
       members: Array.isArray(state?.members) ? state.members : [],
       checkIns: Array.isArray(state?.checkIns) ? state.checkIns : [],
     };
 
     ensureFutureSchedules(safeState);
     safeState.reservations.sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
+    safeState.requests.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     safeState.members.sort((a, b) => a.fullName.localeCompare(b.fullName, "es"));
     safeState.checkIns.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
@@ -375,9 +377,8 @@
     return computeEndDate(startDate, getPlanMeta(planType).durationDays);
   }
 
-  function generateAccessCode(state) {
+  function generateAccessCode(state, lengths = [4, 5, 6]) {
     const usedCodes = new Set(state.members.map((member) => member.accessCode));
-    const lengths = [4, 5, 6];
 
     for (const length of lengths) {
       for (let attempts = 0; attempts < 250; attempts += 1) {
@@ -391,7 +392,7 @@
       }
     }
 
-    return String(Date.now()).slice(-6);
+    return String(Date.now()).slice(-lengths[lengths.length - 1]);
   }
 
   function enrichMember(member, referenceDate = new Date()) {
@@ -447,6 +448,37 @@
       startDateLabel: formatDateFull(member.startDate),
       endDateLabel: formatDateFull(member.endDate),
       accessMessage,
+    };
+  }
+
+  function enrichRequest(request) {
+    const planMeta = getPlanMeta(request.planType);
+    const status = request.status || "pending";
+    const statusMap = {
+      pending: { label: "Pendiente", tone: "accent" },
+      approved: { label: "Aprobada", tone: "available" },
+      rejected: { label: "Rechazada", tone: "danger" },
+    };
+    const statusMeta = statusMap[status] || statusMap.pending;
+    const notes = String(request.notes || "").trim();
+
+    return {
+      ...request,
+      notes,
+      planLabel: planMeta.label,
+      planCategory: planMeta.category,
+      status,
+      statusLabel: statusMeta.label,
+      statusTone: statusMeta.tone,
+      createdDateLabel: new Date(request.createdAt).toLocaleDateString("es-UY", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }),
+      createdTimeLabel: new Date(request.createdAt).toLocaleTimeString("es-UY", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
     };
   }
 
@@ -623,6 +655,58 @@
       .sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
   }
 
+  function getRequests(filters = {}) {
+    const state = loadState();
+
+    return state.requests
+      .map((request) => enrichRequest(request))
+      .filter((request) => {
+        if (filters.status && request.status !== filters.status) {
+          return false;
+        }
+
+        if (filters.planType && request.planType !== filters.planType) {
+          return false;
+        }
+
+        return true;
+      })
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  }
+
+  function createMembershipRequest(payload) {
+    const state = loadState();
+    const fullName = String(payload.fullName || "").trim();
+    const nationalId = validateNationalId(payload.nationalId);
+    const phone = validatePhone(payload.phone);
+    const planType = String(payload.planType || "").trim();
+    const notes = String(payload.notes || "").trim();
+
+    if (!fullName || !nationalId || !phone || !planType) {
+      throw new Error("Completá nombre, cédula, teléfono y plan.");
+    }
+
+    if (!MEMBERSHIP_PLANS[planType]) {
+      throw new Error("Elegí un plan válido para enviar la solicitud.");
+    }
+
+    const request = {
+      id: `req-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      fullName,
+      nationalId,
+      phone,
+      planType,
+      notes,
+      status: "pending",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    state.requests.unshift(request);
+    persistState(state);
+    return enrichRequest(request);
+  }
+
   function createReservation(payload) {
     throw new Error("Las clases ahora se activan como plan mensual. Elegí un plan de clases y registrate con cédula.");
   }
@@ -756,17 +840,12 @@
       .sort((left, right) => left.fullName.localeCompare(right.fullName, "es"));
   }
 
-  function createMember(payload) {
-    const state = loadState();
+  function createMemberRecord(state, payload) {
     const fullName = String(payload.fullName || "").trim();
     const nationalId = validateNationalId(payload.nationalId);
     const phone = validatePhone(payload.phone);
     const planType = String(payload.planType || "").trim();
-    const startDate = String(payload.startDate || "").trim();
-    const samePlanMembers = state.members
-      .filter((member) => member.nationalId === nationalId && belongsToSamePlanFamily(member.planType, planType))
-      .map((member) => enrichMember(member))
-      .sort(sortProfilePlans);
+    const startDate = String(payload.startDate || toDateKey(new Date())).trim();
 
     if (!fullName || !nationalId || !phone || !planType || !startDate) {
       throw new Error("Completá nombre, cédula, teléfono, plan y fecha de inicio.");
@@ -774,29 +853,6 @@
 
     if (!MEMBERSHIP_PLANS[planType]) {
       throw new Error("Elegí un plan válido para dar de alta.");
-    }
-
-    const activeDuplicate = samePlanMembers.find((member) => member.isActive || member.isScheduled);
-
-    if (activeDuplicate) {
-      throw new Error("Ese socio ya tiene un plan activo o programado para ese acceso. Usá renovar si querés extenderlo.");
-    }
-
-    syncSharedMemberIdentity(state, nationalId, fullName, phone);
-
-    if (samePlanMembers.length) {
-      const renewableMember = state.members.find((member) => member.id === samePlanMembers[0].id);
-
-      renewableMember.fullName = fullName;
-      renewableMember.phone = phone;
-      renewableMember.startDate = startDate;
-      renewableMember.endDate = computePlanEndDate(planType, startDate);
-      renewableMember.renewalCount = Number(renewableMember.renewalCount || 0) + 1;
-      renewableMember.lastRenewedAt = new Date().toISOString();
-      renewableMember.updatedAt = new Date().toISOString();
-
-      persistState(state);
-      return enrichMember(renewableMember);
     }
 
     const member = {
@@ -807,16 +863,66 @@
       planType,
       startDate,
       endDate: computePlanEndDate(planType, startDate),
-      accessCode: generateAccessCode(state),
-      renewalCount: 0,
+      accessCode: String(payload.accessCode || generateAccessCode(state, payload.codeLengths || [4, 5, 6])),
+      renewalCount: Number(payload.renewalCount || 0),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
     state.members.push(member);
     syncSharedMemberIdentity(state, nationalId, fullName, phone);
+    return member;
+  }
+
+  function createMember(payload) {
+    const state = loadState();
+    const member = createMemberRecord(state, payload);
     persistState(state);
     return enrichMember(member);
+  }
+
+  function approveMembershipRequest(requestId, payload = {}) {
+    const state = loadState();
+    const request = state.requests.find((item) => item.id === requestId);
+
+    if (!request || request.status !== "pending") {
+      throw new Error("No encontramos esa solicitud pendiente.");
+    }
+
+    const member = createMemberRecord(state, {
+      fullName: request.fullName,
+      nationalId: request.nationalId,
+      phone: request.phone,
+      planType: request.planType,
+      startDate: payload.startDate || toDateKey(new Date()),
+      codeLengths: [4],
+    });
+
+    request.status = "approved";
+    request.updatedAt = new Date().toISOString();
+    request.processedAt = request.updatedAt;
+    request.approvedMemberId = member.id;
+
+    persistState(state);
+    return {
+      request: enrichRequest(request),
+      member: enrichMember(member),
+    };
+  }
+
+  function rejectMembershipRequest(requestId) {
+    const state = loadState();
+    const request = state.requests.find((item) => item.id === requestId);
+
+    if (!request || request.status !== "pending") {
+      throw new Error("No encontramos esa solicitud pendiente.");
+    }
+
+    request.status = "rejected";
+    request.updatedAt = new Date().toISOString();
+    request.processedAt = request.updatedAt;
+    persistState(state);
+    return enrichRequest(request);
   }
 
   function renewMembership(memberId, payload = {}) {
@@ -837,25 +943,20 @@
       throw new Error("Elegí un plan válido para renovar.");
     }
 
-    const conflictingPlan = state.members
-      .filter((item) => item.id !== memberId && item.nationalId === member.nationalId)
-      .filter((item) => belongsToSamePlanFamily(item.planType, planType))
-      .map((item) => enrichMember(item))
-      .find((item) => item.isActive || item.isScheduled);
+    const renewedMember = createMemberRecord(state, {
+      fullName: member.fullName,
+      nationalId: member.nationalId,
+      phone: member.phone,
+      planType,
+      startDate: extensionStartDate,
+      renewalCount: Number(member.renewalCount || 0) + 1,
+    });
 
-    if (conflictingPlan) {
-      throw new Error("Ese socio ya tiene un plan activo o programado para ese acceso.");
-    }
-
-    member.planType = planType;
-    member.startDate = explicitStartDate || (current.isActive ? member.startDate : extensionStartDate);
-    member.endDate = computePlanEndDate(planType, extensionStartDate);
-    member.renewalCount = Number(member.renewalCount || 0) + 1;
-    member.lastRenewedAt = new Date().toISOString();
-    member.updatedAt = new Date().toISOString();
+    renewedMember.lastRenewedAt = new Date().toISOString();
+    renewedMember.renewedFromId = member.id;
 
     persistState(state);
-    return enrichMember(member);
+    return enrichMember(renewedMember);
   }
 
   function findMemberByIdentifier(query) {
@@ -940,6 +1041,7 @@
 
   function getStats() {
     const members = getMembers({ includeScheduled: true });
+    const requests = getRequests({ status: "pending" });
     const today = toDateKey(new Date());
     const weekStart = startOfWeek(new Date());
     const weekEnd = addDays(weekStart, 7);
@@ -971,9 +1073,8 @@
     }, {});
     const topClassKey = Object.keys(byClass).sort((left, right) => byClass[right] - byClass[left])[0];
     const activeMembers = new Set(members.filter((member) => member.isActive).map((member) => member.nationalId)).size;
-    const expiringThisWeek = new Set(
-      members.filter((member) => member.isActive && member.daysRemaining <= 7).map((member) => member.nationalId)
-    ).size;
+    const activePlans = members.filter((member) => member.isActive).length;
+    const expiringThisWeek = members.filter((member) => member.isActive && member.daysRemaining <= 7).length;
     const checkInsToday = checkIns.filter((checkIn) => toDateKey(new Date(checkIn.createdAt)) === today).length;
     const renewalsThisWeek = members.filter((member) => {
       if (!member.lastRenewedAt) {
@@ -993,7 +1094,9 @@
       activeClassPlans: activeClassPlans.length,
       topClass: topClassKey ? getClassMeta(topClassKey).label : "Sin datos",
       topClassCount: topClassKey ? byClass[topClassKey] : 0,
+      pendingRequests: requests.length,
       activeMembers,
+      activePlans,
       expiringThisWeek,
       checkInsToday,
       renewalsThisWeek,
@@ -1013,12 +1116,16 @@
     membershipPlans: MEMBERSHIP_PLANS,
     getSchedules,
     getReservations,
+    getRequests,
     getUniqueUpcomingDates,
     getStats,
     getMembers,
     getProfiles,
     getCheckIns,
+    createMembershipRequest,
     createReservation,
+    approveMembershipRequest,
+    rejectMembershipRequest,
     cancelReservation,
     deleteMember,
     addSchedule,

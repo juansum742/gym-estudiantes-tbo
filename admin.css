@@ -89,7 +89,7 @@
 
 .admin-stats-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1rem;
 }
 
@@ -550,6 +550,20 @@
   margin: 1rem 0 1.1rem;
 }
 
+.admin-request-note {
+  margin: -0.15rem 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.admin-request-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+
 .admin-reservation-grid strong,
 .admin-reservation-grid a {
   display: block;
@@ -577,6 +591,10 @@
 
 .accent-accent {
   background: rgba(78, 93, 255, 0.16);
+}
+
+.accent-limited {
+  background: rgba(255, 191, 71, 0.16);
 }
 
 .accent-danger {
@@ -658,6 +676,7 @@
   }
 
   .member-card-actions .admin-btn,
+  .admin-request-actions .admin-btn,
   .member-profile-item-actions .admin-btn,
   .admin-btn {
     width: 100%;

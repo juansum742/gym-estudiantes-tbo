@@ -171,11 +171,11 @@ function setupBookings() {
     return;
   }
 
-  const dateInput = document.querySelector("#booking-date");
   const classSelect = document.querySelector("#booking-class");
   const nationalIdInput = document.querySelector("#booking-id");
   const nameInput = document.querySelector("#booking-name");
   const phoneInput = document.querySelector("#booking-phone");
+  const notesInput = document.querySelector("#booking-notes");
   const feedback = document.querySelector("#booking-feedback");
   const liveList = document.querySelector("#booking-live-list");
   const submitButton = document.querySelector("#booking-submit");
@@ -183,18 +183,11 @@ function setupBookings() {
   const summarySpots = document.querySelector("#summary-spots");
   const summaryOccupied = document.querySelector("#summary-occupied");
 
-  const classPlanEntries = Object.entries(bookingApi.membershipPlans).filter(([, plan]) => plan.category === "clases");
+  const planEntries = Object.entries(bookingApi.membershipPlans);
 
   function setFeedback(tone, message) {
     feedback.className = `booking-feedback booking-feedback-${tone}`;
     feedback.textContent = message;
-  }
-
-  function syncDateBounds() {
-    const today = new Date();
-    const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-    dateInput.min = todayKey;
-    dateInput.value ||= todayKey;
   }
 
   function syncPhoneValidity() {
@@ -229,70 +222,70 @@ function setupBookings() {
     input.addEventListener("invalid", syncValidity);
   }
 
-  function populateClasses(preferredPlanType) {
+  function populatePlans(preferredPlanType) {
     const currentValue = preferredPlanType || classSelect.value;
 
-    classSelect.innerHTML = classPlanEntries
+    classSelect.innerHTML = planEntries
       .map(([planType, planMeta]) => {
         return `<option value="${planType}">${escapeHtml(planMeta.label)}</option>`;
       })
       .join("");
 
-    if (classPlanEntries.some(([planType]) => planType === currentValue)) {
+    if (planEntries.some(([planType]) => planType === currentValue)) {
       classSelect.value = currentValue;
-    } else if (classPlanEntries[0]) {
-      classSelect.value = classPlanEntries[0][0];
+    } else if (planEntries[0]) {
+      classSelect.value = planEntries[0][0];
     }
   }
 
   function getPlanSnapshots() {
-    const classMembers = bookingApi
-      .getMembers({ planCategory: "clases", includeScheduled: true })
+    const members = bookingApi
+      .getMembers({ includeScheduled: true })
       .filter((member) => member.isActive || member.isScheduled);
+    const pendingRequests = bookingApi.getRequests({ status: "pending" });
 
-    return classPlanEntries.map(([planType, planMeta]) => {
-      const classMeta = bookingApi.classTypes[planMeta.classType];
-      const members = classMembers.filter((member) => member.planType === planType);
-      const activeCount = members.filter((member) => member.isActive).length;
-      const expiringCount = members.filter((member) => member.isActive && member.daysRemaining <= 7).length;
-      const scheduledCount = members.filter((member) => member.isScheduled).length;
+    return planEntries.map(([planType, planMeta]) => {
+      const classMeta = planMeta.classType ? bookingApi.classTypes[planMeta.classType] : null;
+      const planMembers = members.filter((member) => member.planType === planType && member.isActive);
+      const planRequests = pendingRequests.filter((request) => request.planType === planType);
+      const expiringCount = planMembers.filter((member) => member.daysRemaining <= 7).length;
 
       return {
         planType,
         ...planMeta,
-        classLabel: classMeta.label,
+        classLabel: classMeta?.label || "Musculación",
         priceLabel: bookingApi.formatCurrency(planMeta.price),
-        activeCount,
+        activeCount: planMembers.length,
+        pendingCount: planRequests.length,
         expiringCount,
-        scheduledCount,
       };
     });
   }
 
   function updateSummaryCards(plans) {
     const activePlans = plans.reduce((total, plan) => total + plan.activeCount, 0);
-    const expiringPlans = plans.reduce((total, plan) => total + plan.expiringCount, 0);
+    const pendingPlans = plans.reduce((total, plan) => total + plan.pendingCount, 0);
 
     animateValue(summaryClasses, plans.length);
-    animateValue(summarySpots, activePlans);
-    animateValue(summaryOccupied, expiringPlans);
+    animateValue(summarySpots, pendingPlans);
+    animateValue(summaryOccupied, activePlans);
   }
 
   function syncSelectionFeedback() {
     const selectedPlan = bookingApi.membershipPlans[classSelect.value];
 
-    if (!selectedPlan || !dateInput.value) {
-      setFeedback("idle", "Elegí una disciplina mensual para ver su vigencia y confirmar el alta.");
+    if (!selectedPlan) {
+      setFeedback("idle", "Elegí un plan para revisar su detalle y dejar tu solicitud pendiente.");
       return;
     }
 
-    const classMeta = bookingApi.classTypes[selectedPlan.classType];
-    const endDate = bookingApi.computePlanEndDate(classSelect.value, dateInput.value);
+    const classMeta = selectedPlan.classType ? bookingApi.classTypes[selectedPlan.classType] : null;
     const priceLabel = bookingApi.formatCurrency(selectedPlan.price);
+    const accessLabel = classMeta ? classMeta.label : "Musculación";
 
     setFeedback(
       "idle",
-      `${classMeta.label} mensual | ${priceLabel} | inicia ${bookingApi.formatDateLabel(dateInput.value)} | vence ${bookingApi.formatDateFull(endDate)}.`
+      `${selectedPlan.label} | ${priceLabel} | ${accessLabel}. La inscripción queda pendiente hasta confirmar el pago en el gimnasio.`
     );
   }
 
@@ -304,7 +297,7 @@ function setupBookings() {
       liveList.innerHTML = `
         <article class="live-slot-empty">
           <strong>Sin planes cargados</strong>
-          <p>No hay planes mensuales configurados para clases. Revisá la membresía de clases desde el panel admin.</p>
+          <p>No hay planes configurados para mostrar. Revisá la configuración desde el panel admin.</p>
         </article>
       `;
       return;
@@ -313,26 +306,27 @@ function setupBookings() {
     liveList.innerHTML = plans
       .map((plan) => {
         const selected = plan.planType === classSelect.value ? " is-selected" : "";
-        const badgeTone = plan.expiringCount > 0 ? "occupied" : plan.activeCount > 0 ? "limited" : "available";
-        const badgeLabel = plan.expiringCount > 0
-          ? `${plan.expiringCount} por vencer`
+        const badgeTone = plan.pendingCount > 0 ? "limited" : plan.activeCount > 0 ? "available" : "highlight";
+        const badgeLabel = plan.pendingCount > 0
+          ? `${plan.pendingCount} pendiente${plan.pendingCount === 1 ? "" : "s"}`
           : plan.activeCount > 0
-            ? `${plan.activeCount} activos`
-            : "Disponible";
+            ? `${plan.activeCount} activo${plan.activeCount === 1 ? "" : "s"}`
+            : "Nueva solicitud";
+        const accentTone = badgeTone === "highlight" ? "available" : badgeTone;
 
         return `
-          <button class="live-slot-card status-${badgeTone}${selected}" type="button" data-plan-type="${plan.planType}">
+          <button class="live-slot-card status-${accentTone}${selected}" type="button" data-plan-type="${plan.planType}">
             <div class="live-slot-card-head">
-              <span class="live-slot-class">${escapeHtml(plan.classLabel)}</span>
-              <span class="slot-badge slot-badge-${badgeTone}">${escapeHtml(badgeLabel)}</span>
+              <span class="live-slot-class">${escapeHtml(plan.label)}</span>
+              <span class="slot-badge slot-badge-${accentTone}">${escapeHtml(badgeLabel)}</span>
             </div>
             <div class="live-slot-card-main">
-              <strong>${plan.durationDays} días</strong>
-              <span>${escapeHtml(plan.priceLabel)} | código corto automático</span>
+              <strong>${plan.durationDays} día${plan.durationDays === 1 ? "" : "s"}</strong>
+              <span>${escapeHtml(plan.priceLabel)} | ${escapeHtml(plan.classLabel)}</span>
             </div>
             <div class="live-slot-card-meta">
               <span>${plan.activeCount} activos</span>
-              <span>${plan.scheduledCount} programados</span>
+              <span>${plan.pendingCount} pendientes</span>
             </div>
           </button>
         `;
@@ -341,8 +335,7 @@ function setupBookings() {
   }
 
   function renderBookingState(preferredPlanType) {
-    syncDateBounds();
-    populateClasses(preferredPlanType);
+    populatePlans(preferredPlanType);
     renderLiveList();
     syncSelectionFeedback();
   }
@@ -356,10 +349,6 @@ function setupBookings() {
 
     classSelect.value = planButton.dataset.planType;
     renderLiveList();
-    syncSelectionFeedback();
-  });
-
-  dateInput.addEventListener("change", () => {
     syncSelectionFeedback();
   });
 
@@ -388,36 +377,27 @@ function setupBookings() {
 
     submitButton.classList.add("is-loading");
     submitButton.disabled = true;
-    setFeedback("loading", "Activando tu plan mensual...");
+    setFeedback("loading", "Enviando solicitud premium...");
 
     try {
       await wait(780);
       nameInput.value = nameInput.value.trim();
 
-      const member = bookingApi.createMember({
+      const request = bookingApi.createMembershipRequest({
         fullName: nameInput.value,
         nationalId: nationalIdInput.value,
         phone: phoneInput.value,
         planType: classSelect.value,
-        startDate: dateInput.value,
+        notes: notesInput.value,
       });
 
       nameInput.value = "";
       nationalIdInput.value = "";
       phoneInput.value = "";
-      renderBookingState(member.planType);
-      setFeedback(
-        "success",
-        member.isScheduled
-          ? `Plan registrado para ${member.planLabel}. Comienza el ${member.startDateLabel}. Código ${member.accessCode}.`
-          : `Plan activo: ${member.planLabel}. Código ${member.accessCode}. Vence el ${member.endDateLabel}.`
-      );
-      showToast(
-        member.isScheduled
-          ? "Plan registrado con inicio programado."
-          : "Plan mensual activado con éxito.",
-        "success"
-      );
+      notesInput.value = "";
+      renderBookingState(request.planType);
+      setFeedback("success", "Solicitud enviada. La inscripción se activará una vez confirmado el pago en el gimnasio.");
+      showToast("Solicitud enviada correctamente.", "success");
     } catch (error) {
       setFeedback("error", error.message);
       showToast(error.message, "error");
