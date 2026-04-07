@@ -137,7 +137,25 @@ if (bookingApi) {
   const renewalList = document.querySelector("#renewal-list");
   const checkinCounter = document.querySelector("#checkin-counter");
   const checkinHistory = document.querySelector("#checkin-history");
+  const memberSearch = document.querySelector("#member-search");
+  const memberFilterTabs = document.querySelector("#member-filter-tabs");
+  const scheduleSearch = document.querySelector("#schedule-search");
+  const scheduleFilterTabs = document.querySelector("#schedule-filter-tabs");
   let pendingScheduleDeleteId = null;
+  const accordionState = {
+    requests: false,
+    reservations: false,
+    schedules: false,
+    members: false,
+  };
+  const memberListState = {
+    query: "",
+    filter: "all",
+  };
+  const scheduleListState = {
+    query: "",
+    filter: "all",
+  };
 
   function unlockDashboard() {
     gateSection.classList.add("is-hidden");
@@ -194,6 +212,39 @@ if (bookingApi) {
       checkinQuery.setCustomValidity(error.message);
       return false;
     }
+  }
+
+  function normalizeSearchValue(value) {
+    return String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+  }
+
+  function setAccordionOpen(sectionKey, shouldOpen) {
+    accordionState[sectionKey] = shouldOpen;
+    const shell = document.querySelector(`[data-accordion-section="${sectionKey}"]`);
+    const toggle = document.querySelector(`[data-toggle-section="${sectionKey}"]`);
+    const panel = document.querySelector(`[data-section-panel="${sectionKey}"]`);
+
+    if (!shell || !toggle) {
+      return;
+    }
+
+    shell.classList.toggle("is-open", shouldOpen);
+    toggle.setAttribute("aria-expanded", String(shouldOpen));
+    panel?.setAttribute("aria-hidden", String(!shouldOpen));
+  }
+
+  function updateFilterTabState(container, selector, activeValue) {
+    if (!container) {
+      return;
+    }
+
+    container.querySelectorAll(selector).forEach((button) => {
+      button.classList.toggle("is-active", button.dataset.memberFilter === activeValue || button.dataset.scheduleFilter === activeValue);
+    });
   }
 
   function populateClassOptions() {
@@ -256,6 +307,93 @@ if (bookingApi) {
     animateValue(statActiveMembers, stats.activeMembers);
     animateValue(statActivePlans, stats.activePlans);
     animateValue(statExpiringWeek, stats.expiringThisWeek);
+  }
+
+  function updateSectionCounters() {
+    const pendingRequests = bookingApi.getRequests({ status: "pending" });
+    const reservations = bookingApi.getReservations({ futureOnly: true, reservableOnly: true });
+    const schedules = bookingApi.getSchedules({ futureOnly: true, schedulableOnly: true });
+    const profiles = bookingApi.getProfiles({ includeScheduled: true });
+
+    listCounter.textContent = `${pendingRequests.length} pendiente${pendingRequests.length === 1 ? "" : "s"}`;
+    classReservationsCounter.textContent = `${reservations.length} reserva${reservations.length === 1 ? "" : "s"}`;
+    schedulesCounter.textContent = `${schedules.length} horario${schedules.length === 1 ? "" : "s"}`;
+    membersCounter.textContent = `${profiles.length} socio${profiles.length === 1 ? "" : "s"}`;
+  }
+
+  function getFilteredSchedules() {
+    const schedules = bookingApi.getSchedules({ futureOnly: true, schedulableOnly: true });
+    const normalizedQuery = normalizeSearchValue(scheduleListState.query);
+
+    return schedules.filter((schedule) => {
+      if (scheduleListState.filter !== "all" && schedule.classType !== scheduleListState.filter) {
+        return false;
+      }
+
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      const searchIndex = normalizeSearchValue([
+        schedule.classLabel,
+        schedule.time,
+        schedule.date,
+        schedule.dateLabel,
+        bookingApi.formatDateFull(schedule.date),
+        new Date(`${schedule.date}T00:00:00`).toLocaleDateString("es-UY", { weekday: "long" }),
+      ].join(" "));
+
+      return searchIndex.includes(normalizedQuery);
+    });
+  }
+
+  function getFilteredProfiles() {
+    const profiles = bookingApi.getProfiles({ includeScheduled: true });
+    const normalizedQuery = normalizeSearchValue(memberListState.query);
+
+    return profiles.filter((profile) => {
+      if (memberListState.filter === "active" && profile.activePlanCount === 0) {
+        return false;
+      }
+
+      if (memberListState.filter === "expired" && !(profile.activePlanCount === 0 && profile.scheduledPlanCount === 0 && profile.expiredPlanCount > 0)) {
+        return false;
+      }
+
+      if (memberListState.filter === "expiring" && !profile.plans.some((plan) => plan.isActive && plan.daysRemaining <= 7)) {
+        return false;
+      }
+
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      const searchIndex = normalizeSearchValue([
+        profile.fullName,
+        profile.nationalId,
+        profile.phone,
+        profile.accessCode,
+        ...profile.plans.map((plan) => `${plan.accessCode} ${plan.planLabel} ${plan.relatedClassLabel}`),
+      ].join(" "));
+
+      return searchIndex.includes(normalizedQuery);
+    });
+  }
+
+  function getVisiblePlansForProfile(profile) {
+    if (memberListState.filter === "active") {
+      return profile.plans.filter((plan) => plan.isActive);
+    }
+
+    if (memberListState.filter === "expired") {
+      return profile.plans.filter((plan) => !plan.isActive && !plan.isScheduled);
+    }
+
+    if (memberListState.filter === "expiring") {
+      return profile.plans.filter((plan) => plan.isActive && plan.daysRemaining <= 7);
+    }
+
+    return profile.plans;
   }
 
   function renderReservations() {
@@ -419,14 +557,14 @@ if (bookingApi) {
   }
 
   function renderSchedules() {
-    const schedules = bookingApi.getSchedules({ futureOnly: true, schedulableOnly: true });
+    const schedules = getFilteredSchedules();
     schedulesCounter.textContent = `${schedules.length} horario${schedules.length === 1 ? "" : "s"}`;
 
     if (!schedules.length) {
       schedulesList.innerHTML = `
         <article class="admin-empty-card">
-          <strong>Sin horarios cargados</strong>
-          <p>Usá el formulario de alta para crear bloques nuevos con sus cupos correspondientes.</p>
+          <strong>Sin horarios para mostrar</strong>
+          <p>${scheduleListState.query || scheduleListState.filter !== "all" ? "No encontramos horarios que coincidan con esa búsqueda o filtro." : "Usá el formulario de alta para crear bloques nuevos con sus cupos correspondientes."}</p>
         </article>
       `;
       return;
@@ -492,15 +630,14 @@ if (bookingApi) {
   }
 
   function renderMembers() {
-    const profiles = bookingApi.getProfiles({ includeScheduled: true });
-    const visibleProfiles = profiles.filter((profile) => profile.isActive);
+    const visibleProfiles = getFilteredProfiles();
     membersCounter.textContent = `${visibleProfiles.length} socio${visibleProfiles.length === 1 ? "" : "s"}`;
 
     if (!visibleProfiles.length) {
       adminMembersList.innerHTML = `
         <article class="admin-empty-card">
-          <strong>Sin socios cargados</strong>
-          <p>Cuando des de alta una membresía vas a ver acá el código corto, plan, vigencia y estado del socio.</p>
+          <strong>Sin socios para mostrar</strong>
+          <p>${memberListState.query || memberListState.filter !== "all" ? "No encontramos socios que coincidan con esa búsqueda o filtro." : "Cuando des de alta una membresía vas a ver acá el código corto, plan, vigencia y estado del socio."}</p>
         </article>
       `;
       return;
@@ -508,15 +645,15 @@ if (bookingApi) {
 
     adminMembersList.innerHTML = visibleProfiles
       .map((profile) => {
-        const visiblePlans = profile.plans.filter((plan) => plan.isActive);
-        const activePlans = visiblePlans.filter((plan) => plan.isActive).length;
+        const visiblePlans = getVisiblePlansForProfile(profile);
+        const activePlans = profile.plans.filter((plan) => plan.isActive).length;
 
         return `
         <article class="member-card">
           <div class="member-card-head">
             <div>
               <strong>${escapeHtml(profile.fullName)}</strong>
-              <span>${escapeHtml(visiblePlans.map((plan) => plan.planLabel).join(" + "))}</span>
+              <span>${escapeHtml(visiblePlans.map((plan) => plan.planLabel).join(" + ") || profile.planSummary || "Sin planes visibles")}</span>
             </div>
             <span class="admin-class-pill accent-${profile.statusTone}">${escapeHtml(profile.statusLabel)}</span>
           </div>
@@ -532,7 +669,7 @@ if (bookingApi) {
             </div>
             <div>
               <span>Planes</span>
-              <strong>${activePlans} activo${activePlans === 1 ? "" : "s"} | ${visiblePlans.length} vigente${visiblePlans.length === 1 ? "" : "s"}</strong>
+              <strong>${activePlans} activo${activePlans === 1 ? "" : "s"} | ${visiblePlans.length} visible${visiblePlans.length === 1 ? "" : "s"}</strong>
             </div>
             <div>
               <span>Estado</span>
@@ -759,18 +896,54 @@ if (bookingApi) {
     `;
   }
 
+  function renderAccordionSection(sectionKey) {
+    if (sectionKey === "requests") {
+      renderReservations();
+      return;
+    }
+
+    if (sectionKey === "reservations") {
+      renderClassReservations();
+      return;
+    }
+
+    if (sectionKey === "schedules") {
+      renderSchedules();
+      return;
+    }
+
+    if (sectionKey === "members") {
+      renderMembers();
+    }
+  }
+
+  function toggleAccordionSection(sectionKey, forceOpen) {
+    const nextOpen = typeof forceOpen === "boolean" ? forceOpen : !accordionState[sectionKey];
+    setAccordionOpen(sectionKey, nextOpen);
+
+    if (nextOpen) {
+      renderAccordionSection(sectionKey);
+    } else {
+      updateSectionCounters();
+    }
+  }
+
   function renderDashboard() {
     renderStats();
-    renderReservations();
-    renderClassReservations();
-    renderSchedules();
-    renderMembers();
+    updateSectionCounters();
     renderExpiring();
     renderRenewals();
     renderCheckinHistory();
+
+    Object.entries(accordionState)
+      .filter(([, isOpen]) => isOpen)
+      .forEach(([sectionKey]) => {
+        renderAccordionSection(sectionKey);
+      });
   }
 
   dashboard.addEventListener("click", async (event) => {
+    const toggleButton = event.target.closest("[data-toggle-section]");
     const approveButton = event.target.closest("[data-approve-request-id]");
     const rejectButton = event.target.closest("[data-reject-request-id]");
     const confirmReservationButton = event.target.closest("[data-confirm-reservation-id]");
@@ -778,6 +951,11 @@ if (bookingApi) {
     const renewButton = event.target.closest("[data-renew-member-id]");
     const deleteButton = event.target.closest("[data-delete-member-id]");
     const deleteScheduleButton = event.target.closest("[data-delete-schedule-id]");
+
+    if (toggleButton) {
+      toggleAccordionSection(toggleButton.dataset.toggleSection);
+      return;
+    }
 
     if (approveButton) {
       try {
@@ -1134,6 +1312,52 @@ if (bookingApi) {
     adminCapacity.value = classMeta.capacity;
   });
 
+  memberSearch.addEventListener("input", () => {
+    memberListState.query = memberSearch.value;
+
+    if (accordionState.members) {
+      renderMembers();
+    }
+  });
+
+  memberFilterTabs.addEventListener("click", (event) => {
+    const filterButton = event.target.closest("[data-member-filter]");
+
+    if (!filterButton) {
+      return;
+    }
+
+    memberListState.filter = filterButton.dataset.memberFilter;
+    updateFilterTabState(memberFilterTabs, "[data-member-filter]", memberListState.filter);
+
+    if (accordionState.members) {
+      renderMembers();
+    }
+  });
+
+  scheduleSearch.addEventListener("input", () => {
+    scheduleListState.query = scheduleSearch.value;
+
+    if (accordionState.schedules) {
+      renderSchedules();
+    }
+  });
+
+  scheduleFilterTabs.addEventListener("click", (event) => {
+    const filterButton = event.target.closest("[data-schedule-filter]");
+
+    if (!filterButton) {
+      return;
+    }
+
+    scheduleListState.filter = filterButton.dataset.scheduleFilter;
+    updateFilterTabState(scheduleFilterTabs, "[data-schedule-filter]", scheduleListState.filter);
+
+    if (accordionState.schedules) {
+      renderSchedules();
+    }
+  });
+
   bindValidatedField(memberPhone, syncMemberPhoneValidity);
   bindValidatedField(memberId, syncMemberIdValidity);
   bindValidatedField(checkinQuery, syncCheckinValidity);
@@ -1152,6 +1376,9 @@ if (bookingApi) {
   syncDateField(memberStart);
   adminCapacity.value = bookingApi.classTypes[adminClass.value || "funcional"].capacity;
   updateMembershipPreview();
+  Object.keys(accordionState).forEach((sectionKey) => setAccordionOpen(sectionKey, false));
+  updateFilterTabState(memberFilterTabs, "[data-member-filter]", memberListState.filter);
+  updateFilterTabState(scheduleFilterTabs, "[data-schedule-filter]", scheduleListState.filter);
 
   closeScheduleDeleteModal();
 }

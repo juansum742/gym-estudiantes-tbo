@@ -132,50 +132,92 @@
               </div>
             </aside>
 
-            <section class="admin-list-shell">
-              <div class="admin-panel-head admin-panel-head-inline">
-                <div>
-                  <p class="section-kicker">Solicitudes pendientes</p>
-                  <h3>Confirmación manual</h3>
+            <section class="admin-list-shell admin-accordion-shell" data-accordion-section="requests">
+              <button class="admin-accordion-toggle" type="button" data-toggle-section="requests" aria-expanded="false">
+                <div class="admin-panel-head admin-panel-head-inline">
+                  <div>
+                    <p class="section-kicker">Solicitudes pendientes</p>
+                    <h3>Confirmación manual</h3>
+                  </div>
+                  <div class="admin-accordion-meta">
+                    <div class="admin-list-counter" id="admin-requests-counter">0 pendientes</div>
+                    <span class="admin-accordion-icon" aria-hidden="true">▶</span>
+                  </div>
                 </div>
-                <div class="admin-list-counter" id="admin-requests-counter">0 pendientes</div>
-              </div>
+              </button>
 
-              <div class="admin-reservations" id="admin-requests"></div>
+              <div class="admin-accordion-collapse" data-section-panel="requests">
+                <div class="admin-accordion-collapse-inner">
+                  <div class="admin-reservations" id="admin-requests"></div>
 
-              <div class="booking-feedback booking-feedback-idle" id="pending-feedback" aria-live="polite">
-                Las solicitudes enviadas desde la home esperan confirmación manual del pago.
+                  <div class="booking-feedback booking-feedback-idle" id="pending-feedback" aria-live="polite">
+                    Las solicitudes enviadas desde la home esperan confirmación manual del pago.
+                  </div>
+                </div>
               </div>
             </section>
           </div>
 
           <div class="admin-class-bookings-grid">
-            <section class="admin-list-shell">
-              <div class="admin-panel-head admin-panel-head-inline">
-                <div>
-                  <p class="section-kicker">Reservas de clases</p>
-                  <h3>Reservas activas</h3>
+            <section class="admin-list-shell admin-accordion-shell" data-accordion-section="reservations">
+              <button class="admin-accordion-toggle" type="button" data-toggle-section="reservations" aria-expanded="false">
+                <div class="admin-panel-head admin-panel-head-inline">
+                  <div>
+                    <p class="section-kicker">Reservas de clases</p>
+                    <h3>Reservas activas</h3>
+                  </div>
+                  <div class="admin-accordion-meta">
+                    <div class="admin-list-counter" id="class-reservations-counter">0 reservas</div>
+                    <span class="admin-accordion-icon" aria-hidden="true">▶</span>
+                  </div>
                 </div>
-                <div class="admin-list-counter" id="class-reservations-counter">0 reservas</div>
-              </div>
+              </button>
 
-              <div class="admin-reservations" id="class-reservations"></div>
+              <div class="admin-accordion-collapse" data-section-panel="reservations">
+                <div class="admin-accordion-collapse-inner">
+                  <div class="admin-reservations" id="class-reservations"></div>
 
-              <div class="booking-feedback booking-feedback-idle" id="class-reservations-feedback" aria-live="polite">
-                Acá vas a ver las reservas creadas desde la home para confirmar o cancelar cada lugar.
+                  <div class="booking-feedback booking-feedback-idle" id="class-reservations-feedback" aria-live="polite">
+                    Acá vas a ver las reservas creadas desde la home para confirmar o cancelar cada lugar.
+                  </div>
+                </div>
               </div>
             </section>
 
-            <section class="admin-list-shell">
-              <div class="admin-panel-head admin-panel-head-inline">
-                <div>
-                  <p class="section-kicker">Horarios y cupos</p>
-                  <h3>Agenda de clases</h3>
+            <section class="admin-list-shell admin-accordion-shell" data-accordion-section="schedules">
+              <button class="admin-accordion-toggle" type="button" data-toggle-section="schedules" aria-expanded="false">
+                <div class="admin-panel-head admin-panel-head-inline">
+                  <div>
+                    <p class="section-kicker">Horarios y cupos</p>
+                    <h3>Agenda de clases</h3>
+                  </div>
+                  <div class="admin-accordion-meta">
+                    <div class="admin-list-counter" id="admin-schedules-counter">0 horarios</div>
+                    <span class="admin-accordion-icon" aria-hidden="true">▶</span>
+                  </div>
                 </div>
-                <div class="admin-list-counter" id="admin-schedules-counter">0 horarios</div>
-              </div>
+              </button>
 
-              <div class="admin-reservations" id="admin-schedules-list"></div>
+              <div class="admin-accordion-collapse" data-section-panel="schedules">
+                <div class="admin-accordion-collapse-inner">
+                  <div class="admin-toolbar">
+                    <label class="form-field admin-search-field">
+                      <span>Buscar horario</span>
+                      <input id="schedule-search" type="search" placeholder="Buscar por disciplina, día u hora">
+                    </label>
+
+                    <div class="admin-filter-tabs" id="schedule-filter-tabs">
+                      <button class="admin-filter-tab is-active" type="button" data-schedule-filter="all">Todos</button>
+                      <button class="admin-filter-tab" type="button" data-schedule-filter="indoor">Indoor Bike</button>
+                      <button class="admin-filter-tab" type="button" data-schedule-filter="fullgap">Full Gap</button>
+                      <button class="admin-filter-tab" type="button" data-schedule-filter="funcional">Funcional</button>
+                      <button class="admin-filter-tab" type="button" data-schedule-filter="kick">Kick Boxing</button>
+                    </div>
+                  </div>
+
+                  <div class="admin-reservations" id="admin-schedules-list"></div>
+                </div>
+              </div>
             </section>
           </div>
 
@@ -256,16 +298,39 @@
             </div>
 
             <div class="admin-membership-lists">
-              <section class="admin-list-shell">
-                <div class="admin-panel-head admin-panel-head-inline">
-                  <div>
-                    <p class="section-kicker">Socios activos</p>
-                    <h3>Base de socios</h3>
+              <section class="admin-list-shell admin-accordion-shell" data-accordion-section="members">
+                <button class="admin-accordion-toggle" type="button" data-toggle-section="members" aria-expanded="false">
+                  <div class="admin-panel-head admin-panel-head-inline">
+                    <div>
+                      <p class="section-kicker">Socios activos</p>
+                      <h3>Base de socios</h3>
+                    </div>
+                    <div class="admin-accordion-meta">
+                      <div class="admin-list-counter" id="members-counter">0 socios</div>
+                      <span class="admin-accordion-icon" aria-hidden="true">▶</span>
+                    </div>
                   </div>
-                  <div class="admin-list-counter" id="members-counter">0 socios</div>
-                </div>
+                </button>
 
-                <div class="admin-members-list" id="admin-members-list"></div>
+                <div class="admin-accordion-collapse" data-section-panel="members">
+                  <div class="admin-accordion-collapse-inner">
+                    <div class="admin-toolbar">
+                      <label class="form-field admin-search-field">
+                        <span>Buscar socio</span>
+                        <input id="member-search" type="search" placeholder="Buscar socio por nombre, cédula o código">
+                      </label>
+
+                      <div class="admin-filter-tabs" id="member-filter-tabs">
+                        <button class="admin-filter-tab is-active" type="button" data-member-filter="all">Todos</button>
+                        <button class="admin-filter-tab" type="button" data-member-filter="active">Activos</button>
+                        <button class="admin-filter-tab" type="button" data-member-filter="expired">Vencidos</button>
+                        <button class="admin-filter-tab" type="button" data-member-filter="expiring">Próximos a vencer</button>
+                      </div>
+                    </div>
+
+                    <div class="admin-members-list" id="admin-members-list"></div>
+                  </div>
+                </div>
               </section>
 
               <div class="admin-side-lists">
