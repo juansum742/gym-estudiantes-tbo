@@ -2,19 +2,22 @@
   const STORAGE_KEY = "estudiantes_tbo_premium_v3";
   const LEGACY_STORAGE_KEY = "estudiantes_tbo_premium_v2";
   const CHANGE_EVENT = "estudiantes-tbo-booking:changed";
-  const HORIZON_DAYS = 21;
+  const HORIZON_DAYS = 30;
   const ADMIN_PIN = "TBO2026";
   const MS_PER_DAY = 1000 * 60 * 60 * 24;
   const SCHEDULE_SCHEMA_VERSION = 3;
   const DUPLICATE_ACTIVE_PLAN_MESSAGE = "Este socio ya tiene activa esta disciplina. Solo se puede aprobar si se trata de otra disciplina o plan diferente.";
 
-  const CLASS_TYPES = {
+  const DEFAULT_DISCIPLINE_CAPACITY = 12;
+  const DISCIPLINE_ACCENTS = ["available", "accent", "highlight", "danger", "neutral"];
+  const BASE_CLASS_TYPES = {
     funcional: { label: "Funcional", accent: "available", capacity: 20, reservable: true, schedulable: true },
     indoor: { label: "Indoor Bike", accent: "accent", capacity: 15, reservable: true, schedulable: true },
     fullgap: { label: "Full Gap", accent: "highlight", capacity: 20, reservable: true, schedulable: true },
     kick: { label: "Kick Boxing", accent: "danger", capacity: 14, reservable: true, schedulable: true },
     musculacion: { label: "Musculación Guiada", accent: "neutral", capacity: 20, reservable: false, schedulable: false },
   };
+  const CLASS_TYPES = { ...BASE_CLASS_TYPES };
 
   const MEMBERSHIP_PLANS = {
     general_diario: {
@@ -207,6 +210,114 @@
     return `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`);
   }
 
+  function normalizeComparableText(value) {
+    return String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, " ");
+  }
+
+  function sanitizeDisciplineLabel(value) {
+    return String(value || "").replace(/\s+/g, " ").trim();
+  }
+
+  function slugifyDisciplineLabel(value) {
+    return normalizeComparableText(value)
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  function normalizeCapacityValue(value, fallback = DEFAULT_DISCIPLINE_CAPACITY) {
+    const numericCapacity = Number(value);
+
+    if (!Number.isFinite(numericCapacity)) {
+      return fallback;
+    }
+
+    return Math.max(1, Math.round(numericCapacity));
+  }
+
+  function getAccentFromSeed(seed) {
+    const normalizedSeed = normalizeComparableText(seed);
+    const hash = [...normalizedSeed].reduce((total, character) => total + character.charCodeAt(0), 0);
+    return DISCIPLINE_ACCENTS[hash % DISCIPLINE_ACCENTS.length];
+  }
+
+  function syncClassRegistry(state) {
+    Object.keys(CLASS_TYPES).forEach((key) => {
+      if (!BASE_CLASS_TYPES[key]) {
+        delete CLASS_TYPES[key];
+      }
+    });
+
+    Object.entries(state.customClasses || {}).forEach(([key, meta]) => {
+      const label = sanitizeDisciplineLabel(meta?.label || "");
+
+      if (!label) {
+        return;
+      }
+
+      CLASS_TYPES[key] = {
+        label,
+        accent: meta?.accent || getAccentFromSeed(label || key),
+        capacity: normalizeCapacityValue(meta?.capacity, DEFAULT_DISCIPLINE_CAPACITY),
+        reservable: meta?.reservable !== false,
+        schedulable: meta?.schedulable !== false,
+      };
+    });
+  }
+
+  function getClassTypeByLabel(label) {
+    const normalizedLabel = normalizeComparableText(label);
+
+    if (!normalizedLabel) {
+      return "";
+    }
+
+    return Object.entries(CLASS_TYPES).find(([, meta]) => normalizeComparableText(meta.label) === normalizedLabel)?.[0] || "";
+  }
+
+  function ensureSchedulableClassType(state, input) {
+    const label = sanitizeDisciplineLabel(input);
+
+    if (!label) {
+      throw new Error("Ingresá una disciplina válida.");
+    }
+
+    if (CLASS_TYPES[label]) {
+      return label;
+    }
+
+    const existingKey = getClassTypeByLabel(label);
+
+    if (existingKey) {
+      return existingKey;
+    }
+
+    const baseKey = slugifyDisciplineLabel(label) || `disciplina-${Date.now()}`;
+    let classType = baseKey;
+    let suffix = 2;
+
+    while (CLASS_TYPES[classType] || state.customClasses[classType]) {
+      classType = `${baseKey}-${suffix}`;
+      suffix += 1;
+    }
+
+    state.customClasses[classType] = {
+      label,
+      accent: getAccentFromSeed(label),
+      capacity: DEFAULT_DISCIPLINE_CAPACITY,
+      reservable: true,
+      schedulable: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    syncClassRegistry(state);
+    return classType;
+  }
+
   function stripDigits(value) {
     return String(value || "").replace(/\D+/g, "");
   }
@@ -255,21 +366,16 @@
 
   function getClassMeta(classType) {
     return CLASS_TYPES[classType] || {
-      label: classType,
+      label: sanitizeDisciplineLabel(classType) || "Disciplina",
       accent: "neutral",
-      capacity: 10,
+      capacity: DEFAULT_DISCIPLINE_CAPACITY,
+      reservable: false,
+      schedulable: false,
     };
   }
 
   function parseScheduleCapacity(value, classType) {
-    const fallbackCapacity = getClassMeta(classType).capacity;
-    const numericCapacity = Number(value);
-
-    if (!Number.isFinite(numericCapacity)) {
-      return fallbackCapacity;
-    }
-
-    return Math.max(1, Math.round(numericCapacity));
+    return normalizeCapacityValue(value, getClassMeta(classType).capacity);
   }
 
   function getPlanMeta(planType) {
@@ -283,15 +389,62 @@
   }
 
   function isReservableClassType(classType) {
-    return Boolean(CLASS_TYPES[classType]?.reservable);
+    return Boolean(getClassMeta(classType).reservable);
   }
 
   function isSchedulableClassType(classType) {
-    return Boolean(CLASS_TYPES[classType]?.schedulable);
+    return Boolean(getClassMeta(classType).schedulable);
   }
 
   function getPublicMembershipPlanEntries() {
     return Object.entries(MEMBERSHIP_PLANS).filter(([, plan]) => plan.isPublic !== false);
+  }
+
+  function sortClassEntries(left, right) {
+    return left[1].label.localeCompare(right[1].label, "es");
+  }
+
+  function getClassEntriesBySchedule(filters = {}) {
+    const keys = [...new Set(getSchedules(filters).map((schedule) => schedule.classType))];
+    return keys
+      .map((classType) => [classType, getClassMeta(classType)])
+      .sort(sortClassEntries);
+  }
+
+  function getSchedulableClassEntries(options = {}) {
+    loadState();
+
+    if (options.scheduledOnly) {
+      return getClassEntriesBySchedule({
+        futureOnly: options.futureOnly,
+        schedulableOnly: true,
+      });
+    }
+
+    return Object.entries(CLASS_TYPES)
+      .filter(([, meta]) => meta.schedulable)
+      .sort(sortClassEntries);
+  }
+
+  function getReservableClassEntries(options = {}) {
+    loadState();
+
+    if (options.scheduledOnly) {
+      return getClassEntriesBySchedule({
+        futureOnly: options.futureOnly,
+        reservableOnly: true,
+      });
+    }
+
+    return Object.entries(CLASS_TYPES)
+      .filter(([, meta]) => meta.reservable)
+      .sort(sortClassEntries);
+  }
+
+  function getSuggestedScheduleCapacity(input) {
+    loadState();
+    const classType = CLASS_TYPES[input] ? input : getClassTypeByLabel(input);
+    return getClassMeta(classType || input).capacity;
   }
 
   function belongsToSamePlanFamily(existingPlanType, nextPlanType) {
@@ -393,7 +546,24 @@
       classType: template.classType,
       capacity: template.capacity || meta.capacity,
       origin: "official",
+      repeatWeekly: true,
       createdAt: new Date().toISOString(),
+    };
+  }
+
+  function buildRecurringScheduleOccurrence(dateKey, recurrence) {
+    const meta = getClassMeta(recurrence.classType);
+    return {
+      id: createScheduleId(dateKey, recurrence.time, recurrence.classType),
+      date: dateKey,
+      time: recurrence.time,
+      classType: recurrence.classType,
+      capacity: recurrence.capacity || meta.capacity,
+      origin: "recurring",
+      recurrenceId: recurrence.id,
+      repeatWeekly: true,
+      createdAt: recurrence.createdAt || new Date().toISOString(),
+      updatedAt: recurrence.updatedAt || recurrence.createdAt || new Date().toISOString(),
     };
   }
 
@@ -411,16 +581,104 @@
     }
   }
 
+  function sanitizeCustomClassEntries(state) {
+    const nextEntries = {};
+
+    Object.entries(state.customClasses || {}).forEach(([key, meta]) => {
+      if (!key || BASE_CLASS_TYPES[key]) {
+        return;
+      }
+
+      const label = sanitizeDisciplineLabel(meta?.label || "");
+
+      if (!label) {
+        return;
+      }
+
+      nextEntries[key] = {
+        label,
+        accent: meta?.accent || getAccentFromSeed(label || key),
+        capacity: normalizeCapacityValue(meta?.capacity, DEFAULT_DISCIPLINE_CAPACITY),
+        reservable: meta?.reservable !== false,
+        schedulable: meta?.schedulable !== false,
+        createdAt: meta?.createdAt || new Date().toISOString(),
+      };
+    });
+
+    state.customClasses = nextEntries;
+    syncClassRegistry(state);
+  }
+
+  function sanitizeRecurringSchedules(state) {
+    state.recurringSchedules = (state.recurringSchedules || [])
+      .map((recurrence) => {
+        const label = sanitizeDisciplineLabel(
+          recurrence?.label
+          || getClassMeta(recurrence?.classType).label
+          || recurrence?.classType
+        );
+        const classType = recurrence?.classType && CLASS_TYPES[recurrence.classType]
+          ? recurrence.classType
+          : ensureSchedulableClassType(state, label);
+        const startDate = /^\d{4}-\d{2}-\d{2}$/.test(String(recurrence?.startDate || ""))
+          ? String(recurrence.startDate)
+          : toDateKey(new Date());
+        const weekday = Number.isInteger(Number(recurrence?.weekday))
+          ? Number(recurrence.weekday)
+          : parseDateKey(startDate).getDay();
+        const time = String(recurrence?.time || "").trim();
+
+        if (!time) {
+          return null;
+        }
+
+        return {
+          id: recurrence?.id || `rec-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+          classType,
+          weekday,
+          time,
+          startDate,
+          capacity: parseScheduleCapacity(recurrence?.capacity, classType),
+          createdAt: recurrence?.createdAt || new Date().toISOString(),
+          updatedAt: recurrence?.updatedAt || recurrence?.createdAt || new Date().toISOString(),
+        };
+      })
+      .filter(Boolean)
+      .sort((left, right) => `${left.weekday}-${left.time}`.localeCompare(`${right.weekday}-${right.time}`));
+  }
+
   function ensureFutureSchedules(state) {
     const today = startOfToday();
+    const horizonLimit = addDays(today, HORIZON_DAYS);
     const blockedIds = new Set(
       (Array.isArray(state.deletedScheduleIds) ? state.deletedScheduleIds : [])
         .filter((scheduleId) => {
           const parts = String(scheduleId).split("-");
           const dateKey = parts.length >= 4 ? `${parts[1]}-${parts[2]}-${parts[3]}` : "";
-          return dateKey ? parseDateKey(dateKey) >= addDays(today, -7) : false;
+          if (!dateKey) {
+            return false;
+          }
+
+          const scheduleDate = parseDateKey(dateKey);
+          return scheduleDate >= addDays(today, -7) && scheduleDate <= horizonLimit;
         })
     );
+    const isGeneratedSchedule = (schedule) => schedule.origin === "official" || schedule.origin === "recurring";
+
+    state.schedules = state.schedules.filter((schedule) => {
+      const scheduleDate = parseDateKey(schedule.date);
+
+      if (schedule.origin === "manual") {
+        return scheduleDate >= addDays(today, -7);
+      }
+
+      if (isGeneratedSchedule(schedule)) {
+        return scheduleDate >= addDays(today, -7) && scheduleDate <= horizonLimit;
+      }
+
+      return scheduleDate >= addDays(today, -7);
+    });
+
     const existingIds = new Set(state.schedules.map((schedule) => schedule.id));
 
     for (let offset = 0; offset <= HORIZON_DAYS; offset += 1) {
@@ -442,6 +700,27 @@
       });
     }
 
+    state.recurringSchedules.forEach((recurrence) => {
+      for (let offset = 0; offset <= HORIZON_DAYS; offset += 1) {
+        const date = addDays(today, offset);
+
+        if (date < parseDateKey(recurrence.startDate) || date.getDay() !== recurrence.weekday) {
+          continue;
+        }
+
+        const occurrence = buildRecurringScheduleOccurrence(toDateKey(date), recurrence);
+
+        if (blockedIds.has(occurrence.id)) {
+          continue;
+        }
+
+        if (!existingIds.has(occurrence.id)) {
+          existingIds.add(occurrence.id);
+          state.schedules.push(occurrence);
+        }
+      }
+    });
+
     state.schedules = state.schedules
       .filter((schedule) => parseDateKey(schedule.date) >= addDays(today, -7))
       .sort(sortBySlot);
@@ -450,7 +729,8 @@
 
   function sanitizeScheduleEntries(state) {
     const priority = {
-      manual: 2,
+      manual: 3,
+      recurring: 2,
       official: 1,
       template: 0,
     };
@@ -477,6 +757,7 @@
             ...schedule,
             id: key,
             capacity,
+            repeatWeekly: schedule.repeatWeekly ?? (schedule.origin === "official" || schedule.origin === "recurring"),
           });
         }
       });
@@ -551,6 +832,10 @@
       members: Array.isArray(state?.members) ? state.members : [],
       checkIns: Array.isArray(state?.checkIns) ? state.checkIns : [],
       deletedScheduleIds: Array.isArray(state?.deletedScheduleIds) ? state.deletedScheduleIds : [],
+      recurringSchedules: Array.isArray(state?.recurringSchedules) ? state.recurringSchedules : [],
+      customClasses: state?.customClasses && typeof state.customClasses === "object" && !Array.isArray(state.customClasses)
+        ? state.customClasses
+        : {},
       scheduleSchemaVersion: Number(state?.scheduleSchemaVersion || 0),
     };
 
@@ -559,9 +844,12 @@
       safeState.scheduleSchemaVersion = SCHEDULE_SCHEMA_VERSION;
     }
 
+    sanitizeCustomClassEntries(safeState);
+    sanitizeRecurringSchedules(safeState);
     sanitizeScheduleEntries(safeState);
     ensureFutureSchedules(safeState);
     sanitizeReservationEntries(safeState);
+    sanitizeCustomClassEntries(safeState);
     normalizeSharedAccessCodes(safeState);
     safeState.reservations.sort((a, b) => `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`));
     safeState.requests.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -619,6 +907,8 @@
       dateLabel: formatDateLabel(schedule.date),
       isAvailable: remaining > 0,
       isReservable: isReservableClassType(schedule.classType),
+      recurrenceLabel: schedule.repeatWeekly ? "Semanal" : "Único",
+      isRecurring: Boolean(schedule.repeatWeekly),
     };
   }
 
@@ -1249,14 +1539,13 @@
     const state = loadState();
     const date = String(payload.date || "").trim();
     const time = String(payload.time || "").trim();
-    const classType = String(payload.classType || "").trim();
+    const discipline = sanitizeDisciplineLabel(payload.discipline || payload.classType || "");
+    const repeatWeekly = Boolean(payload.repeatWeekly);
+    const classType = ensureSchedulableClassType(state, discipline);
     const capacity = Number(payload.capacity);
-    const duplicate = state.schedules.find(
-      (schedule) => schedule.date === date && schedule.time === time && schedule.classType === classType
-    );
 
-    if (!date || !time || !classType || Number.isNaN(capacity)) {
-      throw new Error("Completá fecha, hora, clase y capacidad.");
+    if (!date || !time || !discipline || Number.isNaN(capacity)) {
+      throw new Error("Completá fecha, hora, disciplina y capacidad.");
     }
 
     if (!isSchedulableClassType(classType)) {
@@ -1267,18 +1556,74 @@
       throw new Error("Ingresá un cupo válido.");
     }
 
-    if (duplicate) {
+    if (!repeatWeekly) {
+      const duplicate = state.schedules.find(
+        (schedule) => schedule.date === date && schedule.time === time && schedule.classType === classType
+      );
+      const recurringConflict = state.recurringSchedules.some((recurrence) => {
+        const scheduleDate = parseDateKey(date);
+        return recurrence.classType === classType
+          && recurrence.time === time
+          && scheduleDate >= parseDateKey(recurrence.startDate)
+          && scheduleDate.getDay() === recurrence.weekday;
+      });
+
+      if (duplicate || recurringConflict) {
+        throw new Error("Ese horario ya existe en la agenda.");
+      }
+
+      state.schedules.push({
+        id: createScheduleId(date, time, classType),
+        date,
+        time,
+        classType,
+        capacity,
+        origin: "manual",
+        repeatWeekly: false,
+        createdAt: new Date().toISOString(),
+      });
+
+      persistState(state);
+      return;
+    }
+
+    const weekday = parseDateKey(date).getDay();
+    const recurrenceDuplicate = state.recurringSchedules.some((recurrence) => recurrence.classType === classType && recurrence.time === time && recurrence.weekday === weekday);
+    const occurrenceDates = [];
+
+    for (let offset = 0; offset <= HORIZON_DAYS; offset += 1) {
+      const nextDate = addDays(startOfToday(), offset);
+
+      if (nextDate < parseDateKey(date) || nextDate.getDay() !== weekday) {
+        continue;
+      }
+
+      occurrenceDates.push(toDateKey(nextDate));
+    }
+
+    const hasConflict = recurrenceDuplicate || state.schedules.some((schedule) => {
+      const scheduleDate = parseDateKey(schedule.date);
+      return schedule.classType === classType
+        && schedule.time === time
+        && scheduleDate >= parseDateKey(date)
+        && scheduleDate.getDay() === weekday;
+    }) || occurrenceDates.some((occurrenceDate) => state.schedules.some(
+      (schedule) => schedule.date === occurrenceDate && schedule.time === time && schedule.classType === classType
+    ));
+
+    if (hasConflict) {
       throw new Error("Ese horario ya existe en la agenda.");
     }
 
-    state.schedules.push({
-      id: createScheduleId(date, time, classType),
-      date,
-      time,
+    state.recurringSchedules.push({
+      id: `rec-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
       classType,
+      weekday,
+      time,
+      startDate: date,
       capacity,
-      origin: "manual",
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     });
 
     persistState(state);
@@ -1322,7 +1667,7 @@
     state.schedules = state.schedules.filter((item) => item.id !== scheduleId);
     state.reservations = state.reservations.filter((reservation) => reservation.scheduleId !== scheduleId);
 
-    if (schedule.origin === "official") {
+    if (schedule.origin === "official" || schedule.origin === "recurring") {
       const blockedIds = new Set(Array.isArray(state.deletedScheduleIds) ? state.deletedScheduleIds : []);
       blockedIds.add(scheduleId);
       state.deletedScheduleIds = [...blockedIds].sort();
@@ -1693,6 +2038,10 @@
     checkInMember,
     findMemberByIdentifier,
     getPublicMembershipPlanEntries,
+    getReservableClassEntries,
+    getSchedulableClassEntries,
+    getSuggestedScheduleCapacity,
+    sanitizeDisciplineLabel,
     sanitizePhoneInput,
     sanitizeNationalIdInput,
     sanitizeCheckinInput,

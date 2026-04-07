@@ -108,7 +108,9 @@ if (bookingApi) {
   const adminDate = document.querySelector("#admin-date");
   const adminTime = document.querySelector("#admin-time");
   const adminClass = document.querySelector("#admin-class");
+  const adminClassOptions = document.querySelector("#admin-class-options");
   const adminCapacity = document.querySelector("#admin-capacity");
+  const adminRepeatWeekly = document.querySelector("#admin-repeat-weekly");
   const adminFormFeedback = document.querySelector("#admin-form-feedback");
   const scheduleDeleteModal = document.querySelector("#schedule-delete-modal");
   const scheduleDeleteModalCopy = document.querySelector("#schedule-delete-modal-copy");
@@ -247,11 +249,40 @@ if (bookingApi) {
     });
   }
 
+  function getScheduleFilterEntries() {
+    return bookingApi.getSchedulableClassEntries({
+      futureOnly: true,
+      scheduledOnly: true,
+    });
+  }
+
   function populateClassOptions() {
-    adminClass.innerHTML = Object.entries(bookingApi.classTypes)
-      .filter(([, value]) => value.schedulable)
-      .map(([key, value]) => `<option value="${key}">${escapeHtml(value.label)}</option>`)
+    const entries = bookingApi.getSchedulableClassEntries();
+
+    adminClassOptions.innerHTML = entries
+      .map(([, value]) => `<option value="${escapeHtml(value.label)}"></option>`)
       .join("");
+
+    if (!bookingApi.sanitizeDisciplineLabel(adminClass.value) && entries.length) {
+      adminClass.value = entries[0][1].label;
+    }
+  }
+
+  function renderScheduleFilters() {
+    const entries = getScheduleFilterEntries();
+
+    if (scheduleListState.filter !== "all" && !entries.some(([classType]) => classType === scheduleListState.filter)) {
+      scheduleListState.filter = "all";
+    }
+
+    scheduleFilterTabs.innerHTML = `
+      <button class="admin-filter-tab${scheduleListState.filter === "all" ? " is-active" : ""}" type="button" data-schedule-filter="all">Todos</button>
+      ${entries.map(([classType, meta]) => `
+        <button class="admin-filter-tab${scheduleListState.filter === classType ? " is-active" : ""}" type="button" data-schedule-filter="${escapeHtml(classType)}">
+          ${escapeHtml(meta.label)}
+        </button>
+      `).join("")}
+    `;
   }
 
   function closeScheduleDeleteModal() {
@@ -277,6 +308,11 @@ if (bookingApi) {
         return `<option value="${key}">${escapeHtml(value.label)}${price}</option>`;
       })
       .join("");
+  }
+
+  function syncScheduleCapacitySuggestion() {
+    adminClass.value = bookingApi.sanitizeDisciplineLabel(adminClass.value);
+    adminCapacity.value = bookingApi.getSuggestedScheduleCapacity(adminClass.value);
   }
 
   function updateMembershipPreview() {
@@ -573,16 +609,17 @@ if (bookingApi) {
     schedulesList.innerHTML = schedules
       .map((schedule) => `
         <article class="admin-reservation-card">
-          <div class="admin-reservation-head">
-            <div>
-              <strong>${escapeHtml(schedule.classLabel)}</strong>
-              <span>${escapeHtml(schedule.dateLabel)} | ${escapeHtml(schedule.time)}</span>
+            <div class="admin-reservation-head">
+              <div>
+                <strong>${escapeHtml(schedule.classLabel)}</strong>
+                <span>${escapeHtml(schedule.dateLabel)} | ${escapeHtml(schedule.time)}</span>
+              </div>
+              <div class="admin-pill-group">
+                <span class="admin-class-pill accent-${schedule.accent}">${escapeHtml(schedule.classLabel)}</span>
+                <span class="admin-class-pill accent-neutral">${escapeHtml(schedule.recurrenceLabel)}</span>
+                <span class="admin-class-pill accent-${schedule.status === "occupied" ? "danger" : schedule.status === "limited" ? "limited" : "available"}">${escapeHtml(schedule.status === "occupied" ? "Completo" : schedule.status === "limited" ? "Últimos cupos" : "Disponible")}</span>
+              </div>
             </div>
-            <div class="admin-pill-group">
-              <span class="admin-class-pill accent-${schedule.accent}">${escapeHtml(schedule.classLabel)}</span>
-              <span class="admin-class-pill accent-${schedule.status === "occupied" ? "danger" : schedule.status === "limited" ? "limited" : "available"}">${escapeHtml(schedule.status === "occupied" ? "Completo" : schedule.status === "limited" ? "Últimos cupos" : "Disponible")}</span>
-            </div>
-          </div>
 
           <div class="admin-reservation-grid">
             <div>
@@ -593,10 +630,14 @@ if (bookingApi) {
               <span>Horario</span>
               <strong>${escapeHtml(schedule.time)}</strong>
             </div>
-            <div>
-              <span>Reservados</span>
-              <strong>${schedule.reservedCount}</strong>
-            </div>
+              <div>
+                <span>Tipo</span>
+                <strong>${escapeHtml(schedule.recurrenceLabel)}</strong>
+              </div>
+              <div>
+                <span>Reservados</span>
+                <strong>${schedule.reservedCount}</strong>
+              </div>
             <div>
               <span>Cupos totales</span>
               <strong>${schedule.capacity}</strong>
@@ -1120,15 +1161,23 @@ if (bookingApi) {
       bookingApi.addSchedule({
         date: adminDate.value,
         time: adminTime.value,
-        classType: adminClass.value,
+        discipline: adminClass.value,
         capacity: Number(adminCapacity.value),
+        repeatWeekly: adminRepeatWeekly.checked,
       });
 
-      setFeedback(adminFormFeedback, "success", "Horario agregado. Ya quedó visible en la agenda del sitio y en este panel.");
+      setFeedback(
+        adminFormFeedback,
+        "success",
+        adminRepeatWeekly.checked
+          ? "Horario semanal agregado. Ya quedaron cargadas sus próximas ocurrencias en la agenda."
+          : "Horario agregado. Ya quedó visible en la agenda del sitio y en este panel."
+      );
       showToast("Nuevo horario agregado con éxito.", "success");
       scheduleForm.reset();
       syncDateField(adminDate);
-      adminCapacity.value = bookingApi.classTypes[adminClass.value || "funcional"].capacity;
+      populateClassOptions();
+      syncScheduleCapacitySuggestion();
     } catch (error) {
       setFeedback(adminFormFeedback, "error", error.message);
       showToast(error.message, "error");
@@ -1307,9 +1356,10 @@ if (bookingApi) {
     }
   });
 
-  adminClass.addEventListener("change", () => {
-    const classMeta = bookingApi.classTypes[adminClass.value];
-    adminCapacity.value = classMeta.capacity;
+  adminClass.addEventListener("input", syncScheduleCapacitySuggestion);
+  adminClass.addEventListener("change", syncScheduleCapacitySuggestion);
+  adminClass.addEventListener("blur", () => {
+    adminClass.value = bookingApi.sanitizeDisciplineLabel(adminClass.value);
   });
 
   memberSearch.addEventListener("input", () => {
@@ -1368,17 +1418,20 @@ if (bookingApi) {
     if (!dashboard.classList.contains("is-hidden")) {
       renderDashboard();
     }
+
+    populateClassOptions();
+    renderScheduleFilters();
   });
 
   populateClassOptions();
   populatePlanOptions();
   syncDateField(adminDate);
   syncDateField(memberStart);
-  adminCapacity.value = bookingApi.classTypes[adminClass.value || "funcional"].capacity;
+  renderScheduleFilters();
+  syncScheduleCapacitySuggestion();
   updateMembershipPreview();
   Object.keys(accordionState).forEach((sectionKey) => setAccordionOpen(sectionKey, false));
   updateFilterTabState(memberFilterTabs, "[data-member-filter]", memberListState.filter);
-  updateFilterTabState(scheduleFilterTabs, "[data-schedule-filter]", scheduleListState.filter);
 
   closeScheduleDeleteModal();
 }

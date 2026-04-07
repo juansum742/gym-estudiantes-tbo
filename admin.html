@@ -97,7 +97,7 @@
               <div class="admin-panel-head">
                 <p class="section-kicker">Alta de horarios</p>
                 <h3>Nueva agenda</h3>
-                <p>Creá nuevos horarios para Indoor Bike, Full Gap, Funcional o Kick Boxing y definí sus cupos disponibles desde el panel.</p>
+                <p>Creá horarios únicos o semanales, definí la disciplina y administrá sus cupos disponibles desde el panel.</p>
               </div>
 
               <form class="admin-schedule-form" id="admin-schedule-form">
@@ -112,13 +112,19 @@
                 </label>
 
                 <label class="form-field">
-                  <span>Clase</span>
-                  <select id="admin-class" required></select>
+                  <span>Disciplina</span>
+                  <input id="admin-class" type="text" list="admin-class-options" placeholder="Indoor Bike, Karate, Zumba..." autocomplete="off" required>
+                  <datalist id="admin-class-options"></datalist>
                 </label>
 
                 <label class="form-field">
                   <span>Capacidad</span>
                   <input id="admin-capacity" type="number" min="1" max="40" step="1" value="12" required>
+                </label>
+
+                <label class="admin-switch-field" for="admin-repeat-weekly">
+                  <input id="admin-repeat-weekly" type="checkbox">
+                  <span>Repetir este horario todas las semanas</span>
                 </label>
 
                 <button class="btn btn-primary admin-btn" type="submit" id="admin-schedule-button">

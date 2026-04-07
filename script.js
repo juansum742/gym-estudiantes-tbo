@@ -468,11 +468,20 @@ function setupClassReservations() {
   const summarySpots = document.querySelector("#reservation-summary-spots");
   const summaryBooked = document.querySelector("#reservation-summary-booked");
 
-  const classEntries = Object.entries(bookingApi.classTypes).filter(([, meta]) => meta.reservable);
-
   function setFeedback(tone, message) {
     feedback.className = `booking-feedback booking-feedback-${tone}`;
     feedback.textContent = message;
+  }
+
+  function getClassEntries() {
+    const entries = bookingApi.getReservableClassEntries({
+      futureOnly: true,
+      scheduledOnly: true,
+    });
+
+    return entries.length
+      ? entries
+      : bookingApi.getReservableClassEntries();
   }
 
   function syncIdentifierValidity() {
@@ -489,8 +498,16 @@ function setupClassReservations() {
   }
 
   function populateDisciplines(preferredDiscipline) {
+    const classEntries = getClassEntries();
     const currentValue = preferredDiscipline || disciplineSelect.value;
 
+    if (!classEntries.length) {
+      disciplineSelect.innerHTML = '<option value="">Sin disciplinas disponibles</option>';
+      disciplineSelect.disabled = true;
+      return;
+    }
+
+    disciplineSelect.disabled = false;
     disciplineSelect.innerHTML = classEntries
       .map(([classType, meta]) => `<option value="${classType}">${escapeHtml(meta.label)}</option>`)
       .join("");
@@ -503,6 +520,10 @@ function setupClassReservations() {
   function getSchedulesForSelection(overrides = {}) {
     const classType = overrides.classType || disciplineSelect.value;
     const date = Object.prototype.hasOwnProperty.call(overrides, "date") ? overrides.date : dateSelect.value;
+
+    if (!classType) {
+      return [];
+    }
 
     return bookingApi.getSchedules({
       futureOnly: true,
