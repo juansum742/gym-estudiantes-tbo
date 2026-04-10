@@ -3,6 +3,9 @@
   const LEGACY_STORAGE_KEYS = ["estudiantes_tbo_premium_v3", "estudiantes_tbo_premium_v2"];
   const CHANGE_EVENT = "estudiantes-tbo-schedule:changed";
   const ADMIN_PIN = "TBO2026";
+  const CUSTOM_ACCENTS = ["available", "accent", "highlight", "danger", "neutral"];
+  const CUSTOM_DISCIPLINE_VALUE = "__custom_discipline__";
+  const CUSTOM_SLOT_VALUE = "__custom_slot__";
 
   const WEEKDAYS = [
     { key: "lunes", label: "Lunes", order: 1 },
@@ -12,22 +15,22 @@
     { key: "viernes", label: "Viernes", order: 5 },
   ];
 
-  const TIME_SLOTS = [
-    { key: "08:00-09:00", label: "8:00 a 9:00", order: 1 },
-    { key: "08:15-09:00", label: "8:15 a 9:00", order: 2 },
-    { key: "09:00-10:00", label: "9:00 a 10:00", order: 3 },
-    { key: "16:40", label: "16:40 hs", order: 4 },
-    { key: "18:00-19:00", label: "18:00 a 19:00", order: 5 },
-    { key: "18:40", label: "18:40 hs", order: 6 },
-    { key: "19:00-19:45", label: "19:00 a 19:45", order: 7 },
-    { key: "20:00-21:00", label: "20:00 a 21:00", order: 8 },
+  const BASE_TIME_SLOTS = [
+    { key: "08:00-09:00", label: "8:00 a 9:00" },
+    { key: "08:15-09:00", label: "8:15 a 9:00" },
+    { key: "09:00-10:00", label: "9:00 a 10:00" },
+    { key: "16:40", label: "16:40 hs" },
+    { key: "18:00-19:00", label: "18:00 a 19:00" },
+    { key: "18:40", label: "18:40 hs" },
+    { key: "19:00-19:45", label: "19:00 a 19:45" },
+    { key: "20:00-21:00", label: "20:00 a 21:00" },
   ];
 
-  const DISCIPLINES = [
-    { key: "indoor", label: "Indoor Bike", accent: "accent" },
-    { key: "funcional", label: "Funcional", accent: "available" },
-    { key: "fullgap", label: "Full Gap", accent: "highlight" },
-    { key: "kickboxing", label: "Kick Boxing", accent: "danger" },
+  const BASE_DISCIPLINES = [
+    { key: "indoor", label: "Indoor Bike", accent: "accent", order: 1 },
+    { key: "funcional", label: "Funcional", accent: "available", order: 2 },
+    { key: "fullgap", label: "Full Gap", accent: "highlight", order: 3 },
+    { key: "kickboxing", label: "Kick Boxing", accent: "danger", order: 4 },
   ];
 
   const DEFAULT_SCHEDULES = [
@@ -49,53 +52,9 @@
   ];
 
   const WEEKDAY_INDEX = Object.fromEntries(WEEKDAYS.map((weekday) => [weekday.key, weekday]));
-  const TIME_SLOT_INDEX = Object.fromEntries(TIME_SLOTS.map((slot) => [slot.key, slot]));
-  const DISCIPLINE_INDEX = Object.fromEntries(DISCIPLINES.map((discipline) => [discipline.key, discipline]));
-
-  const SLOT_ALIASES = {
-    "08:00": "08:00-09:00",
-    "8:00": "08:00-09:00",
-    "08:00-09:00": "08:00-09:00",
-    "8:00-9:00": "08:00-09:00",
-    "8-9": "08:00-09:00",
-    "08:15": "08:15-09:00",
-    "8:15": "08:15-09:00",
-    "08:15-09:00": "08:15-09:00",
-    "8:15-9:00": "08:15-09:00",
-    "8:15-9": "08:15-09:00",
-    "09:00": "09:00-10:00",
-    "9:00": "09:00-10:00",
-    "09:00-10:00": "09:00-10:00",
-    "9:00-10:00": "09:00-10:00",
-    "9-10": "09:00-10:00",
-    "16:40": "16:40",
-    "18:00": "18:00-19:00",
-    "18:00-19:00": "18:00-19:00",
-    "18-19": "18:00-19:00",
-    "18:40": "18:40",
-    "19:00": "19:00-19:45",
-    "19:00-19:45": "19:00-19:45",
-    "19-19:45": "19:00-19:45",
-    "20:00": "20:00-21:00",
-    "20:00-21:00": "20:00-21:00",
-    "20-21": "20:00-21:00",
-  };
-
-  const WEEKDAY_ALIASES = {
-    1: "lunes",
-    2: "martes",
-    3: "miercoles",
-    4: "jueves",
-    5: "viernes",
-    lunes: "lunes",
-    martes: "martes",
-    miercoles: "miercoles",
-    miércoles: "miercoles",
-    jueves: "jueves",
-    viernes: "viernes",
-  };
-
-  const DISCIPLINE_ALIASES = {
+  const BASE_DISCIPLINE_KEY_SET = new Set(BASE_DISCIPLINES.map((discipline) => discipline.key));
+  const BASE_TIME_SLOT_KEY_SET = new Set(BASE_TIME_SLOTS.map((slot) => slot.key));
+  const DISCIPLINE_ALIAS_MAP = {
     indoor: "indoor",
     indoorbike: "indoor",
     "indoor bike": "indoor",
@@ -118,16 +77,35 @@
       .replace(/\s+/g, " ");
   }
 
+  function sanitizeDisciplineLabel(value) {
+    return String(value || "").replace(/\s+/g, " ").trim();
+  }
+
+  function toTitleCase(value) {
+    return sanitizeDisciplineLabel(value)
+      .split(" ")
+      .filter(Boolean)
+      .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`)
+      .join(" ");
+  }
+
+  function slugify(value) {
+    return normalizeText(value)
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+
+  function getAccentFromSeed(seed) {
+    const hash = [...normalizeText(seed)].reduce((total, character) => total + character.charCodeAt(0), 0);
+    return CUSTOM_ACCENTS[hash % CUSTOM_ACCENTS.length];
+  }
+
   function createId() {
     return `schedule-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
   }
 
   function weekdayNumberToKey(weekdayNumber) {
-    if (weekdayNumber >= 1 && weekdayNumber <= 5) {
-      return WEEKDAY_ALIASES[weekdayNumber];
-    }
-
-    return "";
+    return WEEKDAYS.find((weekday) => weekday.order === weekdayNumber)?.key || "";
   }
 
   function parseDateKey(dateKey) {
@@ -162,72 +140,143 @@
       return weekdayNumberToKey(Number(normalized));
     }
 
-    return WEEKDAY_ALIASES[normalized] || "";
-  }
-
-  function normalizeSlotKey(value) {
-    const rawValue = String(value || "").trim();
-
-    if (TIME_SLOT_INDEX[rawValue]) {
-      return rawValue;
+    if (normalized === "miercoles") {
+      return "miercoles";
     }
 
-    const normalized = normalizeText(rawValue)
-      .replace(/\s*hs/g, "")
-      .replace(/\s+a\s+/g, "-")
-      .replace(/\s+/g, "")
-      .replace(/\./g, ":");
-
-    return SLOT_ALIASES[normalized] || "";
+    return WEEKDAYS.find((weekday) => normalizeText(weekday.label) === normalized || weekday.key === normalized)?.key || "";
   }
 
-  function normalizeDisciplineKey(value) {
-    const rawValue = String(value || "").trim();
+  function parseTimeToken(rawValue) {
+    const value = String(rawValue || "").trim().replace(".", ":");
+    const match = value.match(/^(\d{1,2})(?::(\d{2}))?$/);
 
-    if (DISCIPLINE_INDEX[rawValue]) {
-      return rawValue;
+    if (!match) {
+      return null;
     }
 
-    const normalized = normalizeText(rawValue)
-      .replace(/\s+/g, "")
-      .replace(/í/g, "i");
+    const hours = Number(match[1]);
+    const minutes = Number(match[2] || "0");
 
-    return DISCIPLINE_ALIASES[normalized] || DISCIPLINE_ALIASES[normalizeText(rawValue)] || "";
-  }
-
-  function compareSchedules(left, right) {
-    const leftWeekday = WEEKDAY_INDEX[left.weekdayKey]?.order || 999;
-    const rightWeekday = WEEKDAY_INDEX[right.weekdayKey]?.order || 999;
-
-    if (leftWeekday !== rightWeekday) {
-      return leftWeekday - rightWeekday;
+    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+      return null;
     }
 
-    const leftSlot = TIME_SLOT_INDEX[left.slotKey]?.order || 999;
-    const rightSlot = TIME_SLOT_INDEX[right.slotKey]?.order || 999;
-
-    if (leftSlot !== rightSlot) {
-      return leftSlot - rightSlot;
-    }
-
-    return left.disciplineKey.localeCompare(right.disciplineKey, "es");
-  }
-
-  function enrichSchedule(schedule) {
-    const weekday = WEEKDAY_INDEX[schedule.weekdayKey];
-    const slot = TIME_SLOT_INDEX[schedule.slotKey];
-    const discipline = DISCIPLINE_INDEX[schedule.disciplineKey];
+    const canonical = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+    const display = `${hours}:${String(minutes).padStart(2, "0")}`;
 
     return {
-      ...schedule,
-      weekdayLabel: weekday?.label || schedule.weekdayKey,
-      weekdayOrder: weekday?.order || 999,
-      slotLabel: slot?.label || schedule.slotKey,
-      slotOrder: slot?.order || 999,
-      disciplineLabel: discipline?.label || schedule.disciplineKey,
-      accent: discipline?.accent || "neutral",
+      canonical,
+      display,
+      minutes: hours * 60 + minutes,
     };
   }
+
+  function parseTimeSlotValue(rawValue) {
+    const normalized = normalizeText(rawValue).replace(/\./g, ":");
+
+    if (!normalized) {
+      return null;
+    }
+
+    const rangeMatch = normalized.match(/^(\d{1,2}(?::\d{2})?)\s*a\s*(\d{1,2}(?::\d{2})?)$/);
+
+    if (rangeMatch) {
+      const start = parseTimeToken(rangeMatch[1]);
+      const end = parseTimeToken(rangeMatch[2]);
+
+      if (!start || !end || end.minutes <= start.minutes) {
+        return null;
+      }
+
+      return {
+        key: `${start.canonical}-${end.canonical}`,
+        label: `${start.display} a ${end.display}`,
+        startMinutes: start.minutes,
+        endMinutes: end.minutes,
+      };
+    }
+
+    const singleMatch = normalized.match(/^(\d{1,2}(?::\d{2})?)(?:\s*hs?)?$/);
+
+    if (!singleMatch) {
+      return null;
+    }
+
+    const time = parseTimeToken(singleMatch[1]);
+
+    if (!time) {
+      return null;
+    }
+
+    return {
+      key: time.canonical,
+      label: `${time.display} hs`,
+      startMinutes: time.minutes,
+      endMinutes: time.minutes,
+    };
+  }
+
+  function buildTimeSlotMeta(slot, custom = false) {
+    const parsed = parseTimeSlotValue(slot?.label || slot?.key || slot);
+
+    if (!parsed) {
+      return null;
+    }
+
+    return {
+      key: parsed.key,
+      label: slot?.label || parsed.label,
+      startMinutes: parsed.startMinutes,
+      endMinutes: parsed.endMinutes,
+      custom,
+      createdAt: slot?.createdAt || new Date().toISOString(),
+    };
+  }
+
+  function compareTimeSlots(left, right) {
+    if (left.startMinutes !== right.startMinutes) {
+      return left.startMinutes - right.startMinutes;
+    }
+
+    if (left.endMinutes !== right.endMinutes) {
+      return left.endMinutes - right.endMinutes;
+    }
+
+    return left.label.localeCompare(right.label, "es");
+  }
+
+  const BASE_TIME_SLOT_META = BASE_TIME_SLOTS.map((slot) => buildTimeSlotMeta(slot, false)).sort(compareTimeSlots);
+  const BASE_TIME_SLOT_INDEX = Object.fromEntries(BASE_TIME_SLOT_META.map((slot) => [slot.key, slot]));
+
+  function buildDisciplineMeta(discipline, custom = false) {
+    const label = discipline?.label ? discipline.label : toTitleCase(discipline);
+    const key = String(discipline?.key || slugify(label)).trim();
+
+    if (!key || !label) {
+      return null;
+    }
+
+    return {
+      key,
+      label,
+      accent: discipline?.accent || getAccentFromSeed(label),
+      order: discipline?.order || 999,
+      custom,
+      createdAt: discipline?.createdAt || new Date().toISOString(),
+    };
+  }
+
+  function compareDisciplines(left, right) {
+    if (left.order !== right.order) {
+      return left.order - right.order;
+    }
+
+    return left.label.localeCompare(right.label, "es");
+  }
+
+  const BASE_DISCIPLINE_META = BASE_DISCIPLINES.map((discipline) => buildDisciplineMeta(discipline, false)).sort(compareDisciplines);
+  const BASE_DISCIPLINE_INDEX = Object.fromEntries(BASE_DISCIPLINE_META.map((discipline) => [discipline.key, discipline]));
 
   function createScheduleRecord(payload = {}) {
     const now = new Date().toISOString();
@@ -242,87 +291,267 @@
     };
   }
 
-  function seedDefaultSchedules() {
-    return DEFAULT_SCHEDULES
-      .map((schedule) => createScheduleRecord(schedule))
-      .sort(compareSchedules);
+  function getTimeSlotsFromState(sourceState, options = {}) {
+    const resolvedState = sourceState || loadState();
+    const allSlots = [...BASE_TIME_SLOT_META, ...(resolvedState.customTimeSlots || [])];
+
+    if (!options.activeOnly) {
+      return [...allSlots].sort(compareTimeSlots);
+    }
+
+    const activeKeys = new Set((resolvedState.schedules || []).map((schedule) => schedule.slotKey));
+    return allSlots
+      .filter((slot) => BASE_TIME_SLOT_KEY_SET.has(slot.key) || activeKeys.has(slot.key))
+      .sort(compareTimeSlots);
   }
 
-  function sanitizeSchedules(schedules) {
-    const nextSchedules = [];
-    const takenSlots = new Set();
+  function getTimeSlots(options = {}) {
+    return getTimeSlotsFromState(loadState(), options);
+  }
 
-    (Array.isArray(schedules) ? schedules : []).forEach((schedule) => {
-      const weekdayKey = normalizeWeekdayKey(schedule?.weekdayKey || schedule?.weekday || schedule?.day);
-      const slotKey = normalizeSlotKey(schedule?.slotKey || schedule?.slot || schedule?.time || schedule?.timeLabel);
-      const disciplineKey = normalizeDisciplineKey(schedule?.disciplineKey || schedule?.discipline || schedule?.classType || schedule?.classLabel);
+  function getTimeSlotIndexFromState(sourceState, options = {}) {
+    return Object.fromEntries(getTimeSlotsFromState(sourceState, options).map((slot) => [slot.key, slot]));
+  }
 
-      if (!weekdayKey || !slotKey || !disciplineKey) {
-        return;
-      }
+  function getTimeSlotIndex(options = {}) {
+    return getTimeSlotIndexFromState(loadState(), options);
+  }
 
-      const signature = `${weekdayKey}|${slotKey}`;
+  function getDisciplinesFromState(sourceState, options = {}) {
+    const resolvedState = sourceState || loadState();
+    const allDisciplines = [...BASE_DISCIPLINE_META, ...(resolvedState.customDisciplines || [])];
 
-      if (takenSlots.has(signature)) {
-        return;
-      }
+    if (!options.activeOnly) {
+      return [...allDisciplines].sort(compareDisciplines);
+    }
 
-      takenSlots.add(signature);
-      nextSchedules.push(
-        createScheduleRecord({
+    const activeKeys = new Set((resolvedState.schedules || []).map((schedule) => schedule.disciplineKey));
+    return allDisciplines
+      .filter((discipline) => activeKeys.has(discipline.key))
+      .sort(compareDisciplines);
+  }
+
+  function getDisciplines(options = {}) {
+    return getDisciplinesFromState(loadState(), options);
+  }
+
+  function getDisciplineIndexFromState(sourceState, options = {}) {
+    return Object.fromEntries(getDisciplinesFromState(sourceState, options).map((discipline) => [discipline.key, discipline]));
+  }
+
+  function getDisciplineIndex(options = {}) {
+    return getDisciplineIndexFromState(loadState(), options);
+  }
+
+  function findTimeSlotMeta(value, sourceState) {
+    const rawValue = String(value || "").trim();
+
+    if (!rawValue) {
+      return null;
+    }
+
+    const slotIndex = getTimeSlotIndexFromState(sourceState || loadState());
+
+    if (slotIndex[rawValue]) {
+      return slotIndex[rawValue];
+    }
+
+    const parsed = parseTimeSlotValue(rawValue);
+
+    if (!parsed) {
+      return null;
+    }
+
+    return slotIndex[parsed.key] || null;
+  }
+
+  function findDisciplineMeta(value, sourceState) {
+    const rawValue = String(value || "").trim();
+
+    if (!rawValue) {
+      return null;
+    }
+
+    const disciplineIndex = getDisciplineIndexFromState(sourceState || loadState());
+
+    if (disciplineIndex[rawValue]) {
+      return disciplineIndex[rawValue];
+    }
+
+    const normalized = normalizeText(rawValue);
+    const alias = DISCIPLINE_ALIAS_MAP[normalized] || DISCIPLINE_ALIAS_MAP[normalized.replace(/\s+/g, "")];
+
+    if (alias && disciplineIndex[alias]) {
+      return disciplineIndex[alias];
+    }
+
+    return getDisciplinesFromState(sourceState || loadState()).find((discipline) => normalizeText(discipline.label) === normalized) || null;
+  }
+
+  function sanitizeCustomTimeSlots(rawSlots) {
+    const seen = new Set(BASE_TIME_SLOT_KEY_SET);
+
+    return (Array.isArray(rawSlots) ? rawSlots : [])
+      .map((slot) => buildTimeSlotMeta(slot, true))
+      .filter((slot) => {
+        if (!slot || seen.has(slot.key)) {
+          return false;
+        }
+
+        seen.add(slot.key);
+        return true;
+      })
+      .sort(compareTimeSlots);
+  }
+
+  function sanitizeCustomDisciplines(rawDisciplines) {
+    const seen = new Set(BASE_DISCIPLINE_KEY_SET);
+
+    return (Array.isArray(rawDisciplines) ? rawDisciplines : [])
+      .map((discipline) => buildDisciplineMeta(discipline, true))
+      .filter((discipline) => {
+        if (!discipline || seen.has(discipline.key)) {
+          return false;
+        }
+
+        seen.add(discipline.key);
+        return true;
+      })
+      .sort(compareDisciplines);
+  }
+
+  function ensureCustomTimeSlotInState(targetState, value) {
+    const existingSlot = findTimeSlotMeta(value, targetState);
+
+    if (existingSlot) {
+      return existingSlot.key;
+    }
+
+    const slot = buildTimeSlotMeta({ label: value }, true);
+
+    if (!slot) {
+      return "";
+    }
+
+    const currentIndex = Object.fromEntries(targetState.customTimeSlots.map((item) => [item.key, item]));
+
+    if (!BASE_TIME_SLOT_KEY_SET.has(slot.key) && !currentIndex[slot.key]) {
+      targetState.customTimeSlots.push(slot);
+      targetState.customTimeSlots.sort(compareTimeSlots);
+    }
+
+    return slot.key;
+  }
+
+  function ensureCustomDisciplineInState(targetState, value) {
+    const existingDiscipline = findDisciplineMeta(value, targetState);
+
+    if (existingDiscipline) {
+      return existingDiscipline.key;
+    }
+
+    const label = toTitleCase(value);
+
+    if (!label) {
+      return "";
+    }
+
+    const baseSlug = slugify(label) || `disciplina-${Date.now()}`;
+    let key = baseSlug;
+    let suffix = 2;
+
+    while (BASE_DISCIPLINE_KEY_SET.has(key) || targetState.customDisciplines.some((discipline) => discipline.key === key)) {
+      key = `${baseSlug}-${suffix}`;
+      suffix += 1;
+    }
+
+    const customDiscipline = buildDisciplineMeta(
+      {
+        key,
+        label,
+        accent: getAccentFromSeed(label),
+        order: 999,
+      },
+      true
+    );
+
+    targetState.customDisciplines.push(customDiscipline);
+    targetState.customDisciplines.sort(compareDisciplines);
+    return customDiscipline.key;
+  }
+
+  function resolveSlotKey(targetState, payloadValue, allowCreate = false) {
+    const existing = findTimeSlotMeta(payloadValue, targetState);
+
+    if (existing) {
+      return existing.key;
+    }
+
+    return allowCreate ? ensureCustomTimeSlotInState(targetState, payloadValue) : "";
+  }
+
+  function resolveDisciplineKey(targetState, payloadValue, allowCreate = false) {
+    const existing = findDisciplineMeta(payloadValue, targetState);
+
+    if (existing) {
+      return existing.key;
+    }
+
+    return allowCreate ? ensureCustomDisciplineInState(targetState, payloadValue) : "";
+  }
+
+  function sanitizeSchedules(rawSchedules, targetState) {
+    const signatures = new Set();
+
+    return (Array.isArray(rawSchedules) ? rawSchedules : [])
+      .map((schedule) => {
+        const weekdayKey = normalizeWeekdayKey(schedule?.weekdayKey || schedule?.weekday || schedule?.day) || resolveWeekdayFromDate(schedule?.date);
+        const slotValue = schedule?.slotKey || schedule?.slotValue || schedule?.slot || schedule?.time || schedule?.timeLabel;
+        const disciplineValue = schedule?.disciplineKey || schedule?.disciplineValue || schedule?.discipline || schedule?.classType || schedule?.classLabel;
+        const slotKey = resolveSlotKey(targetState, slotValue, true);
+        const disciplineKey = resolveDisciplineKey(targetState, disciplineValue, true);
+
+        if (!weekdayKey || !slotKey || !disciplineKey) {
+          return null;
+        }
+
+        const signature = `${weekdayKey}|${slotKey}|${disciplineKey}`;
+
+        if (signatures.has(signature)) {
+          return null;
+        }
+
+        signatures.add(signature);
+        return createScheduleRecord({
           ...schedule,
           weekdayKey,
           slotKey,
           disciplineKey,
-        })
-      );
-    });
-
-    return nextSchedules.sort(compareSchedules);
+        });
+      })
+      .filter(Boolean)
+      .sort(createScheduleComparator(targetState));
   }
 
   function migrateLegacySchedules(rawState) {
-    const nextSchedules = [];
-    const takenSlots = new Set();
-    const legacySchedules = Array.isArray(rawState?.schedules) ? rawState.schedules : [];
-
-    legacySchedules.forEach((schedule) => {
-      const weekdayKey = normalizeWeekdayKey(schedule?.weekday || schedule?.weekdayKey || schedule?.day) || resolveWeekdayFromDate(schedule?.date);
-      const slotKey = normalizeSlotKey(schedule?.slotKey || schedule?.slot || schedule?.time || schedule?.timeLabel);
-      const disciplineKey = normalizeDisciplineKey(schedule?.disciplineKey || schedule?.discipline || schedule?.classType || schedule?.classLabel);
-
-      if (!weekdayKey || !slotKey || !disciplineKey) {
-        return;
-      }
-
-      const signature = `${weekdayKey}|${slotKey}`;
-
-      if (takenSlots.has(signature)) {
-        return;
-      }
-
-      takenSlots.add(signature);
-      nextSchedules.push(
-        createScheduleRecord({
-          weekdayKey,
-          slotKey,
-          disciplineKey,
-          createdAt: schedule?.createdAt,
-          updatedAt: schedule?.updatedAt,
-        })
-      );
-    });
-
-    return nextSchedules.sort(compareSchedules);
+    return Array.isArray(rawState?.schedules) ? rawState.schedules : [];
   }
 
   function sanitizeState(rawState) {
-    const nextSchedules = sanitizeSchedules(rawState?.schedules);
-
-    return {
-      version: 1,
-      schedules: nextSchedules.length ? nextSchedules : seedDefaultSchedules(),
+    const nextState = {
+      version: 2,
+      customTimeSlots: sanitizeCustomTimeSlots(rawState?.customTimeSlots),
+      customDisciplines: sanitizeCustomDisciplines(rawState?.customDisciplines),
+      schedules: [],
     };
+
+    nextState.schedules = sanitizeSchedules(rawState?.schedules, nextState);
+
+    if (!nextState.schedules.length) {
+      nextState.schedules = sanitizeSchedules(DEFAULT_SCHEDULES, nextState);
+    }
+
+    return nextState;
   }
 
   function dispatchChange() {
@@ -330,6 +559,8 @@
       new CustomEvent(CHANGE_EVENT, {
         detail: {
           schedules: getSchedules(),
+          disciplines: getDisciplines(),
+          timeSlots: getTimeSlots(),
         },
       })
     );
@@ -363,15 +594,18 @@
         continue;
       }
 
-      const migratedSchedules = migrateLegacySchedules(legacyState);
       state = sanitizeState({
-        schedules: migratedSchedules.length ? migratedSchedules : seedDefaultSchedules(),
+        schedules: migrateLegacySchedules(legacyState),
+        customTimeSlots: legacyState?.customTimeSlots,
+        customDisciplines: legacyState?.customDisciplines,
       });
       persistState();
       return state;
     }
 
-    state = sanitizeState({ schedules: seedDefaultSchedules() });
+    state = sanitizeState({
+      schedules: DEFAULT_SCHEDULES,
+    });
     persistState();
     return state;
   }
@@ -381,26 +615,79 @@
       return;
     }
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        version: state.version,
+        customTimeSlots: state.customTimeSlots,
+        customDisciplines: state.customDisciplines,
+        schedules: state.schedules,
+      })
+    );
     dispatchChange();
   }
 
-  function findScheduleConflict({ weekdayKey, slotKey }, excludeId = "") {
-    const normalizedId = String(excludeId || "").trim();
+  function createScheduleComparator(sourceState) {
+    const timeSlotIndex = getTimeSlotIndexFromState(sourceState || loadState());
+    const disciplineIndex = getDisciplineIndexFromState(sourceState || loadState());
 
-    return loadState().schedules.find((schedule) => {
-      if (normalizedId && schedule.id === normalizedId) {
-        return false;
+    return (left, right) => {
+      const leftWeekday = WEEKDAY_INDEX[left.weekdayKey]?.order || 999;
+      const rightWeekday = WEEKDAY_INDEX[right.weekdayKey]?.order || 999;
+
+      if (leftWeekday !== rightWeekday) {
+        return leftWeekday - rightWeekday;
       }
 
-      return schedule.weekdayKey === weekdayKey && schedule.slotKey === slotKey;
-    }) || null;
+      const leftSlot = timeSlotIndex[left.slotKey];
+      const rightSlot = timeSlotIndex[right.slotKey];
+
+      if ((leftSlot?.startMinutes || 9999) !== (rightSlot?.startMinutes || 9999)) {
+        return (leftSlot?.startMinutes || 9999) - (rightSlot?.startMinutes || 9999);
+      }
+
+      if ((leftSlot?.endMinutes || 9999) !== (rightSlot?.endMinutes || 9999)) {
+        return (leftSlot?.endMinutes || 9999) - (rightSlot?.endMinutes || 9999);
+      }
+
+      const leftDiscipline = disciplineIndex[left.disciplineKey];
+      const rightDiscipline = disciplineIndex[right.disciplineKey];
+
+      return (leftDiscipline?.label || left.disciplineKey).localeCompare(rightDiscipline?.label || right.disciplineKey, "es");
+    };
   }
 
-  function validateSchedulePayload(payload, currentId = "") {
+  function compareSchedules(left, right) {
+    return createScheduleComparator(loadState())(left, right);
+  }
+
+  function enrichSchedule(schedule) {
+    const timeSlotIndex = getTimeSlotIndex();
+    const disciplineIndex = getDisciplineIndex();
+    const weekday = WEEKDAY_INDEX[schedule.weekdayKey];
+    const slot = timeSlotIndex[schedule.slotKey];
+    const discipline = disciplineIndex[schedule.disciplineKey];
+
+    return {
+      ...schedule,
+      weekdayLabel: weekday?.label || schedule.weekdayKey,
+      weekdayOrder: weekday?.order || 999,
+      slotLabel: slot?.label || schedule.slotKey,
+      slotOrder: slot?.startMinutes || 9999,
+      disciplineLabel: discipline?.label || schedule.disciplineKey,
+      accent: discipline?.accent || "neutral",
+      isCustomDiscipline: Boolean(discipline?.custom),
+      isCustomSlot: Boolean(slot?.custom),
+    };
+  }
+
+  function buildValidatedPayload(payload, currentId = "") {
+    const targetState = loadState();
     const weekdayKey = normalizeWeekdayKey(payload?.weekdayKey || payload?.weekday || payload?.day);
-    const slotKey = normalizeSlotKey(payload?.slotKey || payload?.slot || payload?.time);
-    const disciplineKey = normalizeDisciplineKey(payload?.disciplineKey || payload?.discipline || payload?.classType);
+    const disciplineValue = payload?.disciplineValue || payload?.disciplineKey || payload?.discipline || payload?.classType;
+    const slotValue = payload?.slotValue || payload?.slotKey || payload?.slot || payload?.time;
+    const disciplineKey = resolveDisciplineKey(targetState, disciplineValue, true);
+    const slotKey = resolveSlotKey(targetState, slotValue, true);
 
     if (!disciplineKey) {
       throw new Error("Elegí una disciplina válida para guardar el horario.");
@@ -411,13 +698,20 @@
     }
 
     if (!slotKey) {
-      throw new Error("Elegí una franja horaria válida.");
+      throw new Error("Ingresá una franja horaria válida.");
     }
 
-    const duplicate = findScheduleConflict({ weekdayKey, slotKey }, currentId);
+    const duplicate = findScheduleConflict(
+      {
+        weekdayKey,
+        slotKey,
+        disciplineKey,
+      },
+      currentId
+    );
 
     if (duplicate) {
-      throw new Error("Ya existe una disciplina cargada en ese día y franja horaria.");
+      throw new Error("Ya existe esa disciplina cargada en ese día y en esa franja horaria.");
     }
 
     return {
@@ -425,6 +719,22 @@
       slotKey,
       disciplineKey,
     };
+  }
+
+  function findScheduleConflict({ weekdayKey, slotKey, disciplineKey }, excludeId = "") {
+    const normalizedId = String(excludeId || "").trim();
+
+    return loadState().schedules.find((schedule) => {
+      if (normalizedId && schedule.id === normalizedId) {
+        return false;
+      }
+
+      return (
+        schedule.weekdayKey === weekdayKey
+        && schedule.slotKey === slotKey
+        && schedule.disciplineKey === disciplineKey
+      );
+    }) || null;
   }
 
   function getSchedules(filters = {}) {
@@ -445,7 +755,7 @@
 
         return true;
       })
-      .sort(compareSchedules);
+      .sort(createScheduleComparator(loadState()));
   }
 
   function getScheduleById(scheduleId) {
@@ -453,11 +763,11 @@
   }
 
   function createSchedule(payload) {
-    const validatedPayload = validateSchedulePayload(payload);
+    const validatedPayload = buildValidatedPayload(payload);
     const record = createScheduleRecord(validatedPayload);
 
-    loadState().schedules.push(record);
-    loadState().schedules.sort(compareSchedules);
+    state.schedules.push(record);
+    state.schedules.sort(createScheduleComparator(loadState()));
     persistState();
     return getScheduleById(record.id);
   }
@@ -471,35 +781,7 @@
     }
 
     const currentSchedule = loadState().schedules[scheduleIndex];
-    const validatedPayload = {
-      weekdayKey: normalizeWeekdayKey(payload?.weekdayKey || payload?.weekday || payload?.day),
-      slotKey: normalizeSlotKey(payload?.slotKey || payload?.slot || payload?.time),
-      disciplineKey: normalizeDisciplineKey(payload?.disciplineKey || payload?.discipline || payload?.classType),
-    };
-
-    if (!validatedPayload.disciplineKey) {
-      throw new Error("Elegí una disciplina válida para guardar el horario.");
-    }
-
-    if (!validatedPayload.weekdayKey) {
-      throw new Error("Elegí un día válido para la agenda.");
-    }
-
-    if (!validatedPayload.slotKey) {
-      throw new Error("Elegí una franja horaria válida.");
-    }
-
-    const isSameSlot =
-      currentSchedule.weekdayKey === validatedPayload.weekdayKey
-      && currentSchedule.slotKey === validatedPayload.slotKey;
-
-    if (!isSameSlot) {
-      const duplicate = findScheduleConflict(validatedPayload, normalizedId);
-
-      if (duplicate) {
-        throw new Error("Ya existe una disciplina cargada en ese día y franja horaria.");
-      }
-    }
+    const validatedPayload = buildValidatedPayload(payload, normalizedId);
 
     loadState().schedules[scheduleIndex] = createScheduleRecord({
       ...currentSchedule,
@@ -509,7 +791,7 @@
       updatedAt: new Date().toISOString(),
     });
 
-    loadState().schedules.sort(compareSchedules);
+    loadState().schedules.sort(createScheduleComparator(loadState()));
     persistState();
     return getScheduleById(scheduleId);
   }
@@ -528,66 +810,85 @@
 
   function getScheduleBoardData() {
     const schedules = getSchedules();
+    const boardSlots = getTimeSlots({ activeOnly: true });
 
     return {
       columns: WEEKDAYS,
-      rows: TIME_SLOTS.map((slot) => ({
+      rows: boardSlots.map((slot) => ({
         key: slot.key,
         label: slot.label,
         cells: WEEKDAYS.map((weekday) => {
-          const schedule = schedules.find(
-            (item) => item.weekdayKey === weekday.key && item.slotKey === slot.key
-          );
+          const cellSchedules = schedules
+            .filter((schedule) => schedule.weekdayKey === weekday.key && schedule.slotKey === slot.key)
+            .sort((left, right) => left.disciplineLabel.localeCompare(right.disciplineLabel, "es"));
 
-          if (!schedule) {
+          if (!cellSchedules.length) {
             return {
               label: "Libre",
               className: "schedule-slot is-empty",
+              items: [],
+            };
+          }
+
+          if (cellSchedules.length === 1) {
+            return {
+              label: cellSchedules[0].disciplineLabel.toUpperCase(),
+              className: `schedule-slot is-active is-${cellSchedules[0].accent}`,
+              items: [
+                {
+                  label: cellSchedules[0].disciplineLabel.toUpperCase(),
+                  accent: cellSchedules[0].accent,
+                },
+              ],
             };
           }
 
           return {
-            label: schedule.disciplineLabel.toUpperCase(),
-            className: `schedule-slot is-active is-${schedule.accent}`,
+            label: "",
+            className: "schedule-slot is-active is-multi",
+            items: cellSchedules.map((schedule) => ({
+              label: schedule.disciplineLabel.toUpperCase(),
+              accent: schedule.accent,
+            })),
           };
         }),
       })),
     };
   }
 
-  function getScheduleGroups() {
+  function getDisciplineSummaries(options = {}) {
     const schedules = getSchedules();
+    const summaries = getDisciplines()
+      .map((discipline) => {
+        const disciplineSchedules = schedules.filter((schedule) => schedule.disciplineKey === discipline.key);
+        const activeDays = [...new Set(disciplineSchedules.map((schedule) => schedule.weekdayLabel))];
 
-    return WEEKDAYS.map((weekday) => ({
-      ...weekday,
-      items: schedules.filter((schedule) => schedule.weekdayKey === weekday.key),
-    }));
-  }
+        return {
+          ...discipline,
+          count: disciplineSchedules.length,
+          activeDays,
+          summaryLabel: disciplineSchedules.length
+            ? `${disciplineSchedules.length} horario${disciplineSchedules.length === 1 ? "" : "s"} | ${activeDays.join(", ")}`
+            : discipline.custom
+              ? "Disponible para sumar a la agenda"
+              : "Sin horarios cargados",
+        };
+      })
+      .sort(compareDisciplines);
 
-  function getDisciplineSummaries() {
-    const schedules = getSchedules();
-
-    return DISCIPLINES.map((discipline) => {
-      const disciplineSchedules = schedules.filter((schedule) => schedule.disciplineKey === discipline.key);
-
-      return {
-        ...discipline,
-        count: disciplineSchedules.length,
-        summaryLabel: disciplineSchedules.length
-          ? `${disciplineSchedules.length} horario${disciplineSchedules.length === 1 ? "" : "s"} cargado${disciplineSchedules.length === 1 ? "" : "s"}`
-          : "Sin horarios cargados",
-      };
-    });
+    return options.activeOnly ? summaries.filter((discipline) => discipline.count > 0) : summaries;
   }
 
   function getStats() {
     const schedules = getSchedules();
+    const activeSlotCount = new Set(schedules.map((schedule) => schedule.slotKey)).size;
 
     return {
       totalSchedules: schedules.length,
       activeDisciplines: new Set(schedules.map((schedule) => schedule.disciplineKey)).size,
       activeDays: new Set(schedules.map((schedule) => schedule.weekdayKey)).size,
-      baseSlots: TIME_SLOTS.length,
+      availableSlots: getTimeSlots().length,
+      activeSlots: activeSlotCount,
     };
   }
 
@@ -596,11 +897,7 @@
   }
 
   function formatScheduleSlot(slotKey) {
-    return TIME_SLOT_INDEX[slotKey]?.label || "";
-  }
-
-  function getDisciplines() {
-    return [...DISCIPLINES];
+    return getTimeSlotIndex()[slotKey]?.label || slotKey || "";
   }
 
   window.addEventListener("storage", (event) => {
@@ -608,21 +905,21 @@
       return;
     }
 
-    state = sanitizeState(readStorageValue(STORAGE_KEY) || { schedules: seedDefaultSchedules() });
+    state = sanitizeState(readStorageValue(STORAGE_KEY) || { schedules: DEFAULT_SCHEDULES });
     dispatchChange();
   });
 
   window.EstudiantesTboBooking = {
     adminPin: ADMIN_PIN,
     changeEvent: CHANGE_EVENT,
+    customDisciplineValue: CUSTOM_DISCIPLINE_VALUE,
+    customSlotValue: CUSTOM_SLOT_VALUE,
     weekdays: WEEKDAYS,
-    timeSlots: TIME_SLOTS,
-    disciplines: DISCIPLINES,
+    getTimeSlots,
     getDisciplines,
     getSchedules,
     getScheduleById,
     getScheduleBoardData,
-    getScheduleGroups,
     getDisciplineSummaries,
     getStats,
     createSchedule,

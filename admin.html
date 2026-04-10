@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260410-3">
-  <link rel="stylesheet" href="admin.css?v=20260410-3">
+  <link rel="stylesheet" href="style.css?v=20260410-5">
+  <link rel="stylesheet" href="admin.css?v=20260410-5">
 </head>
 <body class="admin-body">
   <div class="site-shell">
@@ -87,7 +87,7 @@
               <strong id="stat-days" data-admin-value="0">0</strong>
             </article>
             <article class="admin-stat-card">
-              <span>Franjas base</span>
+              <span>Franjas disponibles</span>
               <strong id="stat-slots" data-admin-value="0">0</strong>
             </article>
           </div>
@@ -108,6 +108,12 @@
                   <select id="admin-discipline" required></select>
                 </label>
 
+                <label class="form-field is-hidden" id="admin-discipline-custom-field">
+                  <span>Nueva disciplina</span>
+                  <input id="admin-discipline-custom" type="text" placeholder="Karate, Yoga, Crossfit..." autocomplete="off" list="admin-discipline-suggestions">
+                </label>
+                <datalist id="admin-discipline-suggestions"></datalist>
+
                 <label class="form-field">
                   <span>Día</span>
                   <select id="admin-weekday" required></select>
@@ -118,9 +124,15 @@
                   <select id="admin-slot" required></select>
                 </label>
 
+                <label class="form-field is-hidden" id="admin-slot-custom-field">
+                  <span>Nueva franja horaria</span>
+                  <input id="admin-slot-custom" type="text" placeholder="17:30 a 18:15 o 21:00 a 22:00" autocomplete="off" list="admin-slot-suggestions">
+                </label>
+                <datalist id="admin-slot-suggestions"></datalist>
+
                 <div class="admin-slot-guide">
                   <strong>Franjas base del club</strong>
-                  <span>8:00 a 9:00 • 8:15 a 9:00 • 9:00 a 10:00 • 16:40 hs • 18:00 a 19:00 • 18:40 hs • 19:00 a 19:45 • 20:00 a 21:00</span>
+                  <span>8:00 a 9:00 • 8:15 a 9:00 • 9:00 a 10:00 • 16:40 hs • 18:00 a 19:00 • 18:40 hs • 19:00 a 19:45 • 20:00 a 21:00. También podés sumar franjas nuevas para la agenda.</span>
                 </div>
 
                 <div class="admin-form-actions">
@@ -197,7 +209,7 @@
 
   <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
 
-  <script src="booking-data.js?v=20260410-3"></script>
-  <script src="admin.js?v=20260410-3"></script>
+  <script src="booking-data.js?v=20260410-5"></script>
+  <script src="admin.js?v=20260410-5"></script>
 </body>
 </html>

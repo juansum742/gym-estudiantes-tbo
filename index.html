@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260410-3">
+  <link rel="stylesheet" href="style.css?v=20260410-5">
 </head>
 <body>
   <div class="site-shell">
@@ -139,8 +139,17 @@
             <h2 class="section-title">Entrenamientos reales con horarios claros para toda la semana</h2>
             <div class="section-divider" aria-hidden="true"></div>
             <p class="section-text">
-              Cuatro disciplinas principales organizadas en una agenda semanal dinámica para que siempre sepas qué día y en qué turno entrenar.
+              La agenda semanal del club se actualiza desde administración para que siempre veas las disciplinas activas, los días y cada franja disponible.
             </p>
+          </div>
+
+          <div class="discipline-roster-shell" data-reveal="up" style="--delay: 40ms;">
+            <div class="discipline-roster-head">
+              <p class="schedule-kicker">Agenda activa</p>
+              <h3>Disciplinas visibles en la agenda</h3>
+              <p>Cada alta o edición del panel privado se refleja automáticamente acá y en la grilla azul del home.</p>
+            </div>
+            <div class="discipline-roster" id="discipline-roster"></div>
           </div>
 
           <div class="schedule-layout">
@@ -543,7 +552,7 @@
     </footer>
   </div>
 
-  <script src="booking-data.js?v=20260410-3"></script>
-  <script src="script.js?v=20260410-3"></script>
+  <script src="booking-data.js?v=20260410-5"></script>
+  <script src="script.js?v=20260410-5"></script>
 </body>
 </html>

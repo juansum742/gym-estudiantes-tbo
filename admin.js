@@ -84,8 +84,14 @@ if (bookingApi) {
   const scheduleForm = document.querySelector("#admin-schedule-form");
   const scheduleIdInput = document.querySelector("#admin-schedule-id");
   const disciplineSelect = document.querySelector("#admin-discipline");
+  const disciplineCustomField = document.querySelector("#admin-discipline-custom-field");
+  const disciplineCustomInput = document.querySelector("#admin-discipline-custom");
+  const disciplineSuggestionList = document.querySelector("#admin-discipline-suggestions");
   const weekdaySelect = document.querySelector("#admin-weekday");
   const slotSelect = document.querySelector("#admin-slot");
+  const slotCustomField = document.querySelector("#admin-slot-custom-field");
+  const slotCustomInput = document.querySelector("#admin-slot-custom");
+  const slotSuggestionList = document.querySelector("#admin-slot-suggestions");
   const scheduleButton = document.querySelector("#admin-schedule-button");
   const cancelEditButton = document.querySelector("#admin-cancel-edit");
   const adminFormFeedback = document.querySelector("#admin-form-feedback");
@@ -119,28 +125,110 @@ if (bookingApi) {
     renderDashboard();
   }
 
-  function populateScheduleFields() {
-    disciplineSelect.innerHTML = bookingApi
-      .getDisciplines()
-      .map(
-        (discipline) =>
-          `<option value="${escapeHtml(discipline.key)}">${escapeHtml(discipline.label)}</option>`
-      )
-      .join("");
+  function setConditionalFieldVisibility(field, input, shouldShow) {
+    field.classList.toggle("is-hidden", !shouldShow);
+    input.disabled = !shouldShow;
+    input.required = shouldShow;
+
+    if (!shouldShow) {
+      input.value = "";
+    }
+  }
+
+  function updateDisciplineMode() {
+    setConditionalFieldVisibility(
+      disciplineCustomField,
+      disciplineCustomInput,
+      disciplineSelect.value === bookingApi.customDisciplineValue
+    );
+  }
+
+  function updateSlotMode() {
+    setConditionalFieldVisibility(
+      slotCustomField,
+      slotCustomInput,
+      slotSelect.value === bookingApi.customSlotValue
+    );
+  }
+
+  function buildDisciplineOptions(selectedValue = "") {
+    const disciplines = bookingApi.getDisciplines();
+    const baseDisciplines = disciplines.filter((discipline) => !discipline.custom);
+    const customDisciplines = disciplines.filter((discipline) => discipline.custom);
+    const allValues = new Set(disciplines.map((discipline) => discipline.key));
+
+    if (disciplineSuggestionList) {
+      disciplineSuggestionList.innerHTML = disciplines
+        .map((discipline) => `<option value="${escapeHtml(discipline.label)}"></option>`)
+        .join("");
+    }
+
+    disciplineSelect.innerHTML = `
+      <optgroup label="Disciplinas del club">
+        ${baseDisciplines.map((discipline) => `<option value="${escapeHtml(discipline.key)}">${escapeHtml(discipline.label)}</option>`).join("")}
+      </optgroup>
+      ${customDisciplines.length ? `
+      <optgroup label="Disciplinas personalizadas">
+        ${customDisciplines.map((discipline) => `<option value="${escapeHtml(discipline.key)}">${escapeHtml(discipline.label)}</option>`).join("")}
+      </optgroup>` : ""}
+      <option value="${escapeHtml(bookingApi.customDisciplineValue)}">Agregar nueva disciplina</option>
+    `;
+
+    disciplineSelect.value = allValues.has(selectedValue) ? selectedValue : baseDisciplines[0]?.key || bookingApi.customDisciplineValue;
+    updateDisciplineMode();
+  }
+
+  function buildSlotOptions(selectedValue = "") {
+    const slots = bookingApi.getTimeSlots();
+    const baseSlots = slots.filter((slot) => !slot.custom);
+    const customSlots = slots.filter((slot) => slot.custom);
+    const allValues = new Set(slots.map((slot) => slot.key));
+
+    if (slotSuggestionList) {
+      slotSuggestionList.innerHTML = slots
+        .map((slot) => `<option value="${escapeHtml(slot.label)}"></option>`)
+        .join("");
+    }
+
+    slotSelect.innerHTML = `
+      <optgroup label="Franjas base del club">
+        ${baseSlots.map((slot) => `<option value="${escapeHtml(slot.key)}">${escapeHtml(slot.label)}</option>`).join("")}
+      </optgroup>
+      ${customSlots.length ? `
+      <optgroup label="Franjas personalizadas">
+        ${customSlots.map((slot) => `<option value="${escapeHtml(slot.key)}">${escapeHtml(slot.label)}</option>`).join("")}
+      </optgroup>` : ""}
+      <option value="${escapeHtml(bookingApi.customSlotValue)}">Otra franja personalizada</option>
+    `;
+
+    slotSelect.value = allValues.has(selectedValue) ? selectedValue : baseSlots[0]?.key || bookingApi.customSlotValue;
+    updateSlotMode();
+  }
+
+  function populateScheduleFields(selected = {}) {
+    buildDisciplineOptions(selected.disciplineKey || "");
 
     weekdaySelect.innerHTML = bookingApi.weekdays
-      .map(
-        (weekday) =>
-          `<option value="${escapeHtml(weekday.key)}">${escapeHtml(weekday.label)}</option>`
-      )
+      .map((weekday) => `<option value="${escapeHtml(weekday.key)}">${escapeHtml(weekday.label)}</option>`)
       .join("");
 
-    slotSelect.innerHTML = bookingApi.timeSlots
-      .map(
-        (slot) =>
-          `<option value="${escapeHtml(slot.key)}">${escapeHtml(slot.label)}</option>`
-      )
-      .join("");
+    weekdaySelect.value = selected.weekdayKey || bookingApi.weekdays[0]?.key || "";
+    buildSlotOptions(selected.slotKey || "");
+  }
+
+  function getFormPayload() {
+    const disciplineValue = disciplineSelect.value === bookingApi.customDisciplineValue
+      ? disciplineCustomInput.value
+      : disciplineSelect.value;
+    const slotValue = slotSelect.value === bookingApi.customSlotValue
+      ? slotCustomInput.value
+      : slotSelect.value;
+
+    return {
+      weekdayKey: weekdaySelect.value,
+      disciplineValue,
+      slotValue,
+    };
   }
 
   function renderFilterTabs() {
@@ -168,7 +256,7 @@ if (bookingApi) {
     animateValue(statTotalSchedules, stats.totalSchedules);
     animateValue(statDisciplines, stats.activeDisciplines);
     animateValue(statDays, stats.activeDays);
-    animateValue(statSlots, stats.baseSlots);
+    animateValue(statSlots, stats.availableSlots);
   }
 
   function renderDisciplineSummary() {
@@ -247,7 +335,8 @@ if (bookingApi) {
               </div>
               <div class="admin-pill-group">
                 <span class="admin-class-pill accent-${escapeHtml(schedule.accent)}">${escapeHtml(schedule.disciplineLabel)}</span>
-                <span class="admin-class-pill accent-neutral">${escapeHtml(schedule.weekdayLabel)}</span>
+                ${schedule.isCustomDiscipline ? '<span class="admin-class-pill accent-neutral">Personalizada</span>' : ""}
+                ${schedule.isCustomSlot ? '<span class="admin-class-pill accent-neutral">Franja personalizada</span>' : ""}
               </div>
             </div>
 
@@ -296,7 +385,7 @@ if (bookingApi) {
     setFeedback(
       adminFormFeedback,
       "idle",
-      "Cargá o editá una franja semanal para actualizar automáticamente la grilla azul del home."
+      "Combiná franjas base, franjas personalizadas, disciplinas del club o nuevas disciplinas para actualizar la grilla azul del home."
     );
   }
 
@@ -309,9 +398,11 @@ if (bookingApi) {
     }
 
     scheduleIdInput.value = schedule.id;
-    disciplineSelect.value = schedule.disciplineKey;
-    weekdaySelect.value = schedule.weekdayKey;
-    slotSelect.value = schedule.slotKey;
+    populateScheduleFields({
+      disciplineKey: schedule.disciplineKey,
+      weekdayKey: schedule.weekdayKey,
+      slotKey: schedule.slotKey,
+    });
     cancelEditButton.classList.remove("is-hidden");
     scheduleButton.querySelector(".btn-text").textContent = "Guardar cambios";
     setFeedback(
@@ -352,6 +443,9 @@ if (bookingApi) {
   populateScheduleFields();
   resetScheduleForm();
 
+  disciplineSelect.addEventListener("change", updateDisciplineMode);
+  slotSelect.addEventListener("change", updateSlotMode);
+
   loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     toggleButtonLoading(loginButton, true);
@@ -382,12 +476,7 @@ if (bookingApi) {
     try {
       await wait(240);
 
-      const payload = {
-        disciplineKey: disciplineSelect.value,
-        weekdayKey: weekdaySelect.value,
-        slotKey: slotSelect.value,
-      };
-
+      const payload = getFormPayload();
       const isEditing = Boolean(scheduleIdInput.value);
       const schedule = isEditing
         ? bookingApi.updateSchedule(scheduleIdInput.value, payload)
@@ -474,6 +563,16 @@ if (bookingApi) {
       return;
     }
 
+    const currentEditingId = scheduleIdInput.value;
+    const currentEditingSchedule = currentEditingId ? bookingApi.getScheduleById(currentEditingId) : null;
     renderDashboard();
+
+    if (currentEditingSchedule) {
+      populateScheduleFields({
+        disciplineKey: currentEditingSchedule.disciplineKey,
+        weekdayKey: currentEditingSchedule.weekdayKey,
+        slotKey: currentEditingSchedule.slotKey,
+      });
+    }
   });
 }

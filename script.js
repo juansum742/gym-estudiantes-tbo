@@ -138,6 +138,63 @@ function renderScheduleSummary(summaryElement) {
   `;
 }
 
+function renderScheduleCellContent(cell) {
+  const items = Array.isArray(cell?.items) ? cell.items : [];
+
+  if (items.length > 1) {
+    return `
+      <div class="schedule-slot-list" aria-label="${items.length} disciplinas en esta franja">
+        ${items
+          .map(
+            (item) => `
+              <span class="schedule-slot-pill accent-${escapeHtml(item.accent)}">${escapeHtml(item.label)}</span>
+            `
+          )
+          .join("")}
+      </div>
+    `;
+  }
+
+  return escapeHtml(cell?.label || "Libre");
+}
+
+function renderDisciplineRoster(rosterElement) {
+  if (!bookingApi || !rosterElement) {
+    return;
+  }
+
+  const disciplines = bookingApi.getDisciplineSummaries({ activeOnly: true });
+
+  if (!disciplines.length) {
+    rosterElement.innerHTML = `
+      <article class="discipline-roster-card discipline-roster-card-empty">
+        <strong>Sin disciplinas cargadas todavía</strong>
+        <p>La agenda pública se actualiza automáticamente cuando el club suma nuevos horarios desde administración.</p>
+      </article>
+    `;
+    return;
+  }
+
+  rosterElement.innerHTML = disciplines
+    .map(
+      (discipline) => `
+        <article class="discipline-roster-card">
+          <div class="discipline-roster-card-head">
+            <div>
+              <strong>${escapeHtml(discipline.label)}</strong>
+              <p>${escapeHtml(discipline.summaryLabel)}</p>
+            </div>
+            <div class="discipline-roster-badges">
+              <span class="discipline-roster-pill accent-${escapeHtml(discipline.accent)}">${discipline.count.toLocaleString("es-UY")} horario${discipline.count === 1 ? "" : "s"}</span>
+              ${discipline.custom ? '<span class="discipline-roster-pill accent-neutral">Personalizada</span>' : ""}
+            </div>
+          </div>
+        </article>
+      `
+    )
+    .join("");
+}
+
 function setupScheduleBoard() {
   if (!bookingApi) {
     return;
@@ -145,28 +202,39 @@ function setupScheduleBoard() {
 
   const scheduleGrid = document.querySelector("#schedule-grid");
   const scheduleSummary = document.querySelector("#schedule-summary");
+  const disciplineRoster = document.querySelector("#discipline-roster");
 
-  if (!scheduleGrid) {
+  if (!scheduleGrid && !disciplineRoster) {
     return;
   }
 
-  function renderScheduleBoard() {
-    const board = bookingApi.getScheduleBoardData();
-    const headers = [
-      '<div class="schedule-head schedule-head-time">Turno</div>',
-      ...board.columns.map((column) => `<div class="schedule-head">${escapeHtml(column.label)}</div>`),
-    ];
-    const rows = board.rows.flatMap((row) => [
-      `<div class="schedule-time">${escapeHtml(row.label)}</div>`,
-      ...row.cells.map((cell) => `<div class="${escapeHtml(cell.className)}">${escapeHtml(cell.label)}</div>`),
-    ]);
+  function renderScheduleExperience() {
+    if (scheduleGrid) {
+      const board = bookingApi.getScheduleBoardData();
+      const headers = [
+        '<div class="schedule-head schedule-head-time">Turno</div>',
+        ...board.columns.map((column) => `<div class="schedule-head">${escapeHtml(column.label)}</div>`),
+      ];
+      const rows = board.rows.flatMap((row) => [
+        `<div class="schedule-time">${escapeHtml(row.label)}</div>`,
+        ...row.cells.map(
+          (cell) => `
+            <div class="${escapeHtml(cell.className)}">
+              ${renderScheduleCellContent(cell)}
+            </div>
+          `
+        ),
+      ]);
 
-    scheduleGrid.innerHTML = [...headers, ...rows].join("");
-    renderScheduleSummary(scheduleSummary);
+      scheduleGrid.innerHTML = [...headers, ...rows].join("");
+      renderScheduleSummary(scheduleSummary);
+    }
+
+    renderDisciplineRoster(disciplineRoster);
   }
 
-  window.addEventListener(bookingApi.changeEvent, renderScheduleBoard);
-  renderScheduleBoard();
+  window.addEventListener(bookingApi.changeEvent, renderScheduleExperience);
+  renderScheduleExperience();
 }
 
 const onScroll = () => {
