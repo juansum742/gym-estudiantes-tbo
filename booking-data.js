@@ -379,6 +379,18 @@
     dispatchChange();
   }
 
+  function findScheduleConflict({ weekdayKey, slotKey }, excludeId = "") {
+    const normalizedId = String(excludeId || "").trim();
+
+    return loadState().schedules.find((schedule) => {
+      if (normalizedId && schedule.id === normalizedId) {
+        return false;
+      }
+
+      return schedule.weekdayKey === weekdayKey && schedule.slotKey === slotKey;
+    }) || null;
+  }
+
   function validateSchedulePayload(payload, currentId = "") {
     const weekdayKey = normalizeWeekdayKey(payload?.weekdayKey || payload?.weekday || payload?.day);
     const slotKey = normalizeSlotKey(payload?.slotKey || payload?.slot || payload?.time);
@@ -396,9 +408,7 @@
       throw new Error("Elegí una franja horaria válida.");
     }
 
-    const duplicate = loadState().schedules.find(
-      (schedule) => schedule.id !== currentId && schedule.weekdayKey === weekdayKey && schedule.slotKey === slotKey
-    );
+    const duplicate = findScheduleConflict({ weekdayKey, slotKey }, currentId);
 
     if (duplicate) {
       throw new Error("Ya existe una disciplina cargada en ese día y franja horaria.");
@@ -447,14 +457,43 @@
   }
 
   function updateSchedule(scheduleId, payload) {
-    const scheduleIndex = loadState().schedules.findIndex((schedule) => schedule.id === scheduleId);
+    const normalizedId = String(scheduleId || "").trim();
+    const scheduleIndex = loadState().schedules.findIndex((schedule) => schedule.id === normalizedId);
 
     if (scheduleIndex === -1) {
       throw new Error("No encontramos ese horario para editar.");
     }
 
     const currentSchedule = loadState().schedules[scheduleIndex];
-    const validatedPayload = validateSchedulePayload(payload, scheduleId);
+    const validatedPayload = {
+      weekdayKey: normalizeWeekdayKey(payload?.weekdayKey || payload?.weekday || payload?.day),
+      slotKey: normalizeSlotKey(payload?.slotKey || payload?.slot || payload?.time),
+      disciplineKey: normalizeDisciplineKey(payload?.disciplineKey || payload?.discipline || payload?.classType),
+    };
+
+    if (!validatedPayload.disciplineKey) {
+      throw new Error("Elegí una disciplina válida para guardar el horario.");
+    }
+
+    if (!validatedPayload.weekdayKey) {
+      throw new Error("Elegí un día válido para la agenda.");
+    }
+
+    if (!validatedPayload.slotKey) {
+      throw new Error("Elegí una franja horaria válida.");
+    }
+
+    const isSameSlot =
+      currentSchedule.weekdayKey === validatedPayload.weekdayKey
+      && currentSchedule.slotKey === validatedPayload.slotKey;
+
+    if (!isSameSlot) {
+      const duplicate = findScheduleConflict(validatedPayload, normalizedId);
+
+      if (duplicate) {
+        throw new Error("Ya existe una disciplina cargada en ese día y franja horaria.");
+      }
+    }
 
     loadState().schedules[scheduleIndex] = createScheduleRecord({
       ...currentSchedule,
