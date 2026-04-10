@@ -1,27 +1,9 @@
 const bookingApi = window.EstudiantesTboBooking;
+
 function wait(duration) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, duration);
   });
-}
-
-function pad(value) {
-  return String(value).padStart(2, "0");
-}
-
-function parseDateKey(dateKey) {
-  const [year, month, day] = dateKey.split("-").map(Number);
-  return new Date(year, month - 1, day);
-}
-
-function toDateKey(date) {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
-function addDays(date, days) {
-  const nextDate = new Date(date);
-  nextDate.setDate(nextDate.getDate() + days);
-  return nextDate;
 }
 
 function escapeHtml(value) {
@@ -33,21 +15,16 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-function bindValidatedField(input, syncValidity) {
-  input.addEventListener("input", syncValidity);
-  input.addEventListener("blur", syncValidity);
-  input.addEventListener("invalid", syncValidity);
-}
-
 function animateValue(element, target) {
   const previous = Number(element.dataset.adminValue || 0);
-  const duration = 700;
+  const duration = 650;
   const start = performance.now();
 
   const step = (timestamp) => {
     const progress = Math.min((timestamp - start) / duration, 1);
     const eased = 1 - Math.pow(1 - progress, 3);
     const currentValue = Math.round(previous + (target - previous) * eased);
+
     element.textContent = currentValue.toLocaleString("es-UY");
 
     if (progress < 1) {
@@ -82,6 +59,15 @@ function showToast(message, tone = "success") {
   }, 3200);
 }
 
+function toggleButtonLoading(button, isLoading) {
+  if (!button) {
+    return;
+  }
+
+  button.classList.toggle("is-loading", isLoading);
+  button.disabled = isLoading;
+}
+
 if (bookingApi) {
   const gateSection = document.querySelector("#admin-gate-section");
   const dashboard = document.querySelector("#admin-dashboard");
@@ -90,279 +76,131 @@ if (bookingApi) {
   const pinInput = document.querySelector("#admin-pin");
   const gateNote = document.querySelector("#admin-gate-note");
 
-  const statPendingRequests = document.querySelector("#stat-pending-requests");
-  const statActiveMembers = document.querySelector("#stat-active-members");
-  const statActivePlans = document.querySelector("#stat-active-plans");
-  const statExpiringWeek = document.querySelector("#stat-expiring-week");
+  const statTotalSchedules = document.querySelector("#stat-total-schedules");
+  const statDisciplines = document.querySelector("#stat-disciplines");
+  const statDays = document.querySelector("#stat-days");
+  const statSlots = document.querySelector("#stat-slots");
 
-  const pendingRequestsList = document.querySelector("#admin-requests");
-  const listCounter = document.querySelector("#admin-requests-counter");
-  const pendingFeedback = document.querySelector("#pending-feedback");
-  const classReservationsList = document.querySelector("#class-reservations");
-  const classReservationsCounter = document.querySelector("#class-reservations-counter");
-  const classReservationsFeedback = document.querySelector("#class-reservations-feedback");
-  const schedulesList = document.querySelector("#admin-schedules-list");
-  const schedulesCounter = document.querySelector("#admin-schedules-counter");
   const scheduleForm = document.querySelector("#admin-schedule-form");
+  const scheduleIdInput = document.querySelector("#admin-schedule-id");
+  const disciplineSelect = document.querySelector("#admin-discipline");
+  const weekdaySelect = document.querySelector("#admin-weekday");
+  const slotSelect = document.querySelector("#admin-slot");
   const scheduleButton = document.querySelector("#admin-schedule-button");
-  const adminDate = document.querySelector("#admin-date");
-  const adminTime = document.querySelector("#admin-time");
-  const adminClass = document.querySelector("#admin-class");
-  const adminClassOptions = document.querySelector("#admin-class-options");
-  const adminCapacity = document.querySelector("#admin-capacity");
-  const adminRepeatWeekly = document.querySelector("#admin-repeat-weekly");
+  const cancelEditButton = document.querySelector("#admin-cancel-edit");
   const adminFormFeedback = document.querySelector("#admin-form-feedback");
+
+  const scheduleCounter = document.querySelector("#admin-schedules-counter");
+  const scheduleSearch = document.querySelector("#schedule-search");
+  const scheduleFilterTabs = document.querySelector("#schedule-filter-tabs");
+  const schedulesList = document.querySelector("#admin-schedules-list");
+  const disciplineSummary = document.querySelector("#admin-discipline-summary");
+
   const scheduleDeleteModal = document.querySelector("#schedule-delete-modal");
   const scheduleDeleteModalCopy = document.querySelector("#schedule-delete-modal-copy");
   const scheduleDeleteConfirm = document.querySelector("#schedule-delete-confirm");
 
-  const memberForm = document.querySelector("#admin-member-form");
-  const memberButton = document.querySelector("#member-submit");
-  const memberName = document.querySelector("#member-name");
-  const memberId = document.querySelector("#member-id");
-  const memberPhone = document.querySelector("#member-phone");
-  const memberPlan = document.querySelector("#member-plan");
-  const memberStart = document.querySelector("#member-start");
-  const membershipPreview = document.querySelector("#membership-preview");
-  const memberFormFeedback = document.querySelector("#member-form-feedback");
-
-  const checkinForm = document.querySelector("#admin-checkin-form");
-  const checkinButton = document.querySelector("#checkin-submit");
-  const checkinQuery = document.querySelector("#checkin-query");
-  const checkinAlert = document.querySelector("#checkin-alert");
-
-  const membersCounter = document.querySelector("#members-counter");
-  const adminMembersList = document.querySelector("#admin-members-list");
-  const expiringCounter = document.querySelector("#expiring-counter");
-  const expiringList = document.querySelector("#expiring-list");
-  const renewalCounter = document.querySelector("#renewal-counter");
-  const renewalList = document.querySelector("#renewal-list");
-  const checkinCounter = document.querySelector("#checkin-counter");
-  const checkinHistory = document.querySelector("#checkin-history");
-  const memberSearch = document.querySelector("#member-search");
-  const memberFilterTabs = document.querySelector("#member-filter-tabs");
-  const scheduleSearch = document.querySelector("#schedule-search");
-  const scheduleFilterTabs = document.querySelector("#schedule-filter-tabs");
-  let pendingScheduleDeleteId = null;
-  const accordionState = {
-    requests: false,
-    reservations: false,
-    schedules: false,
-    members: false,
-  };
-  const memberListState = {
-    query: "",
-    filter: "all",
-  };
+  let pendingDeleteId = "";
+  let isDashboardUnlocked = false;
   const scheduleListState = {
     query: "",
     filter: "all",
   };
-
-  function unlockDashboard() {
-    gateSection.classList.add("is-hidden");
-    dashboard.classList.remove("is-hidden");
-    renderDashboard();
-  }
 
   function setFeedback(element, tone, message) {
     element.className = `booking-feedback booking-feedback-${tone}`;
     element.textContent = message;
   }
 
-  function syncDateField(input) {
-    const today = new Date();
-    const minDate = toDateKey(today);
-    input.min = minDate;
-    input.value ||= minDate;
+  function unlockDashboard() {
+    gateSection.classList.add("is-hidden");
+    dashboard.classList.remove("is-hidden");
+    isDashboardUnlocked = true;
+    renderDashboard();
   }
 
-  function syncMemberPhoneValidity() {
-    memberPhone.value = bookingApi.sanitizePhoneInput(memberPhone.value);
-
-    try {
-      bookingApi.validatePhone(memberPhone.value);
-      memberPhone.setCustomValidity("");
-      return true;
-    } catch (error) {
-      memberPhone.setCustomValidity(error.message);
-      return false;
-    }
-  }
-
-  function syncMemberIdValidity() {
-    memberId.value = bookingApi.sanitizeNationalIdInput(memberId.value);
-
-    try {
-      bookingApi.validateNationalId(memberId.value);
-      memberId.setCustomValidity("");
-      return true;
-    } catch (error) {
-      memberId.setCustomValidity(error.message);
-      return false;
-    }
-  }
-
-  function syncCheckinValidity() {
-    checkinQuery.value = bookingApi.sanitizeCheckinInput(checkinQuery.value);
-
-    try {
-      bookingApi.validateCheckinQuery(checkinQuery.value);
-      checkinQuery.setCustomValidity("");
-      return true;
-    } catch (error) {
-      checkinQuery.setCustomValidity(error.message);
-      return false;
-    }
-  }
-
-  function normalizeSearchValue(value) {
-    return String(value || "")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase()
-      .trim();
-  }
-
-  function setAccordionOpen(sectionKey, shouldOpen) {
-    accordionState[sectionKey] = shouldOpen;
-    const shell = document.querySelector(`[data-accordion-section="${sectionKey}"]`);
-    const toggle = document.querySelector(`[data-toggle-section="${sectionKey}"]`);
-    const panel = document.querySelector(`[data-section-panel="${sectionKey}"]`);
-
-    if (!shell || !toggle) {
-      return;
-    }
-
-    shell.classList.toggle("is-open", shouldOpen);
-    toggle.setAttribute("aria-expanded", String(shouldOpen));
-    panel?.setAttribute("aria-hidden", String(!shouldOpen));
-  }
-
-  function updateFilterTabState(container, selector, activeValue) {
-    if (!container) {
-      return;
-    }
-
-    container.querySelectorAll(selector).forEach((button) => {
-      button.classList.toggle("is-active", button.dataset.memberFilter === activeValue || button.dataset.scheduleFilter === activeValue);
-    });
-  }
-
-  function getScheduleFilterEntries() {
-    return bookingApi.getSchedulableClassEntries({
-      futureOnly: true,
-      scheduledOnly: true,
-    });
-  }
-
-  function populateClassOptions() {
-    const entries = bookingApi.getSchedulableClassEntries();
-
-    adminClassOptions.innerHTML = entries
-      .map(([, value]) => `<option value="${escapeHtml(value.label)}"></option>`)
+  function populateScheduleFields() {
+    disciplineSelect.innerHTML = bookingApi
+      .getDisciplines()
+      .map(
+        (discipline) =>
+          `<option value="${escapeHtml(discipline.key)}">${escapeHtml(discipline.label)}</option>`
+      )
       .join("");
 
-    if (!bookingApi.sanitizeDisciplineLabel(adminClass.value) && entries.length) {
-      adminClass.value = entries[0][1].label;
-    }
-  }
+    weekdaySelect.innerHTML = bookingApi.weekdays
+      .map(
+        (weekday) =>
+          `<option value="${escapeHtml(weekday.key)}">${escapeHtml(weekday.label)}</option>`
+      )
+      .join("");
 
-  function renderScheduleFilters() {
-    const entries = getScheduleFilterEntries();
-
-    if (scheduleListState.filter !== "all" && !entries.some(([classType]) => classType === scheduleListState.filter)) {
-      scheduleListState.filter = "all";
-    }
-
-    scheduleFilterTabs.innerHTML = `
-      <button class="admin-filter-tab${scheduleListState.filter === "all" ? " is-active" : ""}" type="button" data-schedule-filter="all">Todos</button>
-      ${entries.map(([classType, meta]) => `
-        <button class="admin-filter-tab${scheduleListState.filter === classType ? " is-active" : ""}" type="button" data-schedule-filter="${escapeHtml(classType)}">
-          ${escapeHtml(meta.label)}
-        </button>
-      `).join("")}
-    `;
-  }
-
-  function closeScheduleDeleteModal() {
-    pendingScheduleDeleteId = null;
-    scheduleDeleteModal.classList.add("is-hidden");
-    scheduleDeleteModal.setAttribute("aria-hidden", "true");
-    scheduleDeleteModal.hidden = true;
-  }
-
-  function openScheduleDeleteModal(schedule) {
-    pendingScheduleDeleteId = schedule.id;
-    scheduleDeleteModalCopy.textContent = `Si confirmás, ${schedule.classLabel} del ${bookingApi.formatDateFull(schedule.date)} a las ${schedule.time} desaparece del panel y de la home. También se eliminan las reservas asociadas a ese bloque.`;
-    scheduleDeleteModal.hidden = false;
-    scheduleDeleteModal.classList.remove("is-hidden");
-    scheduleDeleteModal.setAttribute("aria-hidden", "false");
-    scheduleDeleteConfirm.focus();
-  }
-
-  function populatePlanOptions() {
-    memberPlan.innerHTML = bookingApi.getPublicMembershipPlanEntries()
-      .map(([key, value]) => {
-        const price = value.price ? ` | ${escapeHtml(bookingApi.formatCurrency(value.price))}` : "";
-        return `<option value="${key}">${escapeHtml(value.label)}${price}</option>`;
-      })
+    slotSelect.innerHTML = bookingApi.timeSlots
+      .map(
+        (slot) =>
+          `<option value="${escapeHtml(slot.key)}">${escapeHtml(slot.label)}</option>`
+      )
       .join("");
   }
 
-  function syncScheduleCapacitySuggestion() {
-    adminClass.value = bookingApi.sanitizeDisciplineLabel(adminClass.value);
-    adminCapacity.value = bookingApi.getSuggestedScheduleCapacity(adminClass.value);
-  }
+  function renderFilterTabs() {
+    const tabs = [
+      { key: "all", label: "Todos" },
+      ...bookingApi.getDisciplines().map((discipline) => ({
+        key: discipline.key,
+        label: discipline.label,
+      })),
+    ];
 
-  function updateMembershipPreview() {
-    const planMeta = bookingApi.membershipPlans[memberPlan.value];
-
-    if (!planMeta || !memberStart.value) {
-      membershipPreview.textContent = "Elegí un plan para calcular automáticamente su vencimiento.";
-      return;
-    }
-
-    const endDate = bookingApi.computePlanEndDate(memberPlan.value, memberStart.value);
-    const priceLabel = planMeta.price ? bookingApi.formatCurrency(planMeta.price) : "Consultar";
-    const classLabel = planMeta.classType
-      ? bookingApi.classTypes[planMeta.classType].label
-      : planMeta.category === "general"
-        ? "Acceso completo"
-        : "Musculación";
-
-    membershipPreview.innerHTML = `
-      <strong>${escapeHtml(planMeta.label)}</strong>
-      <span>${escapeHtml(priceLabel)} | ${escapeHtml(classLabel)} | ${planMeta.durationDays} día${planMeta.durationDays === 1 ? "" : "s"} | vence el ${escapeHtml(bookingApi.formatDateFull(endDate))}</span>
-    `;
+    scheduleFilterTabs.innerHTML = tabs
+      .map(
+        (tab) => `
+          <button class="admin-filter-tab${scheduleListState.filter === tab.key ? " is-active" : ""}" type="button" data-schedule-filter="${escapeHtml(tab.key)}">
+            ${escapeHtml(tab.label)}
+          </button>
+        `
+      )
+      .join("");
   }
 
   function renderStats() {
     const stats = bookingApi.getStats();
-    animateValue(statPendingRequests, stats.pendingRequests);
-    animateValue(statActiveMembers, stats.activeMembers);
-    animateValue(statActivePlans, stats.activePlans);
-    animateValue(statExpiringWeek, stats.expiringThisWeek);
+    animateValue(statTotalSchedules, stats.totalSchedules);
+    animateValue(statDisciplines, stats.activeDisciplines);
+    animateValue(statDays, stats.activeDays);
+    animateValue(statSlots, stats.baseSlots);
   }
 
-  function updateSectionCounters() {
-    const pendingRequests = bookingApi.getRequests({ status: "pending" });
-    const reservations = bookingApi.getReservations({ futureOnly: true, reservableOnly: true });
-    const schedules = bookingApi.getSchedules({ futureOnly: true, schedulableOnly: true });
-    const profiles = bookingApi.getProfiles({ includeScheduled: true });
+  function renderDisciplineSummary() {
+    const summaries = bookingApi.getDisciplineSummaries();
 
-    listCounter.textContent = `${pendingRequests.length} pendiente${pendingRequests.length === 1 ? "" : "s"}`;
-    classReservationsCounter.textContent = `${reservations.length} reserva${reservations.length === 1 ? "" : "s"}`;
-    schedulesCounter.textContent = `${schedules.length} horario${schedules.length === 1 ? "" : "s"}`;
-    membersCounter.textContent = `${profiles.length} socio${profiles.length === 1 ? "" : "s"}`;
+    disciplineSummary.innerHTML = summaries
+      .map(
+        (discipline) => `
+          <article class="mini-status-card">
+            <div class="mini-status-head">
+              <div>
+                <strong>${escapeHtml(discipline.label)}</strong>
+                <p>${escapeHtml(discipline.summaryLabel)}</p>
+              </div>
+              <span class="admin-class-pill accent-${escapeHtml(discipline.accent)}">${discipline.count.toLocaleString("es-UY")}</span>
+            </div>
+          </article>
+        `
+      )
+      .join("");
   }
 
   function getFilteredSchedules() {
-    const schedules = bookingApi.getSchedules({ futureOnly: true, schedulableOnly: true });
-    const normalizedQuery = normalizeSearchValue(scheduleListState.query);
+    const schedules = bookingApi.getSchedules();
+    const normalizedQuery = String(scheduleListState.query || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
 
     return schedules.filter((schedule) => {
-      if (scheduleListState.filter !== "all" && schedule.classType !== scheduleListState.filter) {
+      if (scheduleListState.filter !== "all" && schedule.disciplineKey !== scheduleListState.filter) {
         return false;
       }
 
@@ -370,1027 +208,214 @@ if (bookingApi) {
         return true;
       }
 
-      const searchIndex = normalizeSearchValue([
-        schedule.classLabel,
-        schedule.time,
-        schedule.date,
-        schedule.dateLabel,
-        bookingApi.formatDateFull(schedule.date),
-        new Date(`${schedule.date}T00:00:00`).toLocaleDateString("es-UY", { weekday: "long" }),
-      ].join(" "));
+      const searchIndex = [
+        schedule.disciplineLabel,
+        schedule.weekdayLabel,
+        schedule.slotLabel,
+      ]
+        .join(" ")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
 
       return searchIndex.includes(normalizedQuery);
     });
-  }
-
-  function getFilteredProfiles() {
-    const profiles = bookingApi.getProfiles({ includeScheduled: true });
-    const normalizedQuery = normalizeSearchValue(memberListState.query);
-
-    return profiles.filter((profile) => {
-      if (memberListState.filter === "active" && profile.activePlanCount === 0) {
-        return false;
-      }
-
-      if (memberListState.filter === "expired" && !(profile.activePlanCount === 0 && profile.scheduledPlanCount === 0 && profile.expiredPlanCount > 0)) {
-        return false;
-      }
-
-      if (memberListState.filter === "expiring" && !profile.plans.some((plan) => plan.isActive && plan.daysRemaining <= 7)) {
-        return false;
-      }
-
-      if (!normalizedQuery) {
-        return true;
-      }
-
-      const searchIndex = normalizeSearchValue([
-        profile.fullName,
-        profile.nationalId,
-        profile.phone,
-        profile.accessCode,
-        ...profile.plans.map((plan) => `${plan.accessCode} ${plan.planLabel} ${plan.relatedClassLabel}`),
-      ].join(" "));
-
-      return searchIndex.includes(normalizedQuery);
-    });
-  }
-
-  function getVisiblePlansForProfile(profile) {
-    if (memberListState.filter === "active") {
-      return profile.plans.filter((plan) => plan.isActive);
-    }
-
-    if (memberListState.filter === "expired") {
-      return profile.plans.filter((plan) => !plan.isActive && !plan.isScheduled);
-    }
-
-    if (memberListState.filter === "expiring") {
-      return profile.plans.filter((plan) => plan.isActive && plan.daysRemaining <= 7);
-    }
-
-    return profile.plans;
-  }
-
-  function renderReservations() {
-    const pendingRequests = bookingApi.getRequests({ status: "pending" });
-
-    listCounter.textContent = `${pendingRequests.length} pendiente${pendingRequests.length === 1 ? "" : "s"}`;
-
-    if (!pendingRequests.length) {
-      pendingRequestsList.innerHTML = `
-        <article class="admin-empty-card">
-          <strong>Sin solicitudes pendientes</strong>
-          <p>Cuando llegue una nueva solicitud desde la home, vas a poder confirmarla o rechazarla desde este bloque.</p>
-        </article>
-      `;
-      return;
-    }
-
-    pendingRequestsList.innerHTML = pendingRequests
-      .map((request) => {
-        const notes = [];
-
-        if (request.notes) {
-          notes.push(`<p class="admin-request-note">${escapeHtml(request.notes)}</p>`);
-        }
-
-        if (request.hasActiveConflict) {
-          notes.push(`
-            <p class="admin-request-note admin-request-note-warning">
-              Este plan ya está activo para esta cédula con el código ${escapeHtml(request.activeConflictCode || "asignado")}.
-            </p>
-          `);
-        }
-
-        const notesHtml = notes.join("");
-        const approveLabel = request.hasActiveConflict ? "Ya activo" : "Confirmar pago y activar";
-        const approveAttributes = request.hasActiveConflict ? 'disabled aria-disabled="true"' : "";
-        const conflictBadge = request.hasActiveConflict
-          ? '<span class="admin-class-pill accent-limited">Ya activo</span>'
-          : "";
-
-        return `
-          <article class="admin-reservation-card">
-            <div class="admin-reservation-head">
-              <div>
-                <strong>${escapeHtml(request.fullName)}</strong>
-                <span>CI ${escapeHtml(request.nationalId)} | ${escapeHtml(request.phone)}</span>
-              </div>
-              <div class="admin-pill-group">
-                <span class="admin-class-pill accent-${request.statusTone}">${escapeHtml(request.statusLabel)}</span>
-                ${conflictBadge}
-              </div>
-            </div>
-
-            <div class="admin-reservation-grid">
-              <div>
-                <span>Plan solicitado</span>
-                <strong>${escapeHtml(request.planLabel)}</strong>
-              </div>
-              <div>
-                <span>Fecha</span>
-                <strong>${escapeHtml(request.createdDateLabel)} | ${escapeHtml(request.createdTimeLabel)}</strong>
-              </div>
-              <div>
-                <span>Cédula</span>
-                <strong>${escapeHtml(request.nationalId)}</strong>
-              </div>
-              <div>
-                <span>Estado</span>
-                <strong>${escapeHtml(request.statusLabel)}</strong>
-              </div>
-            </div>
-
-            ${notesHtml}
-
-            <div class="admin-request-actions">
-              <button class="btn btn-primary admin-btn" type="button" data-approve-request-id="${request.id}" ${approveAttributes}>
-                ${approveLabel}
-              </button>
-              <button class="btn btn-secondary admin-btn admin-btn-danger" type="button" data-reject-request-id="${request.id}">
-                Rechazar
-              </button>
-            </div>
-          </article>
-        `;
-      })
-      .join("");
-  }
-
-  function renderClassReservations() {
-    const reservations = bookingApi.getReservations({ futureOnly: true, reservableOnly: true });
-    classReservationsCounter.textContent = `${reservations.length} reserva${reservations.length === 1 ? "" : "s"}`;
-
-    if (!reservations.length) {
-      classReservationsList.innerHTML = `
-        <article class="admin-empty-card">
-          <strong>Sin reservas de clases</strong>
-          <p>Las reservas que hagan los socios desde la home se van a mostrar acá para confirmar o cancelar.</p>
-        </article>
-      `;
-      return;
-    }
-
-    classReservationsList.innerHTML = reservations
-      .map((reservation) => {
-        const confirmLabel = reservation.status === "confirmed" ? "Confirmada" : "Confirmar";
-        const confirmAttributes = reservation.status === "confirmed" ? 'disabled aria-disabled="true"' : "";
-        const availabilityLabel = reservation.schedule?.statusLabel || "Horario cargado";
-
-        return `
-          <article class="admin-reservation-card">
-            <div class="admin-reservation-head">
-              <div>
-                <strong>${escapeHtml(reservation.fullName)}</strong>
-                <span>CI ${escapeHtml(reservation.nationalId)} | ${escapeHtml(reservation.accessCode || "sin código")}</span>
-              </div>
-              <div class="admin-pill-group">
-                <span class="admin-class-pill accent-${reservation.accent}">${escapeHtml(reservation.classLabel)}</span>
-                <span class="admin-class-pill accent-${reservation.statusTone}">${escapeHtml(reservation.statusLabel)}</span>
-              </div>
-            </div>
-
-            <div class="admin-reservation-grid">
-              <div>
-                <span>Disciplina</span>
-                <strong>${escapeHtml(reservation.classLabel)}</strong>
-              </div>
-              <div>
-                <span>Fecha</span>
-                <strong>${escapeHtml(bookingApi.formatDateFull(reservation.date))}</strong>
-              </div>
-              <div>
-                <span>Horario</span>
-                <strong>${escapeHtml(reservation.time)}</strong>
-              </div>
-              <div>
-                <span>Estado</span>
-                <strong>${escapeHtml(reservation.statusLabel)}</strong>
-              </div>
-              <div>
-                <span>Cupos</span>
-                <strong>${escapeHtml(availabilityLabel)}</strong>
-              </div>
-              <div>
-                <span>Reserva creada</span>
-                <strong>${escapeHtml(new Date(reservation.createdAt).toLocaleDateString("es-UY"))}</strong>
-              </div>
-            </div>
-
-            <div class="admin-request-actions">
-              <button class="btn btn-primary admin-btn" type="button" data-confirm-reservation-id="${reservation.id}" ${confirmAttributes}>
-                ${confirmLabel}
-              </button>
-              <button class="btn btn-secondary admin-btn admin-btn-danger" type="button" data-cancel-reservation-id="${reservation.id}">
-                Cancelar
-              </button>
-            </div>
-          </article>
-        `;
-      })
-      .join("");
   }
 
   function renderSchedules() {
     const schedules = getFilteredSchedules();
-    schedulesCounter.textContent = `${schedules.length} horario${schedules.length === 1 ? "" : "s"}`;
+    scheduleCounter.textContent = `${schedules.length} horario${schedules.length === 1 ? "" : "s"}`;
 
     if (!schedules.length) {
       schedulesList.innerHTML = `
         <article class="admin-empty-card">
           <strong>Sin horarios para mostrar</strong>
-          <p>${scheduleListState.query || scheduleListState.filter !== "all" ? "No encontramos horarios que coincidan con esa búsqueda o filtro." : "Usá el formulario de alta para crear bloques nuevos con sus cupos correspondientes."}</p>
+          <p>${scheduleListState.query || scheduleListState.filter !== "all" ? "No encontramos horarios que coincidan con esa búsqueda o filtro." : "Usá el formulario para cargar la agenda semanal del club."}</p>
         </article>
       `;
       return;
     }
 
     schedulesList.innerHTML = schedules
-      .map((schedule) => `
-        <article class="admin-reservation-card">
-            <div class="admin-reservation-head">
+      .map(
+        (schedule) => `
+          <article class="admin-schedule-card">
+            <div class="admin-schedule-head">
               <div>
-                <strong>${escapeHtml(schedule.classLabel)}</strong>
-                <span>${escapeHtml(schedule.dateLabel)} | ${escapeHtml(schedule.time)}</span>
+                <strong>${escapeHtml(schedule.disciplineLabel)}</strong>
+                <span>${escapeHtml(schedule.weekdayLabel)} | ${escapeHtml(schedule.slotLabel)}</span>
               </div>
               <div class="admin-pill-group">
-                <span class="admin-class-pill accent-${schedule.accent}">${escapeHtml(schedule.classLabel)}</span>
-                <span class="admin-class-pill accent-neutral">${escapeHtml(schedule.recurrenceLabel)}</span>
-                <span class="admin-class-pill accent-${schedule.status === "occupied" ? "danger" : schedule.status === "limited" ? "limited" : "available"}">${escapeHtml(schedule.status === "occupied" ? "Completo" : schedule.status === "limited" ? "Últimos cupos" : "Disponible")}</span>
+                <span class="admin-class-pill accent-${escapeHtml(schedule.accent)}">${escapeHtml(schedule.disciplineLabel)}</span>
+                <span class="admin-class-pill accent-neutral">${escapeHtml(schedule.weekdayLabel)}</span>
               </div>
             </div>
 
-          <div class="admin-reservation-grid">
-            <div>
-              <span>Fecha</span>
-              <strong>${escapeHtml(bookingApi.formatDateFull(schedule.date))}</strong>
-            </div>
-            <div>
-              <span>Horario</span>
-              <strong>${escapeHtml(schedule.time)}</strong>
-            </div>
+            <div class="admin-schedule-grid">
               <div>
-                <span>Tipo</span>
-                <strong>${escapeHtml(schedule.recurrenceLabel)}</strong>
+                <span>Disciplina</span>
+                <strong>${escapeHtml(schedule.disciplineLabel)}</strong>
               </div>
               <div>
-                <span>Reservados</span>
-                <strong>${schedule.reservedCount}</strong>
+                <span>Día</span>
+                <strong>${escapeHtml(schedule.weekdayLabel)}</strong>
               </div>
-            <div>
-              <span>Cupos totales</span>
-              <strong>${schedule.capacity}</strong>
+              <div>
+                <span>Franja</span>
+                <strong>${escapeHtml(schedule.slotLabel)}</strong>
+              </div>
             </div>
-            <div>
-              <span>Disponibles</span>
-              <strong>${schedule.remaining}</strong>
-            </div>
-            <div>
-              <span>Estado</span>
-              <strong>${escapeHtml(schedule.statusLabel)}</strong>
-            </div>
-          </div>
 
-          <form class="admin-capacity-form" data-update-schedule-id="${schedule.id}">
-            <label class="form-field admin-capacity-field">
-              <span>Editar cupos</span>
-              <input type="number" min="${Math.max(1, schedule.reservedCount)}" max="50" step="1" value="${schedule.capacity}" required>
-            </label>
-            <button class="btn btn-secondary admin-btn" type="submit">Guardar cupos</button>
-          </form>
-
-          <div class="admin-schedule-actions">
-            <button class="btn btn-secondary admin-btn admin-btn-danger" type="button" data-delete-schedule-id="${schedule.id}">
-              🗑️ Eliminar
-            </button>
-          </div>
-        </article>
-      `)
-      .join("");
-  }
-
-  function renderMembers() {
-    const visibleProfiles = getFilteredProfiles();
-    membersCounter.textContent = `${visibleProfiles.length} socio${visibleProfiles.length === 1 ? "" : "s"}`;
-
-    if (!visibleProfiles.length) {
-      adminMembersList.innerHTML = `
-        <article class="admin-empty-card">
-          <strong>Sin socios para mostrar</strong>
-          <p>${memberListState.query || memberListState.filter !== "all" ? "No encontramos socios que coincidan con esa búsqueda o filtro." : "Cuando des de alta una membresía vas a ver acá el código corto, plan, vigencia y estado del socio."}</p>
-        </article>
-      `;
-      return;
-    }
-
-    adminMembersList.innerHTML = visibleProfiles
-      .map((profile) => {
-        const visiblePlans = getVisiblePlansForProfile(profile);
-        const activePlans = profile.plans.filter((plan) => plan.isActive).length;
-
-        return `
-        <article class="member-card">
-          <div class="member-card-head">
-            <div>
-              <strong>${escapeHtml(profile.fullName)}</strong>
-              <span>${escapeHtml(visiblePlans.map((plan) => plan.planLabel).join(" + ") || profile.planSummary || "Sin planes visibles")}</span>
-            </div>
-            <span class="admin-class-pill accent-${profile.statusTone}">${escapeHtml(profile.statusLabel)}</span>
-          </div>
-
-          <div class="member-card-grid">
-            <div>
-              <span>Cédula</span>
-              <strong>${escapeHtml(profile.nationalId)}</strong>
-            </div>
-            <div>
-              <span>Teléfono</span>
-              <strong>${escapeHtml(profile.phone)}</strong>
-            </div>
-            <div>
-              <span>Planes</span>
-              <strong>${activePlans} activo${activePlans === 1 ? "" : "s"} | ${visiblePlans.length} visible${visiblePlans.length === 1 ? "" : "s"}</strong>
-            </div>
-            <div>
-              <span>Estado</span>
-              <strong>${escapeHtml(profile.accessMessage)}</strong>
-            </div>
-          </div>
-
-          <div class="member-profile-list">
-            ${visiblePlans.map((plan) => `
-              <article class="member-profile-item accent-${plan.statusTone}">
-                <div class="member-profile-item-head">
-                  <div>
-                    <strong>${escapeHtml(plan.planLabel)}</strong>
-                    <span>${escapeHtml(plan.planCategory === "clases" ? plan.relatedClassLabel : plan.planAccess)}</span>
-                  </div>
-                  <span class="admin-class-pill accent-${plan.statusTone}">${escapeHtml(plan.statusLabel)}</span>
-                </div>
-
-                <div class="member-profile-item-grid">
-                  <div>
-                    <span>Código</span>
-                    <strong>${escapeHtml(plan.accessCode)}</strong>
-                  </div>
-                  <div>
-                    <span>Vence</span>
-                    <strong>${escapeHtml(plan.endDateLabel)}</strong>
-                  </div>
-                  <div>
-                    <span>Días restantes</span>
-                    <strong>${escapeHtml(plan.accessMessage)}</strong>
-                  </div>
-                  <div>
-                    <span>Tipo</span>
-                    <strong>${escapeHtml(plan.planCategory === "clases" ? plan.relatedClassLabel : plan.planCategory === "general" ? "Acceso completo" : "Musculación")}</strong>
-                  </div>
-                </div>
-
-                <div class="member-profile-item-actions">
-                  <button class="btn btn-secondary admin-btn" type="button" data-renew-member-id="${plan.id}">
-                    Renovar plan
-                  </button>
-                  <button class="btn btn-secondary admin-btn admin-btn-danger" type="button" data-delete-member-id="${plan.id}">
-                    Eliminar
-                  </button>
-                </div>
-              </article>
-            `).join("")}
-          </div>
-        </article>
-      `;
-      })
-      .join("");
-  }
-
-  function renderExpiring() {
-    const expiringMembers = bookingApi.getMembers({ activeOnly: true, expiresWithin: 7 });
-    expiringCounter.textContent = `${expiringMembers.length} caso${expiringMembers.length === 1 ? "" : "s"}`;
-
-    if (!expiringMembers.length) {
-      expiringList.innerHTML = `
-        <article class="mini-status-card">
-          <strong>Sin vencimientos próximos</strong>
-          <p>No hay socios activos que venzan en los próximos 7 días.</p>
-        </article>
-      `;
-      return;
-    }
-
-    expiringList.innerHTML = expiringMembers
-      .map((member) => `
-        <article class="mini-status-card">
-          <strong>${escapeHtml(member.fullName)}</strong>
-          <p>${escapeHtml(member.planLabel)} | vence el ${escapeHtml(member.endDateLabel)}.</p>
-          <span>${escapeHtml(member.accessMessage)}</span>
-        </article>
-      `)
-      .join("");
-  }
-
-  function renderRenewals() {
-    const renewalCandidates = bookingApi.getMembers({ renewalCandidates: true, includeScheduled: false });
-    renewalCounter.textContent = `${renewalCandidates.length} caso${renewalCandidates.length === 1 ? "" : "s"}`;
-
-    if (!renewalCandidates.length) {
-      renewalList.innerHTML = `
-        <article class="mini-status-card">
-          <strong>Renovaciones al día</strong>
-          <p>No hay socios vencidos recientes ni por vencer que necesiten renovación inmediata.</p>
-        </article>
-      `;
-      return;
-    }
-
-    renewalList.innerHTML = renewalCandidates
-      .map((member) => `
-        <article class="mini-status-card mini-status-card-action">
-          <div>
-            <strong>${escapeHtml(member.fullName)}</strong>
-            <p>${escapeHtml(member.planLabel)} | ${escapeHtml(member.accessMessage)}</p>
-          </div>
-          <button class="btn btn-secondary admin-btn" type="button" data-renew-member-id="${member.id}">
-            Renovar
-          </button>
-        </article>
-      `)
-      .join("");
-  }
-
-  function renderCheckinHistory() {
-    const history = bookingApi.getCheckIns(12);
-    const stats = bookingApi.getStats();
-    checkinCounter.textContent = `${stats.checkInsToday} hoy`;
-
-    if (!history.length) {
-      checkinHistory.innerHTML = `
-        <article class="mini-status-card">
-          <strong>Sin check-ins todavía</strong>
-          <p>Los ingresos validados desde caja se van a guardar y listar acá.</p>
-        </article>
-      `;
-      return;
-    }
-
-    checkinHistory.innerHTML = history
-      .map((entry) => {
-        const tone = entry.result === "active" ? "available" : entry.result === "scheduled" ? "accent" : "danger";
-        const status = entry.result === "active" ? "Activo" : entry.result === "scheduled" ? "Programado" : "Vencido";
-
-        return `
-          <article class="mini-status-card">
-            <div class="mini-status-head">
-              <strong>${escapeHtml(entry.member?.fullName || "Socio no disponible")}</strong>
-              <span class="admin-class-pill accent-${tone}">${status}</span>
-            </div>
-            <p>${escapeHtml(entry.member?.planSummary || entry.member?.planLabel || "Sin plan")} | ${escapeHtml(entry.timeLabel)} del ${escapeHtml(entry.dateLabel)}</p>
-            <span>${escapeHtml(entry.member?.accessMessage || "Registro histórico")}</span>
-          </article>
-        `;
-      })
-      .join("");
-  }
-
-  function getCheckinDisplayPlans(member) {
-    if (Array.isArray(member.plans) && member.plans.length) {
-      const activePlans = member.plans.filter((plan) => plan.isActive);
-
-      if (activePlans.length) {
-        return activePlans;
-      }
-
-      const scheduledPlans = member.plans.filter((plan) => plan.isScheduled);
-      return scheduledPlans.length ? scheduledPlans : member.plans;
-    }
-
-    if (!member.planLabel) {
-      return [];
-    }
-
-    return [
-      {
-        ...member,
-        id: member.id || member.accessCode || member.planLabel,
-        statusTone: member.statusTone || (member.isActive ? "available" : member.isScheduled ? "accent" : "danger"),
-      },
-    ];
-  }
-
-  function renderCheckinPlanList(member) {
-    const displayPlans = getCheckinDisplayPlans(member);
-
-    if (!displayPlans.length) {
-      return "";
-    }
-
-    return `
-      <div class="checkin-plan-list">
-        ${displayPlans.map((plan) => `
-          <article class="checkin-plan-item accent-${plan.statusTone}${plan.id === member.matchedPlanId ? " is-matched" : ""}">
-            <div class="checkin-plan-item-head">
-              <strong>${escapeHtml(plan.planLabel)}</strong>
-              <span>${escapeHtml(plan.planCategory === "clases" ? plan.relatedClassLabel : plan.planCategory === "general" ? "Acceso completo" : "Musculación")}</span>
-            </div>
-            <div class="checkin-plan-item-meta">
-              <span>Código ${escapeHtml(plan.accessCode)}</span>
-              <span>Vence ${escapeHtml(plan.endDateLabel)}</span>
-              <span>${escapeHtml(plan.accessMessage)}</span>
+            <div class="admin-card-actions">
+              <button class="btn btn-secondary admin-btn" type="button" data-edit-schedule-id="${escapeHtml(schedule.id)}">
+                Editar
+              </button>
+              <button class="btn btn-secondary admin-btn admin-btn-danger" type="button" data-delete-schedule-id="${escapeHtml(schedule.id)}">
+                🗑️ Eliminar
+              </button>
             </div>
           </article>
-        `).join("")}
-      </div>
-    `;
-  }
-
-  function renderCheckinAlert(member) {
-    const displayPlans = getCheckinDisplayPlans(member);
-    const activePlanCount = member.activePlanCount ?? displayPlans.filter((plan) => plan.isActive).length;
-    const scheduledPlanCount = member.scheduledPlanCount ?? displayPlans.filter((plan) => plan.isScheduled).length;
-    const expiredPlanCount = member.expiredPlanCount ?? displayPlans.filter((plan) => !plan.isActive && !plan.isScheduled).length;
-    const alertClass =
-      member.checkInResult === "active"
-        ? "checkin-alert-success"
-        : member.checkInResult === "scheduled"
-          ? "checkin-alert-warning"
-          : "checkin-alert-error";
-
-    const headline =
-      member.checkInResult === "active"
-        ? activePlanCount > 1 ? "PLANES ACTIVOS" : "PLAN ACTIVO"
-        : member.checkInResult === "scheduled"
-          ? "PLAN AÚN NO ACTIVO"
-          : "MEMBRESÍA VENCIDA";
-
-    checkinAlert.className = `checkin-alert ${alertClass}`;
-    checkinAlert.innerHTML = `
-      <strong>${headline}</strong>
-      <p>${escapeHtml(member.fullName)} | CI ${escapeHtml(member.nationalId)}</p>
-      <div class="checkin-alert-grid">
-        <span>${activePlanCount} activo${activePlanCount === 1 ? "" : "s"}</span>
-        <span>${scheduledPlanCount} programado${scheduledPlanCount === 1 ? "" : "s"}</span>
-        <span>${expiredPlanCount} vencido${expiredPlanCount === 1 ? "" : "s"}</span>
-      </div>
-      ${renderCheckinPlanList(member)}
-      <small>${escapeHtml(member.accessMessage)}</small>
-    `;
-  }
-
-  function renderAccordionSection(sectionKey) {
-    if (sectionKey === "requests") {
-      renderReservations();
-      return;
-    }
-
-    if (sectionKey === "reservations") {
-      renderClassReservations();
-      return;
-    }
-
-    if (sectionKey === "schedules") {
-      renderSchedules();
-      return;
-    }
-
-    if (sectionKey === "members") {
-      renderMembers();
-    }
-  }
-
-  function toggleAccordionSection(sectionKey, forceOpen) {
-    const nextOpen = typeof forceOpen === "boolean" ? forceOpen : !accordionState[sectionKey];
-    setAccordionOpen(sectionKey, nextOpen);
-
-    if (nextOpen) {
-      renderAccordionSection(sectionKey);
-    } else {
-      updateSectionCounters();
-    }
+        `
+      )
+      .join("");
   }
 
   function renderDashboard() {
+    renderFilterTabs();
     renderStats();
-    updateSectionCounters();
-    renderExpiring();
-    renderRenewals();
-    renderCheckinHistory();
-
-    Object.entries(accordionState)
-      .filter(([, isOpen]) => isOpen)
-      .forEach(([sectionKey]) => {
-        renderAccordionSection(sectionKey);
-      });
+    renderDisciplineSummary();
+    renderSchedules();
   }
 
-  dashboard.addEventListener("click", async (event) => {
-    const toggleButton = event.target.closest("[data-toggle-section]");
-    const approveButton = event.target.closest("[data-approve-request-id]");
-    const rejectButton = event.target.closest("[data-reject-request-id]");
-    const confirmReservationButton = event.target.closest("[data-confirm-reservation-id]");
-    const cancelReservationButton = event.target.closest("[data-cancel-reservation-id]");
-    const renewButton = event.target.closest("[data-renew-member-id]");
-    const deleteButton = event.target.closest("[data-delete-member-id]");
-    const deleteScheduleButton = event.target.closest("[data-delete-schedule-id]");
+  function resetScheduleForm() {
+    scheduleIdInput.value = "";
+    scheduleForm.reset();
+    populateScheduleFields();
+    cancelEditButton.classList.add("is-hidden");
+    scheduleButton.querySelector(".btn-text").textContent = "Guardar horario";
+    setFeedback(
+      adminFormFeedback,
+      "idle",
+      "Cargá o editá una franja semanal para actualizar automáticamente la grilla azul del home."
+    );
+  }
 
-    if (toggleButton) {
-      toggleAccordionSection(toggleButton.dataset.toggleSection);
+  function startEditSchedule(scheduleId) {
+    const schedule = bookingApi.getScheduleById(scheduleId);
+
+    if (!schedule) {
+      showToast("No encontramos ese horario para editar.", "error");
       return;
     }
 
-    if (approveButton) {
-      try {
-        setFeedback(pendingFeedback, "loading", "Confirmando pago y generando código premium...");
-        await wait(380);
-        const approved = bookingApi.approveMembershipRequest(approveButton.dataset.approveRequestId);
-        const profile = bookingApi.findMemberByIdentifier(approved.member.nationalId) || approved.member;
-        setFeedback(pendingFeedback, "success", `Pago confirmado. Código de acceso: ${approved.member.accessCode}`);
-        renderCheckinAlert({
-          ...profile,
-          checkInResult: profile.isActive ? "active" : profile.isScheduled ? "scheduled" : "expired",
-        });
-        showToast(`Pago confirmado para ${approved.member.fullName}. Código ${approved.member.accessCode}.`, "success");
-      } catch (error) {
-        setFeedback(pendingFeedback, "error", error.message);
-        showToast(error.message, "error");
-      }
+    scheduleIdInput.value = schedule.id;
+    disciplineSelect.value = schedule.disciplineKey;
+    weekdaySelect.value = schedule.weekdayKey;
+    slotSelect.value = schedule.slotKey;
+    cancelEditButton.classList.remove("is-hidden");
+    scheduleButton.querySelector(".btn-text").textContent = "Guardar cambios";
+    setFeedback(
+      adminFormFeedback,
+      "warning",
+      `Editando ${schedule.disciplineLabel} del ${schedule.weekdayLabel} a las ${schedule.slotLabel}.`
+    );
 
+    window.scrollTo({
+      top: scheduleForm.getBoundingClientRect().top + window.scrollY - 120,
+      behavior: "smooth",
+    });
+  }
+
+  function closeScheduleDeleteModal() {
+    pendingDeleteId = "";
+    scheduleDeleteModal.classList.add("is-hidden");
+    scheduleDeleteModal.hidden = true;
+    scheduleDeleteModal.setAttribute("aria-hidden", "true");
+  }
+
+  function openScheduleDeleteModal(scheduleId) {
+    const schedule = bookingApi.getScheduleById(scheduleId);
+
+    if (!schedule) {
+      showToast("No encontramos ese horario para eliminar.", "error");
       return;
     }
 
-    if (rejectButton) {
-      try {
-        const rejected = bookingApi.rejectMembershipRequest(rejectButton.dataset.rejectRequestId);
-        setFeedback(pendingFeedback, "warning", `Solicitud rechazada para ${rejected.fullName}.`);
-        showToast(`Solicitud rechazada para ${rejected.fullName}.`, "warning");
-      } catch (error) {
-        setFeedback(pendingFeedback, "error", error.message);
-        showToast(error.message, "error");
-      }
+    pendingDeleteId = schedule.id;
+    scheduleDeleteModalCopy.textContent = `Si confirmás, ${schedule.disciplineLabel} del ${schedule.weekdayLabel} en la franja ${schedule.slotLabel} desaparece del panel y de la grilla pública.`;
+    scheduleDeleteModal.hidden = false;
+    scheduleDeleteModal.classList.remove("is-hidden");
+    scheduleDeleteModal.setAttribute("aria-hidden", "false");
+    scheduleDeleteConfirm.focus();
+  }
 
-      return;
-    }
-
-    if (confirmReservationButton) {
-      try {
-        setFeedback(classReservationsFeedback, "loading", "Confirmando reserva de clase...");
-        await wait(320);
-        const reservation = bookingApi.confirmReservation(confirmReservationButton.dataset.confirmReservationId);
-        setFeedback(classReservationsFeedback, "success", `Reserva confirmada para ${reservation.fullName} en ${reservation.classLabel} a las ${reservation.time}.`);
-        showToast(`Reserva confirmada para ${reservation.fullName}.`, "success");
-      } catch (error) {
-        setFeedback(classReservationsFeedback, "error", error.message);
-        showToast(error.message, "error");
-      }
-
-      return;
-    }
-
-    if (cancelReservationButton) {
-      const reservationCard = cancelReservationButton.closest(".admin-reservation-card");
-      const reservationName = reservationCard?.querySelector(".admin-reservation-head strong")?.textContent?.trim() || "esta reserva";
-
-      if (!window.confirm(`Vas a cancelar la reserva de ${reservationName}. El cupo vuelve a quedar libre.`)) {
-        return;
-      }
-
-      try {
-        const removed = bookingApi.cancelReservation(cancelReservationButton.dataset.cancelReservationId);
-        setFeedback(classReservationsFeedback, "warning", `Reserva cancelada para ${removed.fullName}. El horario volvió a quedar disponible.`);
-        showToast(`Reserva cancelada para ${removed.fullName}.`, "warning");
-      } catch (error) {
-        setFeedback(classReservationsFeedback, "error", error.message);
-        showToast(error.message, "error");
-      }
-
-      return;
-    }
-
-    if (deleteButton) {
-      const memberProfileItem = deleteButton.closest(".member-profile-item");
-      const memberCard = deleteButton.closest(".member-card");
-      const classPlanCard = deleteButton.closest(".admin-reservation-card");
-      const planName = memberProfileItem?.querySelector(".member-profile-item-head strong")?.textContent?.trim()
-        || classPlanCard?.querySelector(".admin-reservation-head .admin-class-pill")?.textContent?.trim()
-        || "este plan";
-      const memberName = memberCard?.querySelector(".member-card-head strong")?.textContent?.trim()
-        || classPlanCard?.querySelector(".admin-reservation-head strong")?.textContent?.trim()
-        || "este socio";
-
-      if (!window.confirm(`Vas a eliminar ${planName} de ${memberName}. También se ajusta su historial de check-ins.`)) {
-        return;
-      }
-
-      try {
-        const removed = bookingApi.deleteMember(deleteButton.dataset.deleteMemberId);
-        showToast(`Plan eliminado para ${removed.fullName}.`, "success");
-      } catch (error) {
-        showToast(error.message, "error");
-      }
-
-      return;
-    }
-
-    if (deleteScheduleButton) {
-      const schedule = bookingApi
-        .getSchedules({ futureOnly: true, schedulableOnly: true })
-        .find((item) => item.id === deleteScheduleButton.dataset.deleteScheduleId);
-
-      if (!schedule) {
-        showToast("No encontramos ese horario para eliminar.", "error");
-        return;
-      }
-
-      openScheduleDeleteModal(schedule);
-      return;
-    }
-
-    if (!renewButton) {
-      return;
-    }
-
-    try {
-      const memberProfileItem = renewButton.closest(".member-profile-item");
-      const planName = memberProfileItem?.querySelector(".member-profile-item-head strong")?.textContent?.trim();
-      const renewed = bookingApi.renewMembership(renewButton.dataset.renewMemberId);
-      const profile = bookingApi.findMemberByIdentifier(renewed.nationalId) || renewed;
-      showToast(`Plan ${planName || renewed.planLabel} renovado para ${renewed.fullName}.`, "success");
-      renderCheckinAlert({
-        ...profile,
-        checkInResult: profile.isActive ? "active" : profile.isScheduled ? "scheduled" : "expired",
-      });
-    } catch (error) {
-      showToast(error.message, "error");
-    }
-  });
+  populateScheduleFields();
+  resetScheduleForm();
 
   loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-
-    loginButton.classList.add("is-loading");
-    loginButton.disabled = true;
-    gateNote.textContent = "Validando acceso...";
+    toggleButtonLoading(loginButton, true);
+    gateNote.textContent = "Validando acceso al panel...";
 
     try {
-      await wait(620);
+      await wait(280);
 
       if (pinInput.value.trim() !== bookingApi.adminPin) {
-        gateNote.textContent = "PIN incorrecto. Volvé a intentar.";
-        showToast("PIN incorrecto.", "error");
-        return;
+        throw new Error("PIN incorrecto. Verificá el acceso del panel.");
       }
 
       unlockDashboard();
-      showToast("Acceso concedido al panel privado.", "success");
+      gateNote.textContent = "Acceso habilitado.";
+      pinInput.value = "";
+    } catch (error) {
+      gateNote.textContent = error.message;
     } finally {
-      loginButton.classList.remove("is-loading");
-      loginButton.disabled = false;
+      toggleButtonLoading(loginButton, false);
     }
   });
 
   scheduleForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-
-    scheduleButton.classList.add("is-loading");
-    scheduleButton.disabled = true;
-    setFeedback(adminFormFeedback, "loading", "Actualizando agenda premium...");
+    toggleButtonLoading(scheduleButton, true);
+    setFeedback(adminFormFeedback, "loading", "Guardando horario en la agenda...");
 
     try {
-      await wait(620);
+      await wait(240);
 
-      bookingApi.addSchedule({
-        date: adminDate.value,
-        time: adminTime.value,
-        discipline: adminClass.value,
-        capacity: Number(adminCapacity.value),
-        repeatWeekly: adminRepeatWeekly.checked,
-      });
+      const payload = {
+        disciplineKey: disciplineSelect.value,
+        weekdayKey: weekdaySelect.value,
+        slotKey: slotSelect.value,
+      };
 
+      const isEditing = Boolean(scheduleIdInput.value);
+      const schedule = isEditing
+        ? bookingApi.updateSchedule(scheduleIdInput.value, payload)
+        : bookingApi.createSchedule(payload);
+
+      renderDashboard();
+      resetScheduleForm();
       setFeedback(
         adminFormFeedback,
         "success",
-        adminRepeatWeekly.checked
-          ? "Horario semanal agregado. Ya quedaron cargadas sus próximas ocurrencias en la agenda."
-          : "Horario agregado. Ya quedó visible en la agenda del sitio y en este panel."
+        `${schedule.disciplineLabel} quedó ${isEditing ? "actualizado" : "cargado"} para ${schedule.weekdayLabel} en ${schedule.slotLabel}.`
       );
-      showToast("Nuevo horario agregado con éxito.", "success");
-      scheduleForm.reset();
-      syncDateField(adminDate);
-      populateClassOptions();
-      syncScheduleCapacitySuggestion();
+      showToast(`Horario ${isEditing ? "actualizado" : "guardado"} correctamente.`, "success");
     } catch (error) {
       setFeedback(adminFormFeedback, "error", error.message);
       showToast(error.message, "error");
     } finally {
-      scheduleButton.classList.remove("is-loading");
-      scheduleButton.disabled = false;
+      toggleButtonLoading(scheduleButton, false);
     }
   });
 
-  dashboard.addEventListener("submit", async (event) => {
-    const capacityForm = event.target.closest("[data-update-schedule-id]");
-
-    if (!capacityForm) {
-      return;
-    }
-
-    event.preventDefault();
-
-    const submit = capacityForm.querySelector('button[type="submit"]');
-    const input = capacityForm.querySelector('input[type="number"]');
-
-    submit.classList.add("is-loading");
-    submit.disabled = true;
-    setFeedback(adminFormFeedback, "loading", "Actualizando cupos del horario...");
-
-    try {
-      await wait(320);
-      const updatedSchedule = bookingApi.updateScheduleCapacity(capacityForm.dataset.updateScheduleId, Number(input.value));
-      setFeedback(adminFormFeedback, "success", `Cupos actualizados para ${updatedSchedule.classLabel} del ${updatedSchedule.dateLabel} a las ${updatedSchedule.time}.`);
-      showToast(`Cupos actualizados para ${updatedSchedule.classLabel}.`, "success");
-    } catch (error) {
-      setFeedback(adminFormFeedback, "error", error.message);
-      showToast(error.message, "error");
-    } finally {
-      submit.classList.remove("is-loading");
-      submit.disabled = false;
-    }
-  });
-
-  scheduleDeleteModal.addEventListener("click", (event) => {
-    if (event.target.closest("[data-close-schedule-modal]")) {
-      closeScheduleDeleteModal();
-    }
-  });
-
-  scheduleDeleteConfirm.addEventListener("click", async () => {
-    if (!pendingScheduleDeleteId) {
-      closeScheduleDeleteModal();
-      return;
-    }
-
-    scheduleDeleteConfirm.classList.add("is-loading");
-    scheduleDeleteConfirm.disabled = true;
-    setFeedback(adminFormFeedback, "loading", "Eliminando horario de la agenda...");
-
-    try {
-      await wait(280);
-      const removedSchedule = bookingApi.deleteSchedule(pendingScheduleDeleteId);
-      const reservationsNote = removedSchedule.removedReservationsCount
-        ? ` También se eliminaron ${removedSchedule.removedReservationsCount} reserva${removedSchedule.removedReservationsCount === 1 ? "" : "s"} asociada${removedSchedule.removedReservationsCount === 1 ? "" : "s"}.`
-        : "";
-      setFeedback(
-        adminFormFeedback,
-        "success",
-        `Horario eliminado correctamente. ${removedSchedule.classLabel} del ${removedSchedule.dateLabel} a las ${removedSchedule.time} ya no figura en la agenda.${reservationsNote}`
-      );
-      showToast("Horario eliminado correctamente", "success");
-      closeScheduleDeleteModal();
-    } catch (error) {
-      setFeedback(adminFormFeedback, "error", error.message);
-      showToast(error.message, "error");
-    } finally {
-      scheduleDeleteConfirm.classList.remove("is-loading");
-      scheduleDeleteConfirm.disabled = false;
-    }
-  });
-
-  window.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !scheduleDeleteModal.classList.contains("is-hidden")) {
-      closeScheduleDeleteModal();
-    }
-  });
-
-  memberForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-
-    if (!syncMemberIdValidity()) {
-      setFeedback(memberFormFeedback, "error", memberId.validationMessage);
-      memberId.reportValidity();
-      return;
-    }
-
-    if (!syncMemberPhoneValidity()) {
-      setFeedback(memberFormFeedback, "error", memberPhone.validationMessage);
-      memberPhone.reportValidity();
-      return;
-    }
-
-    memberButton.classList.add("is-loading");
-    memberButton.disabled = true;
-    setFeedback(memberFormFeedback, "loading", "Generando membresía y código de acceso...");
-
-    try {
-      await wait(620);
-      memberName.value = memberName.value.trim();
-
-      const member = bookingApi.createMember({
-        fullName: memberName.value,
-        nationalId: memberId.value,
-        phone: memberPhone.value,
-        planType: memberPlan.value,
-        startDate: memberStart.value,
-      });
-
-      setFeedback(
-        memberFormFeedback,
-        "success",
-        member.isScheduled
-          ? `Plan creado con éxito. Código ${member.accessCode}. Inicia el ${member.startDateLabel}.`
-          : `Socio creado con éxito. Código ${member.accessCode}. Vence el ${member.endDateLabel}.`
-      );
-      showToast(`Socio ${member.fullName} creado con código ${member.accessCode}.`, "success");
-      memberForm.reset();
-      syncDateField(memberStart);
-      updateMembershipPreview();
-    } catch (error) {
-      setFeedback(memberFormFeedback, "error", error.message);
-      showToast(error.message, "error");
-    } finally {
-      memberButton.classList.remove("is-loading");
-      memberButton.disabled = false;
-    }
-  });
-
-  checkinForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-
-    if (!syncCheckinValidity()) {
-      checkinAlert.className = "checkin-alert checkin-alert-error";
-      checkinAlert.innerHTML = `
-        <strong>DATOS INVÁLIDOS</strong>
-        <p>${escapeHtml(checkinQuery.validationMessage)}</p>
-        <small>Usá un código de 4 a 6 dígitos o una cédula de 7 a 8 dígitos.</small>
-      `;
-      checkinQuery.reportValidity();
-      return;
-    }
-
-    checkinButton.classList.add("is-loading");
-    checkinButton.disabled = true;
-
-    try {
-      await wait(420);
-      const member = bookingApi.checkInMember(checkinQuery.value);
-      renderCheckinAlert(member);
-      showToast(
-        member.checkInResult === "active"
-          ? `Ingreso validado para ${member.fullName}. ${member.activePlanCount} plan${member.activePlanCount === 1 ? "" : "es"} activo${member.activePlanCount === 1 ? "" : "s"}.`
-          : member.checkInResult === "scheduled"
-            ? `${member.fullName} tiene ${member.scheduledPlanCount} plan${member.scheduledPlanCount === 1 ? "" : "es"} programado${member.scheduledPlanCount === 1 ? "" : "s"}.`
-            : `Atención: ${member.fullName} no tiene una membresía activa.`,
-        member.checkInResult === "active" ? "success" : member.checkInResult === "scheduled" ? "warning" : "error"
-      );
-      checkinForm.reset();
-    } catch (error) {
-      checkinAlert.className = "checkin-alert checkin-alert-error";
-      checkinAlert.innerHTML = `
-        <strong>VALIDACIÓN NO ENCONTRADA</strong>
-        <p>${escapeHtml(error.message)}</p>
-        <small>Probá con el código corto del socio o su número de cédula.</small>
-      `;
-      showToast(error.message, "error");
-    } finally {
-      checkinButton.classList.remove("is-loading");
-      checkinButton.disabled = false;
-    }
-  });
-
-  adminClass.addEventListener("input", syncScheduleCapacitySuggestion);
-  adminClass.addEventListener("change", syncScheduleCapacitySuggestion);
-  adminClass.addEventListener("blur", () => {
-    adminClass.value = bookingApi.sanitizeDisciplineLabel(adminClass.value);
-  });
-
-  memberSearch.addEventListener("input", () => {
-    memberListState.query = memberSearch.value;
-
-    if (accordionState.members) {
-      renderMembers();
-    }
-  });
-
-  memberFilterTabs.addEventListener("click", (event) => {
-    const filterButton = event.target.closest("[data-member-filter]");
-
-    if (!filterButton) {
-      return;
-    }
-
-    memberListState.filter = filterButton.dataset.memberFilter;
-    updateFilterTabState(memberFilterTabs, "[data-member-filter]", memberListState.filter);
-
-    if (accordionState.members) {
-      renderMembers();
-    }
+  cancelEditButton.addEventListener("click", () => {
+    resetScheduleForm();
   });
 
   scheduleSearch.addEventListener("input", () => {
     scheduleListState.query = scheduleSearch.value;
-
-    if (accordionState.schedules) {
-      renderSchedules();
-    }
+    renderSchedules();
   });
 
   scheduleFilterTabs.addEventListener("click", (event) => {
@@ -1401,37 +426,54 @@ if (bookingApi) {
     }
 
     scheduleListState.filter = filterButton.dataset.scheduleFilter;
-    updateFilterTabState(scheduleFilterTabs, "[data-schedule-filter]", scheduleListState.filter);
+    renderDashboard();
+  });
 
-    if (accordionState.schedules) {
-      renderSchedules();
+  schedulesList.addEventListener("click", (event) => {
+    const editButton = event.target.closest("[data-edit-schedule-id]");
+    const deleteButton = event.target.closest("[data-delete-schedule-id]");
+
+    if (editButton) {
+      startEditSchedule(editButton.dataset.editScheduleId);
+      return;
+    }
+
+    if (deleteButton) {
+      openScheduleDeleteModal(deleteButton.dataset.deleteScheduleId);
     }
   });
 
-  bindValidatedField(memberPhone, syncMemberPhoneValidity);
-  bindValidatedField(memberId, syncMemberIdValidity);
-  bindValidatedField(checkinQuery, syncCheckinValidity);
-  memberPlan.addEventListener("change", updateMembershipPreview);
-  memberStart.addEventListener("change", updateMembershipPreview);
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("[data-close-schedule-modal]")) {
+      return;
+    }
+
+    closeScheduleDeleteModal();
+  });
+
+  scheduleDeleteConfirm.addEventListener("click", () => {
+    if (!pendingDeleteId) {
+      closeScheduleDeleteModal();
+      return;
+    }
+
+    try {
+      bookingApi.deleteSchedule(pendingDeleteId);
+      renderDashboard();
+      resetScheduleForm();
+      closeScheduleDeleteModal();
+      showToast("Horario eliminado correctamente.", "success");
+    } catch (error) {
+      closeScheduleDeleteModal();
+      showToast(error.message, "error");
+    }
+  });
 
   window.addEventListener(bookingApi.changeEvent, () => {
-    if (!dashboard.classList.contains("is-hidden")) {
-      renderDashboard();
+    if (!isDashboardUnlocked) {
+      return;
     }
 
-    populateClassOptions();
-    renderScheduleFilters();
+    renderDashboard();
   });
-
-  populateClassOptions();
-  populatePlanOptions();
-  syncDateField(adminDate);
-  syncDateField(memberStart);
-  renderScheduleFilters();
-  syncScheduleCapacitySuggestion();
-  updateMembershipPreview();
-  Object.keys(accordionState).forEach((sectionKey) => setAccordionOpen(sectionKey, false));
-  updateFilterTabState(memberFilterTabs, "[data-member-filter]", memberListState.filter);
-
-  closeScheduleDeleteModal();
 }

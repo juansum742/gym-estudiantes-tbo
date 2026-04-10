@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Panel Privado | Estudiantes TBÓ</title>
-  <meta name="description" content="Panel privado de gestión premium para membresías, clases y control de acceso de Estudiantes TBÓ.">
+  <meta name="description" content="Panel privado de horarios y disciplinas de Estudiantes TBÓ.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -34,9 +34,9 @@
         <div class="container">
           <div class="admin-gate-card">
             <p class="section-kicker">Panel privado</p>
-            <h1 class="section-title">Gestión premium TBÓ</h1>
+            <h1 class="section-title">Gestión de agenda TBÓ</h1>
             <p class="section-text">
-              Ingresá al panel para administrar membresías, planes mensuales de clases, horarios y control de acceso desde una interfaz oscura y deportiva.
+              Ingresá al panel para administrar únicamente los horarios y disciplinas visibles en la web pública del club.
             </p>
 
             <form class="admin-login-form" id="admin-login-form">
@@ -60,10 +60,10 @@
         <div class="container">
           <div class="admin-intro">
             <div>
-              <p class="section-kicker">Dashboard premium</p>
-              <h2 class="section-title">Socios, clases y acceso en tiempo real</h2>
+              <p class="section-kicker">Dashboard privado</p>
+              <h2 class="section-title">Agenda semanal y disciplinas en tiempo real</h2>
               <p class="section-text">
-                Todo lo que se solicite desde la home y se confirme desde caja impacta acá. Solicitudes pendientes, activaciones, check-ins y control de planes viven en el mismo panel premium.
+                Todo el panel está enfocado en una sola tarea: administrar la agenda del club y sincronizar automáticamente la grilla azul del home.
               </p>
             </div>
 
@@ -75,309 +75,101 @@
 
           <div class="admin-stats-grid">
             <article class="admin-stat-card">
-              <span>Solicitudes pendientes</span>
-              <strong id="stat-pending-requests" data-admin-value="0">0</strong>
+              <span>Horarios cargados</span>
+              <strong id="stat-total-schedules" data-admin-value="0">0</strong>
             </article>
             <article class="admin-stat-card">
-              <span>Socios activos</span>
-              <strong id="stat-active-members" data-admin-value="0">0</strong>
+              <span>Disciplinas activas</span>
+              <strong id="stat-disciplines" data-admin-value="0">0</strong>
             </article>
             <article class="admin-stat-card">
-              <span>Planes activos</span>
-              <strong id="stat-active-plans" data-admin-value="0">0</strong>
+              <span>Días con clases</span>
+              <strong id="stat-days" data-admin-value="0">0</strong>
             </article>
             <article class="admin-stat-card">
-              <span>Vencen esta semana</span>
-              <strong id="stat-expiring-week" data-admin-value="0">0</strong>
+              <span>Franjas base</span>
+              <strong id="stat-slots" data-admin-value="0">0</strong>
             </article>
           </div>
 
           <div class="admin-workspace">
             <aside class="admin-form-shell">
               <div class="admin-panel-head">
-                <p class="section-kicker">Alta de horarios</p>
-                <h3>Nueva agenda</h3>
-                <p>Creá horarios únicos o semanales, definí la disciplina y administrá sus cupos disponibles desde el panel.</p>
+                <p class="section-kicker">Alta y edición</p>
+                <h3>Agenda semanal</h3>
+                <p>Definí la disciplina, el día y la franja horaria. Cada cambio impacta automáticamente en la grilla pública del club.</p>
               </div>
 
               <form class="admin-schedule-form" id="admin-schedule-form">
-                <label class="form-field">
-                  <span>Fecha</span>
-                  <input id="admin-date" type="date" required>
-                </label>
-
-                <label class="form-field">
-                  <span>Hora</span>
-                  <input id="admin-time" type="time" required>
-                </label>
+                <input id="admin-schedule-id" type="hidden">
 
                 <label class="form-field">
                   <span>Disciplina</span>
-                  <input id="admin-class" type="text" list="admin-class-options" placeholder="Indoor Bike, Karate, Zumba..." autocomplete="off" required>
-                  <datalist id="admin-class-options"></datalist>
+                  <select id="admin-discipline" required></select>
                 </label>
 
                 <label class="form-field">
-                  <span>Capacidad</span>
-                  <input id="admin-capacity" type="number" min="1" max="40" step="1" value="12" required>
+                  <span>Día</span>
+                  <select id="admin-weekday" required></select>
                 </label>
 
-                <label class="admin-switch-field" for="admin-repeat-weekly">
-                  <input id="admin-repeat-weekly" type="checkbox">
-                  <span>Repetir este horario todas las semanas</span>
+                <label class="form-field">
+                  <span>Franja horaria</span>
+                  <select id="admin-slot" required></select>
                 </label>
 
-                <button class="btn btn-primary admin-btn" type="submit" id="admin-schedule-button">
-                  <span class="btn-text">Agregar horario</span>
-                  <span class="btn-loader" aria-hidden="true"></span>
-                </button>
+                <div class="admin-slot-guide">
+                  <strong>Franjas base del club</strong>
+                  <span>8:00 a 9:00 • 8:15 a 9:00 • 16:40 hs • 18:00 a 19:00 • 18:40 hs • 19:00 a 19:45 • 20:00 a 21:00</span>
+                </div>
+
+                <div class="admin-form-actions">
+                  <button class="btn btn-primary admin-btn" type="submit" id="admin-schedule-button">
+                    <span class="btn-text">Guardar horario</span>
+                    <span class="btn-loader" aria-hidden="true"></span>
+                  </button>
+                  <button class="btn btn-secondary admin-btn is-hidden" type="button" id="admin-cancel-edit">
+                    Cancelar edición
+                  </button>
+                </div>
               </form>
 
               <div class="booking-feedback booking-feedback-idle" id="admin-form-feedback" aria-live="polite">
-                Cargá un nuevo horario para que aparezca en la agenda del sitio y quede disponible en este panel.
+                Cargá o editá una franja semanal para actualizar automáticamente la grilla azul del home.
               </div>
             </aside>
 
-            <section class="admin-list-shell admin-accordion-shell" data-accordion-section="requests">
-              <button class="admin-accordion-toggle" type="button" data-toggle-section="requests" aria-expanded="false">
-                <div class="admin-panel-head admin-panel-head-inline">
-                  <div>
-                    <p class="section-kicker">Solicitudes pendientes</p>
-                    <h3>Confirmación manual</h3>
-                  </div>
-                  <div class="admin-accordion-meta">
-                    <div class="admin-list-counter" id="admin-requests-counter">0 pendientes</div>
-                    <span class="admin-accordion-icon" aria-hidden="true">▶</span>
-                  </div>
-                </div>
-              </button>
-
-              <div class="admin-accordion-collapse" data-section-panel="requests">
-                <div class="admin-accordion-collapse-inner">
-                  <div class="admin-reservations" id="admin-requests"></div>
-
-                  <div class="booking-feedback booking-feedback-idle" id="pending-feedback" aria-live="polite">
-                    Las solicitudes enviadas desde la home esperan confirmación manual del pago.
-                  </div>
-                </div>
+            <section class="admin-list-shell">
+              <div class="admin-panel-head">
+                <p class="section-kicker">Disciplinas</p>
+                <h3>Resumen activo</h3>
+                <p>Vista rápida de las disciplinas del club y cuántos horarios tiene cargados cada una dentro de la agenda semanal.</p>
               </div>
+
+              <div class="admin-mini-list" id="admin-discipline-summary"></div>
             </section>
           </div>
 
-          <div class="admin-class-bookings-grid">
-            <section class="admin-list-shell admin-accordion-shell" data-accordion-section="reservations">
-              <button class="admin-accordion-toggle" type="button" data-toggle-section="reservations" aria-expanded="false">
-                <div class="admin-panel-head admin-panel-head-inline">
-                  <div>
-                    <p class="section-kicker">Reservas de clases</p>
-                    <h3>Reservas activas</h3>
-                  </div>
-                  <div class="admin-accordion-meta">
-                    <div class="admin-list-counter" id="class-reservations-counter">0 reservas</div>
-                    <span class="admin-accordion-icon" aria-hidden="true">▶</span>
-                  </div>
-                </div>
-              </button>
-
-              <div class="admin-accordion-collapse" data-section-panel="reservations">
-                <div class="admin-accordion-collapse-inner">
-                  <div class="admin-reservations" id="class-reservations"></div>
-
-                  <div class="booking-feedback booking-feedback-idle" id="class-reservations-feedback" aria-live="polite">
-                    Acá vas a ver las reservas creadas desde la home para confirmar o cancelar cada lugar.
-                  </div>
-                </div>
+          <section class="admin-list-shell">
+            <div class="admin-panel-head admin-panel-head-inline">
+              <div>
+                <p class="section-kicker">Horarios y agendas</p>
+                <h3>Agenda cargada</h3>
               </div>
-            </section>
-
-            <section class="admin-list-shell admin-accordion-shell" data-accordion-section="schedules">
-              <button class="admin-accordion-toggle" type="button" data-toggle-section="schedules" aria-expanded="false">
-                <div class="admin-panel-head admin-panel-head-inline">
-                  <div>
-                    <p class="section-kicker">Horarios y cupos</p>
-                    <h3>Agenda de clases</h3>
-                  </div>
-                  <div class="admin-accordion-meta">
-                    <div class="admin-list-counter" id="admin-schedules-counter">0 horarios</div>
-                    <span class="admin-accordion-icon" aria-hidden="true">▶</span>
-                  </div>
-                </div>
-              </button>
-
-              <div class="admin-accordion-collapse" data-section-panel="schedules">
-                <div class="admin-accordion-collapse-inner">
-                  <div class="admin-toolbar">
-                    <label class="form-field admin-search-field">
-                      <span>Buscar horario</span>
-                      <input id="schedule-search" type="search" placeholder="Buscar por disciplina, día u hora">
-                    </label>
-
-                    <div class="admin-filter-tabs" id="schedule-filter-tabs">
-                      <button class="admin-filter-tab is-active" type="button" data-schedule-filter="all">Todos</button>
-                      <button class="admin-filter-tab" type="button" data-schedule-filter="indoor">Indoor Bike</button>
-                      <button class="admin-filter-tab" type="button" data-schedule-filter="fullgap">Full Gap</button>
-                      <button class="admin-filter-tab" type="button" data-schedule-filter="funcional">Funcional</button>
-                      <button class="admin-filter-tab" type="button" data-schedule-filter="kick">Kick Boxing</button>
-                    </div>
-                  </div>
-
-                  <div class="admin-reservations" id="admin-schedules-list"></div>
-                </div>
-              </div>
-            </section>
-          </div>
-
-          <div class="admin-membership-workspace">
-            <div class="admin-membership-forms">
-              <aside class="admin-form-shell">
-                <div class="admin-panel-head">
-                  <p class="section-kicker">Alta directa en caja</p>
-                  <h3>Nueva membresía</h3>
-                  <p>Creá planes manualmente desde recepción. Cada plan se guarda como registro independiente y la cédula puede tener varios activos.</p>
-                </div>
-
-                <form class="admin-member-form" id="admin-member-form">
-                  <label class="form-field">
-                    <span>Nombre completo</span>
-                    <input id="member-name" type="text" placeholder="Nombre y apellido" required>
-                  </label>
-
-                  <label class="form-field">
-                    <span>Número de cédula</span>
-                    <input id="member-id" type="text" inputmode="numeric" minlength="7" maxlength="8" pattern="[0-9]{7,8}" placeholder="12345678" required>
-                  </label>
-
-                  <label class="form-field">
-                    <span>Teléfono</span>
-                    <input id="member-phone" type="tel" inputmode="numeric" minlength="9" maxlength="9" pattern="[0-9]{9}" placeholder="098000000" required>
-                  </label>
-
-                  <label class="form-field">
-                    <span>Tipo de plan</span>
-                    <select id="member-plan" required></select>
-                  </label>
-
-                  <label class="form-field">
-                    <span>Fecha de inicio</span>
-                    <input id="member-start" type="date" required>
-                  </label>
-
-                  <div class="membership-preview" id="membership-preview">
-                    Elegí un plan para calcular automáticamente su vencimiento.
-                  </div>
-
-                  <button class="btn btn-primary admin-btn" type="submit" id="member-submit">
-                    <span class="btn-text">Crear socio</span>
-                    <span class="btn-loader" aria-hidden="true"></span>
-                  </button>
-                </form>
-
-                <div class="booking-feedback booking-feedback-idle" id="member-form-feedback" aria-live="polite">
-                  Al crear la membresía se genera un código corto numérico para el check-in del socio.
-                </div>
-              </aside>
-
-              <aside class="admin-form-shell admin-checkin-shell">
-                <div class="admin-panel-head">
-                  <p class="section-kicker">Ingreso rápido</p>
-                  <h3>Check-in por código o cédula</h3>
-                  <p>Validá el ingreso en caja escribiendo el código corto o el número de cédula.</p>
-                </div>
-
-                <form class="admin-checkin-form" id="admin-checkin-form">
-                  <label class="form-field">
-                    <span>Ingresar código o cédula</span>
-                    <input id="checkin-query" type="text" inputmode="numeric" minlength="4" maxlength="8" pattern="[0-9]{4,8}" placeholder="4832 o 12345678" required>
-                  </label>
-
-                  <button class="btn btn-primary admin-btn" type="submit" id="checkin-submit">
-                    <span class="btn-text">Validar ingreso</span>
-                    <span class="btn-loader" aria-hidden="true"></span>
-                  </button>
-                </form>
-
-                <div class="checkin-alert checkin-alert-idle" id="checkin-alert">
-                  <strong>Esperando validación</strong>
-                  <p>Ingresá un código o una cédula para verificar el estado de la membresía.</p>
-                </div>
-              </aside>
+              <div class="admin-list-counter" id="admin-schedules-counter">0 horarios</div>
             </div>
 
-            <div class="admin-membership-lists">
-              <section class="admin-list-shell admin-accordion-shell" data-accordion-section="members">
-                <button class="admin-accordion-toggle" type="button" data-toggle-section="members" aria-expanded="false">
-                  <div class="admin-panel-head admin-panel-head-inline">
-                    <div>
-                      <p class="section-kicker">Socios activos</p>
-                      <h3>Base de socios</h3>
-                    </div>
-                    <div class="admin-accordion-meta">
-                      <div class="admin-list-counter" id="members-counter">0 socios</div>
-                      <span class="admin-accordion-icon" aria-hidden="true">▶</span>
-                    </div>
-                  </div>
-                </button>
+            <div class="admin-toolbar">
+              <label class="form-field admin-search-field">
+                <span>Buscar horario</span>
+                <input id="schedule-search" type="search" placeholder="Buscar por disciplina, día u hora">
+              </label>
 
-                <div class="admin-accordion-collapse" data-section-panel="members">
-                  <div class="admin-accordion-collapse-inner">
-                    <div class="admin-toolbar">
-                      <label class="form-field admin-search-field">
-                        <span>Buscar socio</span>
-                        <input id="member-search" type="search" placeholder="Buscar socio por nombre, cédula o código">
-                      </label>
-
-                      <div class="admin-filter-tabs" id="member-filter-tabs">
-                        <button class="admin-filter-tab is-active" type="button" data-member-filter="all">Todos</button>
-                        <button class="admin-filter-tab" type="button" data-member-filter="active">Activos</button>
-                        <button class="admin-filter-tab" type="button" data-member-filter="expired">Vencidos</button>
-                        <button class="admin-filter-tab" type="button" data-member-filter="expiring">Próximos a vencer</button>
-                      </div>
-                    </div>
-
-                    <div class="admin-members-list" id="admin-members-list"></div>
-                  </div>
-                </div>
-              </section>
-
-              <div class="admin-side-lists">
-                <section class="admin-list-shell">
-                  <div class="admin-panel-head admin-panel-head-inline">
-                    <div>
-                      <p class="section-kicker">Vencimientos próximos</p>
-                      <h3>Próximos 7 días</h3>
-                    </div>
-                    <div class="admin-list-counter" id="expiring-counter">0 casos</div>
-                  </div>
-
-                  <div class="admin-mini-list" id="expiring-list"></div>
-                </section>
-
-                <section class="admin-list-shell">
-                  <div class="admin-panel-head admin-panel-head-inline">
-                    <div>
-                      <p class="section-kicker">Renovaciones</p>
-                      <h3>Socios para renovar</h3>
-                    </div>
-                    <div class="admin-list-counter" id="renewal-counter">0 casos</div>
-                  </div>
-
-                  <div class="admin-mini-list" id="renewal-list"></div>
-                </section>
-
-                <section class="admin-list-shell">
-                  <div class="admin-panel-head admin-panel-head-inline">
-                    <div>
-                      <p class="section-kicker">Historial de check-ins</p>
-                      <h3>Últimos ingresos</h3>
-                    </div>
-                    <div class="admin-list-counter" id="checkin-counter">0 hoy</div>
-                  </div>
-
-                  <div class="admin-mini-list" id="checkin-history"></div>
-                </section>
-              </div>
+              <div class="admin-filter-tabs" id="schedule-filter-tabs"></div>
             </div>
-          </div>
+
+            <div class="admin-schedule-list-shell" id="admin-schedules-list"></div>
+          </section>
         </div>
       </section>
     </main>
@@ -389,7 +181,7 @@
       <p class="section-kicker">Eliminar horario</p>
       <h3 id="schedule-delete-modal-title">¿Seguro que querés eliminar este horario?</h3>
       <p id="schedule-delete-modal-copy">
-        Si confirmás, el horario desaparece del panel y de la home. También se eliminan las reservas asociadas a ese bloque.
+        Si confirmás, el horario desaparece del panel y de la home.
       </p>
 
       <div class="admin-modal-actions">

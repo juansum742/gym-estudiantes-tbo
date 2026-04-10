@@ -33,6 +33,7 @@
 .admin-stat-card,
 .admin-form-shell,
 .admin-list-shell,
+.admin-schedule-card,
 .admin-reservation-card,
 .admin-empty-card {
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -110,6 +111,7 @@
 }
 
 .admin-stat-card span,
+.admin-schedule-grid span,
 .admin-reservation-grid span {
   display: block;
   color: var(--muted);
@@ -268,6 +270,7 @@
 }
 
 .admin-schedule-form,
+.admin-schedule-list-shell,
 .admin-reservations,
 .admin-member-form,
 .admin-checkin-form,
@@ -363,6 +366,7 @@
   box-shadow: 0 14px 28px rgba(45, 50, 122, 0.14);
 }
 
+.admin-slot-guide,
 .membership-preview {
   display: grid;
   gap: 0.35rem;
@@ -372,10 +376,12 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.admin-slot-guide strong,
 .membership-preview strong {
   font-size: 1.05rem;
 }
 
+.admin-slot-guide span,
 .membership-preview span {
   color: var(--muted);
   line-height: 1.5;
@@ -642,6 +648,7 @@
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03), 0 18px 34px rgba(197, 64, 53, 0.22);
 }
 
+.admin-card-actions,
 .admin-schedule-actions {
   display: flex;
   flex-wrap: wrap;
@@ -731,6 +738,7 @@
   gap: 1rem;
 }
 
+.admin-schedule-card,
 .admin-reservation-card {
   position: relative;
   overflow: hidden;
@@ -738,6 +746,7 @@
   border-radius: 24px;
 }
 
+.admin-schedule-card::before,
 .admin-reservation-card::before {
   content: "";
   position: absolute;
@@ -747,6 +756,7 @@
   background: linear-gradient(90deg, var(--blue-bright), var(--red));
 }
 
+.admin-schedule-head,
 .admin-reservation-head {
   display: flex;
   align-items: start;
@@ -754,15 +764,18 @@
   gap: 1rem;
 }
 
+.admin-schedule-head strong,
 .admin-reservation-head strong {
   display: block;
   font-size: 1.35rem;
 }
 
+.admin-schedule-head span,
 .admin-reservation-head span {
   color: var(--muted);
 }
 
+.admin-schedule-grid,
 .admin-reservation-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -787,6 +800,8 @@
   gap: 0.55rem;
 }
 
+.admin-form-actions,
+.admin-card-actions,
 .admin-request-actions {
   display: flex;
   flex-wrap: wrap;
@@ -813,6 +828,8 @@
   filter: saturate(0.8);
 }
 
+.admin-schedule-grid strong,
+.admin-schedule-grid a,
 .admin-reservation-grid strong,
 .admin-reservation-grid a {
   display: block;

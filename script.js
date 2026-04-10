@@ -8,6 +8,15 @@ const counters = document.querySelectorAll(".counter");
 const zoomItems = document.querySelectorAll("[data-zoom]");
 const bookingApi = window.EstudiantesTboBooking;
 
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 if (menuToggle && nav) {
   menuToggle.addEventListener("click", () => {
     const isOpen = body.classList.toggle("nav-open");
@@ -48,7 +57,11 @@ const counterObserver = new IntersectionObserver(
         return;
       }
 
-      animateCounter(entry.target, Number(entry.target.dataset.counter || 0), entry.target.dataset.suffix || "");
+      animateCounter(
+        entry.target,
+        Number(entry.target.dataset.counter || 0),
+        entry.target.dataset.suffix || ""
+      );
       counterObserver.unobserve(entry.target);
     });
   },
@@ -80,70 +93,6 @@ function animateCounter(element, target, suffix = "") {
   requestAnimationFrame(step);
 }
 
-function animateValue(element, target) {
-  const previous = Number(element.dataset.value || 0);
-  const duration = 650;
-  const start = performance.now();
-
-  const step = (timestamp) => {
-    const progress = Math.min((timestamp - start) / duration, 1);
-    const eased = 1 - Math.pow(1 - progress, 3);
-    const currentValue = Math.round(previous + (target - previous) * eased);
-    element.textContent = currentValue.toLocaleString("es-UY");
-
-    if (progress < 1) {
-      requestAnimationFrame(step);
-    } else {
-      element.dataset.value = String(target);
-    }
-  };
-
-  requestAnimationFrame(step);
-}
-
-function wait(duration) {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, duration);
-  });
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-function bindValidatedField(input, syncValidity) {
-  input.addEventListener("input", syncValidity);
-  input.addEventListener("blur", syncValidity);
-  input.addEventListener("invalid", syncValidity);
-}
-
-function showToast(message, tone = "success") {
-  const stack = document.querySelector("#toast-stack");
-
-  if (!stack) {
-    return;
-  }
-
-  const toast = document.createElement("div");
-  toast.className = `toast toast-${tone}`;
-  toast.textContent = message;
-  stack.appendChild(toast);
-
-  requestAnimationFrame(() => {
-    toast.classList.add("is-visible");
-  });
-
-  window.setTimeout(() => {
-    toast.classList.remove("is-visible");
-    window.setTimeout(() => toast.remove(), 260);
-  }, 3200);
-}
-
 const updateMediaMotion = () => {
   zoomItems.forEach((item) => {
     const rect = item.getBoundingClientRect();
@@ -166,12 +115,36 @@ const updateHeaderState = () => {
   header.classList.toggle("is-scrolled", window.scrollY > 20);
 };
 
+function renderScheduleSummary(summaryElement) {
+  if (!bookingApi || !summaryElement) {
+    return;
+  }
+
+  const stats = bookingApi.getStats();
+
+  summaryElement.innerHTML = `
+    <article class="booking-summary-card">
+      <span>Horarios cargados</span>
+      <strong>${stats.totalSchedules.toLocaleString("es-UY")}</strong>
+    </article>
+    <article class="booking-summary-card">
+      <span>Disciplinas activas</span>
+      <strong>${stats.activeDisciplines.toLocaleString("es-UY")}</strong>
+    </article>
+    <article class="booking-summary-card">
+      <span>Días con clases</span>
+      <strong>${stats.activeDays.toLocaleString("es-UY")}</strong>
+    </article>
+  `;
+}
+
 function setupScheduleBoard() {
   if (!bookingApi) {
     return;
   }
 
   const scheduleGrid = document.querySelector("#schedule-grid");
+  const scheduleSummary = document.querySelector("#schedule-summary");
 
   if (!scheduleGrid) {
     return;
@@ -189,559 +162,11 @@ function setupScheduleBoard() {
     ]);
 
     scheduleGrid.innerHTML = [...headers, ...rows].join("");
+    renderScheduleSummary(scheduleSummary);
   }
 
   window.addEventListener(bookingApi.changeEvent, renderScheduleBoard);
   renderScheduleBoard();
-}
-
-function setupBookings() {
-  if (!bookingApi) {
-    return;
-  }
-
-  const bookingForm = document.querySelector("#booking-form");
-
-  if (!bookingForm) {
-    return;
-  }
-
-  const classSelect = document.querySelector("#booking-class");
-  const nationalIdInput = document.querySelector("#booking-id");
-  const nameInput = document.querySelector("#booking-name");
-  const phoneInput = document.querySelector("#booking-phone");
-  const notesInput = document.querySelector("#booking-notes");
-  const feedback = document.querySelector("#booking-feedback");
-  const liveList = document.querySelector("#booking-live-list");
-  const submitButton = document.querySelector("#booking-submit");
-  const summaryClasses = document.querySelector("#summary-classes");
-  const summarySpots = document.querySelector("#summary-spots");
-  const summaryOccupied = document.querySelector("#summary-occupied");
-  const planEntries = bookingApi.getPublicMembershipPlanEntries();
-
-  function setFeedback(tone, message) {
-    feedback.className = `booking-feedback booking-feedback-${tone}`;
-    feedback.textContent = message;
-  }
-
-  function syncPhoneValidity() {
-    phoneInput.value = bookingApi.sanitizePhoneInput(phoneInput.value);
-
-    try {
-      bookingApi.validatePhone(phoneInput.value);
-      phoneInput.setCustomValidity("");
-      return true;
-    } catch (error) {
-      phoneInput.setCustomValidity(error.message);
-      return false;
-    }
-  }
-
-  function syncNationalIdValidity() {
-    nationalIdInput.value = bookingApi.sanitizeNationalIdInput(nationalIdInput.value);
-
-    try {
-      bookingApi.validateNationalId(nationalIdInput.value);
-      nationalIdInput.setCustomValidity("");
-      return true;
-    } catch (error) {
-      nationalIdInput.setCustomValidity(error.message);
-      return false;
-    }
-  }
-
-  function populatePlans(preferredPlanType) {
-    const currentValue = preferredPlanType || classSelect.value;
-
-    classSelect.innerHTML = planEntries
-      .map(([planType, planMeta]) => {
-        return `<option value="${planType}">${escapeHtml(planMeta.label)}</option>`;
-      })
-      .join("");
-
-    if (planEntries.some(([planType]) => planType === currentValue)) {
-      classSelect.value = currentValue;
-    } else if (planEntries[0]) {
-      classSelect.value = planEntries[0][0];
-    }
-  }
-
-  function getPlanSnapshots() {
-    const members = bookingApi
-      .getMembers({ includeScheduled: true })
-      .filter((member) => member.isActive || member.isScheduled);
-    const pendingRequests = bookingApi.getRequests({ status: "pending" });
-
-    return planEntries.map(([planType, planMeta]) => {
-      const classMeta = planMeta.classType ? bookingApi.classTypes[planMeta.classType] : null;
-      const planMembers = members.filter((member) => member.planType === planType && member.isActive);
-      const planRequests = pendingRequests.filter((request) => request.planType === planType);
-      const expiringCount = planMembers.filter((member) => member.daysRemaining <= 7).length;
-
-      return {
-        planType,
-        ...planMeta,
-        classLabel:
-          classMeta?.label
-          || (planMeta.category === "general" ? "Acceso completo" : "Musculación"),
-        priceLabel: bookingApi.formatCurrency(planMeta.price),
-        activeCount: planMembers.length,
-        pendingCount: planRequests.length,
-        expiringCount,
-      };
-    });
-  }
-
-  function updateSummaryCards(plans) {
-    const activePlans = plans.reduce((total, plan) => total + plan.activeCount, 0);
-    const pendingPlans = plans.reduce((total, plan) => total + plan.pendingCount, 0);
-
-    animateValue(summaryClasses, plans.length);
-    animateValue(summarySpots, pendingPlans);
-    animateValue(summaryOccupied, activePlans);
-  }
-
-  function syncSelectionFeedback() {
-    const selectedPlan = bookingApi.membershipPlans[classSelect.value];
-
-    if (!selectedPlan) {
-      setFeedback("idle", "Elegí un plan para revisar su detalle y dejar tu solicitud pendiente.");
-      return;
-    }
-
-    const classMeta = selectedPlan.classType ? bookingApi.classTypes[selectedPlan.classType] : null;
-    const priceLabel = bookingApi.formatCurrency(selectedPlan.price);
-    const accessLabel = classMeta ? classMeta.label : selectedPlan.category === "general" ? "Acceso completo" : "Musculación";
-
-    setFeedback(
-      "idle",
-      `${selectedPlan.label} | ${priceLabel} | ${accessLabel}. La inscripción queda pendiente hasta confirmar el pago en el gimnasio.`
-    );
-  }
-
-  function renderLiveList() {
-    const plans = getPlanSnapshots();
-    updateSummaryCards(plans);
-
-    if (!plans.length) {
-      liveList.innerHTML = `
-        <article class="live-slot-empty">
-          <strong>Sin planes cargados</strong>
-          <p>No hay planes configurados para mostrar. Revisá la configuración desde el panel admin.</p>
-        </article>
-      `;
-      return;
-    }
-
-    liveList.innerHTML = plans
-      .map((plan) => {
-        const selected = plan.planType === classSelect.value ? " is-selected" : "";
-        const badgeTone = plan.pendingCount > 0 ? "limited" : plan.activeCount > 0 ? "available" : "highlight";
-        const badgeLabel = plan.pendingCount > 0
-          ? `${plan.pendingCount} pendiente${plan.pendingCount === 1 ? "" : "s"}`
-          : plan.activeCount > 0
-            ? `${plan.activeCount} activo${plan.activeCount === 1 ? "" : "s"}`
-            : "Nueva solicitud";
-        const accentTone = badgeTone === "highlight" ? "available" : badgeTone;
-
-        return `
-          <button class="live-slot-card status-${accentTone}${selected}" type="button" data-plan-type="${plan.planType}">
-            <div class="live-slot-card-head">
-              <span class="live-slot-class">${escapeHtml(plan.label)}</span>
-              <span class="slot-badge slot-badge-${accentTone}">${escapeHtml(badgeLabel)}</span>
-            </div>
-            <div class="live-slot-card-main">
-              <strong>${plan.durationDays} día${plan.durationDays === 1 ? "" : "s"}</strong>
-              <span>${escapeHtml(plan.priceLabel)} | ${escapeHtml(plan.classLabel)}</span>
-            </div>
-            <div class="live-slot-card-meta">
-              <span>${plan.activeCount} activos</span>
-              <span>${plan.pendingCount} pendientes</span>
-            </div>
-          </button>
-        `;
-      })
-      .join("");
-  }
-
-  function renderBookingState(preferredPlanType) {
-    populatePlans(preferredPlanType);
-    renderLiveList();
-    syncSelectionFeedback();
-  }
-
-  liveList.addEventListener("click", (event) => {
-    const planButton = event.target.closest("[data-plan-type]");
-
-    if (!planButton) {
-      return;
-    }
-
-    classSelect.value = planButton.dataset.planType;
-    renderLiveList();
-    syncSelectionFeedback();
-  });
-
-  classSelect.addEventListener("change", () => {
-    renderLiveList();
-    syncSelectionFeedback();
-  });
-
-  bindValidatedField(phoneInput, syncPhoneValidity);
-  bindValidatedField(nationalIdInput, syncNationalIdValidity);
-
-  bookingForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-
-    if (!syncNationalIdValidity()) {
-      setFeedback("error", nationalIdInput.validationMessage);
-      nationalIdInput.reportValidity();
-      return;
-    }
-
-    if (!syncPhoneValidity()) {
-      setFeedback("error", phoneInput.validationMessage);
-      phoneInput.reportValidity();
-      return;
-    }
-
-    submitButton.classList.add("is-loading");
-    submitButton.disabled = true;
-    setFeedback("loading", "Enviando solicitud premium...");
-
-    try {
-      await wait(780);
-      nameInput.value = nameInput.value.trim();
-
-      const request = bookingApi.createMembershipRequest({
-        fullName: nameInput.value,
-        nationalId: nationalIdInput.value,
-        phone: phoneInput.value,
-        planType: classSelect.value,
-        notes: notesInput.value,
-      });
-
-      nameInput.value = "";
-      nationalIdInput.value = "";
-      phoneInput.value = "";
-      notesInput.value = "";
-      renderBookingState(request.planType);
-      setFeedback("success", "Solicitud enviada. La inscripción se activará una vez confirmado el pago en el gimnasio.");
-      showToast("Solicitud enviada correctamente.", "success");
-    } catch (error) {
-      setFeedback("error", error.message);
-      showToast(error.message, "error");
-      renderBookingState(classSelect.value);
-    } finally {
-      submitButton.classList.remove("is-loading");
-      submitButton.disabled = false;
-    }
-  });
-
-  window.addEventListener(bookingApi.changeEvent, () => {
-    renderBookingState(classSelect.value);
-  });
-
-  renderBookingState();
-}
-
-function setupClassReservations() {
-  if (!bookingApi) {
-    return;
-  }
-
-  const reservationForm = document.querySelector("#class-reservation-form");
-
-  if (!reservationForm) {
-    return;
-  }
-
-  const identifierInput = document.querySelector("#reservation-identifier");
-  const nameInput = document.querySelector("#reservation-name");
-  const disciplineSelect = document.querySelector("#reservation-discipline");
-  const dateSelect = document.querySelector("#reservation-date");
-  const timeSelect = document.querySelector("#reservation-time");
-  const feedback = document.querySelector("#class-reservation-feedback");
-  const liveList = document.querySelector("#class-reservation-live-list");
-  const submitButton = document.querySelector("#reservation-submit");
-  const summarySchedules = document.querySelector("#reservation-summary-schedules");
-  const summarySpots = document.querySelector("#reservation-summary-spots");
-  const summaryBooked = document.querySelector("#reservation-summary-booked");
-
-  function setFeedback(tone, message) {
-    feedback.className = `booking-feedback booking-feedback-${tone}`;
-    feedback.textContent = message;
-  }
-
-  function getClassEntries() {
-    const entries = bookingApi.getReservableClassEntries({
-      futureOnly: true,
-      scheduledOnly: true,
-    });
-
-    return entries.length
-      ? entries
-      : bookingApi.getReservableClassEntries();
-  }
-
-  function syncIdentifierValidity() {
-    identifierInput.value = bookingApi.sanitizeCheckinInput(identifierInput.value);
-
-    try {
-      bookingApi.validateCheckinQuery(identifierInput.value);
-      identifierInput.setCustomValidity("");
-      return true;
-    } catch (error) {
-      identifierInput.setCustomValidity(error.message);
-      return false;
-    }
-  }
-
-  function populateDisciplines(preferredDiscipline) {
-    const classEntries = getClassEntries();
-    const currentValue = preferredDiscipline || disciplineSelect.value;
-
-    if (!classEntries.length) {
-      disciplineSelect.innerHTML = '<option value="">Sin disciplinas disponibles</option>';
-      disciplineSelect.disabled = true;
-      return;
-    }
-
-    disciplineSelect.disabled = false;
-    disciplineSelect.innerHTML = classEntries
-      .map(([classType, meta]) => `<option value="${classType}">${escapeHtml(meta.label)}</option>`)
-      .join("");
-
-    if (classEntries.some(([classType]) => classType === currentValue)) {
-      disciplineSelect.value = currentValue;
-    }
-  }
-
-  function getSchedulesForSelection(overrides = {}) {
-    const classType = overrides.classType || disciplineSelect.value;
-    const date = Object.prototype.hasOwnProperty.call(overrides, "date") ? overrides.date : dateSelect.value;
-
-    if (!classType) {
-      return [];
-    }
-
-    return bookingApi.getSchedules({
-      futureOnly: true,
-      reservableOnly: true,
-      classType,
-      date: date || undefined,
-    });
-  }
-
-  function populateDates(preferredDate) {
-    const allSchedules = getSchedulesForSelection({ date: "" });
-    const uniqueDates = [...new Set(allSchedules.map((schedule) => schedule.date))];
-    const currentValue = preferredDate || dateSelect.value;
-
-    if (!uniqueDates.length) {
-      dateSelect.innerHTML = '<option value="">Sin fechas disponibles</option>';
-      dateSelect.disabled = true;
-      return;
-    }
-
-    dateSelect.disabled = false;
-    dateSelect.innerHTML = uniqueDates
-      .map((date) => `<option value="${date}">${escapeHtml(bookingApi.formatDateLabel(date))}</option>`)
-      .join("");
-
-    if (uniqueDates.includes(currentValue)) {
-      dateSelect.value = currentValue;
-    } else {
-      [dateSelect.value] = uniqueDates;
-    }
-  }
-
-  function populateTimes(preferredTime) {
-    const schedules = getSchedulesForSelection();
-    const currentValue = preferredTime || timeSelect.value;
-
-    if (!schedules.length) {
-      timeSelect.innerHTML = '<option value="">Sin horarios disponibles</option>';
-      timeSelect.disabled = true;
-      return;
-    }
-
-    timeSelect.disabled = false;
-    timeSelect.innerHTML = schedules
-      .map((schedule) => {
-        const disabled = schedule.remaining === 0 ? " disabled" : "";
-        return `<option value="${schedule.time}"${disabled}>${escapeHtml(schedule.time)} | ${escapeHtml(schedule.statusLabel)}</option>`;
-      })
-      .join("");
-
-    const availableTimes = schedules.filter((schedule) => schedule.remaining > 0).map((schedule) => schedule.time);
-
-    if (availableTimes.includes(currentValue)) {
-      timeSelect.value = currentValue;
-    } else if (availableTimes.length) {
-      [timeSelect.value] = availableTimes;
-    } else {
-      timeSelect.value = schedules[0].time;
-    }
-  }
-
-  function updateSummaryCards(schedules) {
-    const totalRemaining = schedules.reduce((total, schedule) => total + schedule.remaining, 0);
-    const totalReserved = schedules.reduce((total, schedule) => total + schedule.reservedCount, 0);
-
-    animateValue(summarySchedules, schedules.length);
-    animateValue(summarySpots, totalRemaining);
-    animateValue(summaryBooked, totalReserved);
-  }
-
-  function syncReservationFeedback() {
-    const selectedSchedule = getSchedulesForSelection().find((schedule) => schedule.time === timeSelect.value);
-
-    if (!selectedSchedule) {
-      setFeedback("idle", "Elegí disciplina, fecha y horario para revisar la disponibilidad.");
-      return;
-    }
-
-    if (!selectedSchedule.isAvailable) {
-      setFeedback("warning", "Sin cupos disponibles");
-      return;
-    }
-
-    setFeedback(
-      "idle",
-      `${selectedSchedule.classLabel} | ${selectedSchedule.dateLabel} | ${selectedSchedule.time}. ${selectedSchedule.statusLabel}.`
-    );
-  }
-
-  function renderLiveList() {
-    const schedules = getSchedulesForSelection();
-    updateSummaryCards(schedules);
-
-    if (!schedules.length) {
-      liveList.innerHTML = `
-        <article class="live-slot-empty">
-          <strong>Sin horarios cargados</strong>
-          <p>Esta disciplina todavía no tiene bloques disponibles. Probá con otra opción o consultá en recepción.</p>
-        </article>
-      `;
-      syncReservationFeedback();
-      return;
-    }
-
-    liveList.innerHTML = schedules
-      .map((schedule) => {
-        const selected = schedule.time === timeSelect.value ? " is-selected" : "";
-
-        return `
-          <button class="live-slot-card status-${schedule.status}${selected}" type="button" data-schedule-id="${schedule.id}" ${schedule.isAvailable ? "" : 'aria-disabled="true"'}>
-            <div class="live-slot-card-head">
-              <span class="live-slot-class">${escapeHtml(schedule.classLabel)}</span>
-              <span class="slot-badge slot-badge-${schedule.status === "occupied" ? "occupied" : schedule.status === "limited" ? "limited" : "available"}">${escapeHtml(schedule.status === "occupied" ? "Completo" : schedule.status === "limited" ? "Últimos cupos" : "Disponible")}</span>
-            </div>
-            <div class="live-slot-card-main">
-              <strong>${escapeHtml(schedule.time)}</strong>
-              <span>${escapeHtml(schedule.dateLabel)} | ${escapeHtml(schedule.statusLabel)}</span>
-            </div>
-            <div class="live-slot-card-meta">
-              <span>${schedule.reservedCount} reservas</span>
-              <span>${schedule.capacity} cupos</span>
-            </div>
-          </button>
-        `;
-      })
-      .join("");
-
-    syncReservationFeedback();
-  }
-
-  function renderReservationState(options = {}) {
-    populateDisciplines(options.classType);
-    populateDates(options.date);
-    populateTimes(options.time);
-    renderLiveList();
-  }
-
-  liveList.addEventListener("click", (event) => {
-    const scheduleButton = event.target.closest("[data-schedule-id]");
-
-    if (!scheduleButton) {
-      return;
-    }
-
-    const schedule = getSchedulesForSelection().find((item) => item.id === scheduleButton.dataset.scheduleId);
-
-    if (!schedule || !schedule.isAvailable) {
-      setFeedback("warning", "Sin cupos disponibles");
-      return;
-    }
-
-    dateSelect.value = schedule.date;
-    populateTimes(schedule.time);
-    renderLiveList();
-  });
-
-  disciplineSelect.addEventListener("change", () => {
-    renderReservationState({ classType: disciplineSelect.value });
-  });
-
-  dateSelect.addEventListener("change", () => {
-    populateTimes();
-    renderLiveList();
-  });
-
-  timeSelect.addEventListener("change", syncReservationFeedback);
-  bindValidatedField(identifierInput, syncIdentifierValidity);
-
-  reservationForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-
-    if (!syncIdentifierValidity()) {
-      setFeedback("error", identifierInput.validationMessage);
-      identifierInput.reportValidity();
-      return;
-    }
-
-    if (!timeSelect.value) {
-      setFeedback("error", "Elegí un horario disponible para continuar.");
-      timeSelect.reportValidity();
-      return;
-    }
-
-    submitButton.classList.add("is-loading");
-    submitButton.disabled = true;
-    setFeedback("loading", "Bloqueando tu lugar en la clase...");
-
-    try {
-      await wait(720);
-      nameInput.value = nameInput.value.trim();
-
-      const reservation = bookingApi.createReservation({
-        identifier: identifierInput.value,
-        fullName: nameInput.value,
-        classType: disciplineSelect.value,
-        date: dateSelect.value,
-        time: timeSelect.value,
-      });
-
-      reservationForm.reset();
-      showToast(`${reservation.classLabel} reservado para ${reservation.fullName}.`, "success");
-      renderReservationState({ classType: disciplineSelect.value, date: dateSelect.value });
-      setFeedback("success", `Reserva enviada. Tu lugar quedó tomado para ${reservation.classLabel} el ${reservation.dateLabel || bookingApi.formatDateLabel(reservation.date)} a las ${reservation.time}.`);
-    } catch (error) {
-      showToast(error.message, "error");
-      renderReservationState({ classType: disciplineSelect.value, date: dateSelect.value, time: timeSelect.value });
-      setFeedback("error", error.message);
-    } finally {
-      submitButton.classList.remove("is-loading");
-      submitButton.disabled = false;
-    }
-  });
-
-  window.addEventListener(bookingApi.changeEvent, () => {
-    renderReservationState({ classType: disciplineSelect.value, date: dateSelect.value, time: timeSelect.value });
-  });
-
-  renderReservationState();
 }
 
 const onScroll = () => {
@@ -752,8 +177,6 @@ const onScroll = () => {
 window.addEventListener("scroll", onScroll, { passive: true });
 window.addEventListener("resize", updateMediaMotion);
 
-setupBookings();
-setupClassReservations();
 setupScheduleBoard();
 updateHeaderState();
 updateMediaMotion();
