@@ -453,13 +453,12 @@ if (bookingApi) {
 
     try {
       await wait(280);
-
-      if (pinInput.value.trim() !== bookingApi.adminPin) {
-        throw new Error("PIN incorrecto. Verificá el acceso del panel.");
-      }
+      const session = await bookingApi.login(pinInput.value.trim());
 
       unlockDashboard();
-      gateNote.textContent = "Acceso habilitado.";
+      gateNote.textContent = session.mode === "server"
+        ? "Acceso habilitado y sincronizado con el servidor."
+        : "Acceso habilitado en modo local.";
       pinInput.value = "";
     } catch (error) {
       gateNote.textContent = error.message;
@@ -479,8 +478,8 @@ if (bookingApi) {
       const payload = getFormPayload();
       const isEditing = Boolean(scheduleIdInput.value);
       const schedule = isEditing
-        ? bookingApi.updateSchedule(scheduleIdInput.value, payload)
-        : bookingApi.createSchedule(payload);
+        ? await bookingApi.updateSchedule(scheduleIdInput.value, payload)
+        : await bookingApi.createSchedule(payload);
 
       renderDashboard();
       resetScheduleForm();
@@ -540,14 +539,14 @@ if (bookingApi) {
     closeScheduleDeleteModal();
   });
 
-  scheduleDeleteConfirm.addEventListener("click", () => {
+  scheduleDeleteConfirm.addEventListener("click", async () => {
     if (!pendingDeleteId) {
       closeScheduleDeleteModal();
       return;
     }
 
     try {
-      bookingApi.deleteSchedule(pendingDeleteId);
+      await bookingApi.deleteSchedule(pendingDeleteId);
       renderDashboard();
       resetScheduleForm();
       closeScheduleDeleteModal();
@@ -575,4 +574,18 @@ if (bookingApi) {
       });
     }
   });
+
+  if (bookingApi.ready && typeof bookingApi.ready.then === "function") {
+    bookingApi.ready
+      .then(() => {
+        populateScheduleFields();
+
+        if (isDashboardUnlocked) {
+          renderDashboard();
+        }
+      })
+      .catch(() => {
+        // Si no hay backend, el panel sigue funcionando con el estado local.
+      });
+  }
 }

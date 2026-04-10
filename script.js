@@ -235,6 +235,14 @@ function setupScheduleBoard() {
 
   window.addEventListener(bookingApi.changeEvent, renderScheduleExperience);
   renderScheduleExperience();
+
+  if (bookingApi.ready && typeof bookingApi.ready.then === "function") {
+    bookingApi.ready
+      .then(renderScheduleExperience)
+      .catch(() => {
+        // Si no hay backend disponible, la home sigue usando el cache local.
+      });
+  }
 }
 
 const onScroll = () => {
