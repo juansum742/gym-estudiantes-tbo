@@ -79,6 +79,24 @@ https://estudiantes-tbo-api.tu-subdominio.workers.dev
 
 Desde ese momento, la home y `admin.html` dejan de depender del navegador local y usan la misma base compartida desde cualquier dispositivo.
 
+## Deploy automático
+
+El repo ya quedó preparado con un workflow de GitHub Actions en `.github/workflows/deploy-cloudflare-worker.yml`.
+
+Cuando lo actives, cada push a `main` va a:
+
+1. instalar dependencias
+2. sincronizar secrets del Worker
+3. aplicar migraciones en D1
+4. desplegar el Worker automáticamente
+
+Secrets que tenés que cargar en GitHub:
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+- `CF_ADMIN_PIN`
+- `CF_ALLOWED_ORIGIN`
+
 ## Nota importante
 
 Mientras `config.js` siga con `explicitBase` vacío, la web entra en modo de respaldo local y no comparte datos entre dispositivos.
