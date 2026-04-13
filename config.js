@@ -1,5 +1,5 @@
 window.__ESTUDIANTES_API_BASE__ = (() => {
-  const explicitBase = "";
+  const explicitBase = "https://estudiantes-tbo-api.juansum742.workers.dev";
 
   if (explicitBase) {
     return explicitBase.replace(/\/+$/, "");

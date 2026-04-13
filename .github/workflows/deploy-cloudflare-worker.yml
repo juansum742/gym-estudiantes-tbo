@@ -20,16 +20,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check Cloudflare secrets
+        id: cf-ready
+        shell: bash
+        env:
+          CF_ADMIN_PIN: ${{ secrets.CF_ADMIN_PIN }}
+          CF_ALLOWED_ORIGIN: ${{ secrets.CF_ALLOWED_ORIGIN }}
+        run: |
+          if [ -z "${CLOUDFLARE_API_TOKEN}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID}" ] || [ -z "${CF_ADMIN_PIN}" ] || [ -z "${CF_ALLOWED_ORIGIN}" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Cloudflare secrets missing. Skipping Worker deploy until repository secrets are configured."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Setup Node
+        if: steps.cf-ready.outputs.ready == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
 
       - name: Install dependencies
+        if: steps.cf-ready.outputs.ready == 'true'
         run: npm ci
 
       - name: Sync Worker secrets
+        if: steps.cf-ready.outputs.ready == 'true'
         shell: bash
         env:
           CF_ADMIN_PIN: ${{ secrets.CF_ADMIN_PIN }}
@@ -39,7 +56,9 @@ jobs:
           printf "%s" "$CF_ALLOWED_ORIGIN" | npx wrangler secret put ALLOWED_ORIGIN
 
       - name: Apply D1 migrations
+        if: steps.cf-ready.outputs.ready == 'true'
         run: npx wrangler d1 migrations apply estudiantes-tbo --remote
 
       - name: Deploy Worker
+        if: steps.cf-ready.outputs.ready == 'true'
         run: npx wrangler deploy
