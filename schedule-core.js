@@ -557,6 +557,7 @@
   }
 
   function sanitizeState(rawState) {
+    const hasScheduleArray = Array.isArray(rawState?.schedules);
     const nextState = {
       version: 2,
       customTimeSlots: sanitizeCustomTimeSlots(rawState?.customTimeSlots),
@@ -566,7 +567,7 @@
 
     nextState.schedules = sanitizeSchedules(rawState?.schedules, nextState);
 
-    if (!nextState.schedules.length) {
+    if (!hasScheduleArray) {
       nextState.schedules = sanitizeSchedules(DEFAULT_SCHEDULES, nextState);
     }
 

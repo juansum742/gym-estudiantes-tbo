@@ -1,0 +1,9 @@
+name = "estudiantes-tbo-api"
+main = "cloudflare/worker.mjs"
+compatibility_date = "2026-04-13"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "estudiantes-tbo"
+database_id = "REEMPLAZAR_CON_TU_DATABASE_ID"
+preview_database_id = "REEMPLAZAR_CON_TU_PREVIEW_DATABASE_ID"

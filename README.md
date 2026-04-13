@@ -8,41 +8,77 @@ Sitio oficial y panel administrativo del Club Estudiantes TBÓ.
 - `admin.html`: panel privado para gestionar la agenda
 - `style.css`: estilos de la web pública
 - `admin.css`: estilos del panel
+- `config.js`: configuración del endpoint remoto usado por GitHub Pages
 - `schedule-core.js`: lógica compartida de horarios y disciplinas
-- `booking-data.js`: store híbrido que usa backend real cuando existe y cache local como fallback
-- `server.js`: servidor Node que publica el sitio y expone la API real
-- `data/schedule-state.json`: persistencia compartida de la agenda
+- `booking-data.js`: store del frontend que consume la API y mantiene un respaldo local
+- `cloudflare/worker.mjs`: API para Cloudflare Workers
+- `migrations/0001_schedule_schema.sql`: esquema inicial para D1
+- `wrangler.toml`: configuración del Worker y binding de D1
 - `assets/`: imágenes y logos del club
 
-## Arranque local con backend real
+## Arquitectura
 
-1. Asegurate de tener Node instalado.
-2. Ejecutá:
+- Frontend público y panel admin: GitHub Pages
+- API: Cloudflare Workers
+- Base de datos: Cloudflare D1
+- Autenticación del panel: token Bearer administrado por el frontend
+
+## Qué se eliminó
+
+- `server.js`
+- persistencia en disco local
+- dependencia de un backend Node para que la agenda funcione online
+
+## Configuración del Worker
+
+1. Creá una base D1 en Cloudflare.
+2. Reemplazá en `wrangler.toml`:
+   - `database_id`
+   - `preview_database_id`
+3. Aplicá la migración:
 
 ```bash
-npm start
+wrangler d1 migrations apply estudiantes-tbo
 ```
 
-3. Abrí:
+4. Configurá el PIN del panel:
 
-- `http://localhost:3000/`
-- `http://localhost:3000/admin.html`
+```bash
+wrangler secret put ADMIN_PIN
+```
 
-## Variables opcionales
+5. Configurá el origen permitido para GitHub Pages:
 
-- `PORT`: puerto del servidor. Por defecto `3000`
-- `HOST`: host del servidor. Por defecto `0.0.0.0`
-- `ADMIN_PIN`: PIN del panel admin. Por defecto `TBO2026`
-- `ADMIN_SESSION_TTL_MS`: duración de la sesión admin en milisegundos
-- `DATA_FILE`: ruta personalizada para guardar la agenda persistente
+```bash
+wrangler secret put ALLOWED_ORIGIN
+```
 
-## Modos de funcionamiento
+Ejemplo de valor:
 
-- `Modo servidor`: cuando corrés `server.js`, la agenda se guarda en `data/schedule-state.json` y queda compartida entre dispositivos.
-- `Modo estático`: si abrís los HTML sin backend, la web sigue funcionando con cache local para no romper la versión estática.
+```text
+https://juansum742.github.io
+```
+
+Si también vas a usar un dominio personalizado o pruebas locales, podés guardar varios orígenes separados por coma.
 
 ## Publicación
 
-GitHub Pages puede publicar la parte estática del sitio, pero no ejecuta el backend Node.
+1. Desplegá el Worker:
 
-Si querés que el panel y la agenda funcionen con persistencia real en producción, necesitás desplegar `server.js` en un hosting que soporte Node, por ejemplo Render, Railway, Fly.io o un VPS.
+```bash
+wrangler deploy
+```
+
+2. Copiá la URL resultante, por ejemplo:
+
+```text
+https://estudiantes-tbo-api.tu-subdominio.workers.dev
+```
+
+3. Pegala en `config.js` dentro de `explicitBase`.
+
+Desde ese momento, la home y `admin.html` dejan de depender del navegador local y usan la misma base compartida desde cualquier dispositivo.
+
+## Nota importante
+
+Mientras `config.js` siga con `explicitBase` vacío, la web entra en modo de respaldo local y no comparte datos entre dispositivos.

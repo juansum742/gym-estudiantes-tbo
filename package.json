@@ -2,9 +2,10 @@
   "name": "estudiantes-tbo",
   "version": "1.0.0",
   "private": true,
-  "description": "Sitio oficial y panel administrativo del Club Estudiantes TBÓ con backend Node para la agenda.",
+  "description": "Sitio oficial y panel administrativo del Club Estudiantes TBÓ con API en Cloudflare Workers + D1.",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "cf:dev": "wrangler dev",
+    "cf:deploy": "wrangler deploy",
+    "cf:migrate": "wrangler d1 migrations apply estudiantes-tbo"
   }
 }
