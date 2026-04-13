@@ -7,17 +7,17 @@
 
   const STORAGE_KEY = "estudiantes_tbo_schedule_v2";
   const LEGACY_STORAGE_KEYS = ["estudiantes_tbo_schedule_v1", "estudiantes_tbo_premium_v3", "estudiantes_tbo_premium_v2"];
-  const AUTH_TOKEN_KEY = "estudiantes_tbo_admin_token";
+  const AUTH_TOKEN_KEY = "estudiantes_tbo_admin_session";
   const CHANGE_EVENT = "estudiantes-tbo-schedule:changed";
-  const ADMIN_PIN = "TBO2026";
+  const AUTH_CHANGE_EVENT = "estudiantes-tbo-auth:changed";
   const SYNC_INTERVAL_MS = 30000;
 
   let state = loadInitialState();
-  let authToken = readStorageText(AUTH_TOKEN_KEY);
+  let authToken = readSessionText(AUTH_TOKEN_KEY);
   let backendMode = "unknown";
   let refreshPromise = null;
 
-  function hasStorage() {
+  function hasLocalStorage() {
     try {
       return typeof window.localStorage !== "undefined";
     } catch (error) {
@@ -25,8 +25,16 @@
     }
   }
 
+  function hasSessionStorage() {
+    try {
+      return typeof window.sessionStorage !== "undefined";
+    } catch (error) {
+      return false;
+    }
+  }
+
   function readStorageJson(storageKey) {
-    if (!hasStorage()) {
+    if (!hasLocalStorage()) {
       return null;
     }
 
@@ -38,43 +46,43 @@
     }
   }
 
-  function readStorageText(storageKey) {
-    if (!hasStorage()) {
-      return "";
-    }
-
-    try {
-      return window.localStorage.getItem(storageKey) || "";
-    } catch (error) {
-      return "";
-    }
-  }
-
   function writeStorageJson(storageKey, value) {
-    if (!hasStorage()) {
+    if (!hasLocalStorage()) {
       return;
     }
 
     try {
       window.localStorage.setItem(storageKey, JSON.stringify(value));
     } catch (error) {
-      // Ignoramos fallos de cuota para no romper la UI.
+      // Ignoramos fallos de cuota para no romper la UI pública.
     }
   }
 
-  function writeStorageText(storageKey, value) {
-    if (!hasStorage()) {
+  function readSessionText(storageKey) {
+    if (!hasSessionStorage()) {
+      return "";
+    }
+
+    try {
+      return window.sessionStorage.getItem(storageKey) || "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function writeSessionText(storageKey, value) {
+    if (!hasSessionStorage()) {
       return;
     }
 
     try {
       if (value) {
-        window.localStorage.setItem(storageKey, value);
+        window.sessionStorage.setItem(storageKey, value);
       } else {
-        window.localStorage.removeItem(storageKey);
+        window.sessionStorage.removeItem(storageKey);
       }
     } catch (error) {
-      // Ignoramos fallos de cuota para no romper la UI.
+      // Ignoramos fallos de almacenamiento para no romper la UI.
     }
   }
 
@@ -118,6 +126,17 @@
     );
   }
 
+  function dispatchAuthChange() {
+    window.dispatchEvent(
+      new CustomEvent(AUTH_CHANGE_EVENT, {
+        detail: {
+          authenticated: Boolean(authToken),
+          backendMode,
+        },
+      })
+    );
+  }
+
   function persistState() {
     writeStorageJson(STORAGE_KEY, state);
   }
@@ -129,6 +148,16 @@
     if (dispatch) {
       dispatchChange();
     }
+  }
+
+  function setAuthToken(nextToken) {
+    authToken = String(nextToken || "").trim();
+    writeSessionText(AUTH_TOKEN_KEY, authToken);
+    dispatchAuthChange();
+  }
+
+  function clearAuthToken() {
+    setAuthToken("");
   }
 
   function getApiBase() {
@@ -184,8 +213,7 @@
 
     if (!response.ok) {
       if (response.status === 401) {
-        authToken = "";
-        writeStorageText(AUTH_TOKEN_KEY, "");
+        clearAuthToken();
       }
 
       throw new Error(payload?.error || "No pudimos conectar con el servidor.");
@@ -221,106 +249,120 @@
     return refreshPromise;
   }
 
-  async function ensureBackendMode() {
+  async function ensureBackendAvailable() {
     if (backendMode === "unknown") {
       await refreshFromServer({ silent: true });
     }
 
-    return backendMode;
+    if (backendMode !== "available") {
+      throw new Error("No pudimos conectar con el panel seguro. Verificá la API del servidor.");
+    }
   }
 
   async function login(pin) {
     const normalizedPin = String(pin || "").trim();
 
     if (!normalizedPin) {
-      throw new Error("Ingresá el PIN de acceso del panel.");
+      throw new Error("Ingresá la clave de acceso del panel.");
     }
 
-    await ensureBackendMode();
+    await ensureBackendAvailable();
 
-    if (backendMode === "available") {
-      const payload = await requestJson("/api/admin/login", {
-        method: "POST",
-        body: { pin: normalizedPin },
-      });
+    const payload = await requestJson("/api/admin/login", {
+      method: "POST",
+      body: { pin: normalizedPin },
+    });
 
-      authToken = String(payload?.token || "");
-      writeStorageText(AUTH_TOKEN_KEY, authToken);
+    setAuthToken(String(payload?.token || ""));
 
-      if (payload?.state) {
-        setState(payload.state);
-      }
-
-      return {
-        mode: "server",
-        token: authToken,
-      };
-    }
-
-    if (normalizedPin !== ADMIN_PIN) {
-      throw new Error("PIN incorrecto. Verificá el acceso del panel.");
+    if (payload?.state) {
+      setState(payload.state);
     }
 
     return {
-      mode: "local",
-      token: "",
+      authenticated: Boolean(authToken),
     };
   }
 
-  async function createSchedule(payload) {
-    await ensureBackendMode();
-
-    if (backendMode === "available") {
-      const response = await requestJson("/api/schedules", {
-        method: "POST",
-        body: payload,
-        requiresAuth: true,
-      });
-
-      setState(response?.state || state);
-      return response?.schedule ? core.getScheduleById(state, response.schedule.id) || response.schedule : null;
+  async function restoreSession() {
+    if (!authToken) {
+      return false;
     }
 
-    const result = core.createSchedule(state, payload);
-    setState(result.state);
-    return result.schedule;
+    await ensureBackendAvailable();
+
+    const payload = await requestJson("/api/admin/session", {
+      method: "GET",
+      requiresAuth: true,
+    });
+
+    if (payload?.state) {
+      setState(payload.state);
+    }
+
+    return true;
+  }
+
+  async function logout() {
+    if (authToken && backendMode === "available") {
+      try {
+        await requestJson("/api/admin/logout", {
+          method: "POST",
+          requiresAuth: true,
+        });
+      } catch (error) {
+        // Aunque el backend falle, invalidamos la sesión local.
+      }
+    }
+
+    clearAuthToken();
+  }
+
+  function requireAuthenticatedSession() {
+    if (!authToken) {
+      throw new Error("Tu sesión del panel venció. Ingresá nuevamente.");
+    }
+  }
+
+  async function createSchedule(payload) {
+    await ensureBackendAvailable();
+    requireAuthenticatedSession();
+
+    const response = await requestJson("/api/schedules", {
+      method: "POST",
+      body: payload,
+      requiresAuth: true,
+    });
+
+    setState(response?.state || state);
+    return response?.schedule ? core.getScheduleById(state, response.schedule.id) || response.schedule : null;
   }
 
   async function updateSchedule(scheduleId, payload) {
-    await ensureBackendMode();
+    await ensureBackendAvailable();
+    requireAuthenticatedSession();
 
-    if (backendMode === "available") {
-      const response = await requestJson(`/api/schedules/${encodeURIComponent(scheduleId)}`, {
-        method: "PUT",
-        body: payload,
-        requiresAuth: true,
-      });
+    const response = await requestJson(`/api/schedules/${encodeURIComponent(scheduleId)}`, {
+      method: "PUT",
+      body: payload,
+      requiresAuth: true,
+    });
 
-      setState(response?.state || state);
-      return response?.schedule ? core.getScheduleById(state, response.schedule.id) || response.schedule : null;
-    }
-
-    const result = core.updateSchedule(state, scheduleId, payload);
-    setState(result.state);
-    return result.schedule;
+    setState(response?.state || state);
+    return response?.schedule ? core.getScheduleById(state, response.schedule.id) || response.schedule : null;
   }
 
   async function deleteSchedule(scheduleId) {
-    await ensureBackendMode();
+    await ensureBackendAvailable();
+    requireAuthenticatedSession();
 
-    if (backendMode === "available") {
-      const response = await requestJson(`/api/schedules/${encodeURIComponent(scheduleId)}`, {
-        method: "DELETE",
-        requiresAuth: true,
-      });
+    const response = await requestJson(`/api/schedules/${encodeURIComponent(scheduleId)}`, {
+      method: "DELETE",
+      requiresAuth: true,
+    });
 
-      setState(response?.state || state);
-      return response?.schedule || null;
-    }
-
-    const result = core.deleteSchedule(state, scheduleId);
-    setState(result.state);
-    return result.schedule;
+    setState(response?.state || state);
+    return response?.schedule || null;
   }
 
   function getTimeSlots(options = {}) {
@@ -361,18 +403,18 @@
 
   if (typeof window.addEventListener === "function") {
     window.addEventListener("storage", (event) => {
-      if (event.key === STORAGE_KEY) {
-        const nextState = readStorageJson(STORAGE_KEY);
-
-        if (nextState) {
-          state = core.sanitizeState(nextState);
-          dispatchChange();
-        }
+      if (event.key !== STORAGE_KEY) {
+        return;
       }
 
-      if (event.key === AUTH_TOKEN_KEY) {
-        authToken = readStorageText(AUTH_TOKEN_KEY);
+      const nextState = readStorageJson(STORAGE_KEY);
+
+      if (!nextState) {
+        return;
       }
+
+      state = core.sanitizeState(nextState);
+      dispatchChange();
     });
 
     window.addEventListener("visibilitychange", () => {
@@ -395,15 +437,18 @@
   }
 
   window.EstudiantesTboBooking = {
-    adminPin: ADMIN_PIN,
     changeEvent: CHANGE_EVENT,
+    authChangeEvent: AUTH_CHANGE_EVENT,
     customDisciplineValue: core.customDisciplineValue,
     customSlotValue: core.customSlotValue,
     weekdays: core.weekdays,
     ready,
     login,
+    logout,
+    restoreSession,
     refresh: () => refreshFromServer({ silent: false }),
     isServerMode: () => backendMode === "available",
+    hasActiveSession: () => Boolean(authToken),
     getTimeSlots,
     getDisciplines,
     getSchedules,

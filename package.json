@@ -4,6 +4,7 @@
   "private": true,
   "description": "Sitio oficial y panel administrativo del Club Estudiantes TBÓ con API en Cloudflare Workers + D1.",
   "scripts": {
+    "security:hash-admin": "node scripts/generate-admin-password-hash.mjs",
     "cf:dev": "wrangler dev",
     "cf:deploy": "wrangler deploy",
     "cf:migrate": "wrangler d1 migrations apply estudiantes-tbo"

@@ -73,6 +73,7 @@ if (bookingApi) {
   const dashboard = document.querySelector("#admin-dashboard");
   const loginForm = document.querySelector("#admin-login-form");
   const loginButton = document.querySelector("#admin-login-button");
+  const logoutButton = document.querySelector("#admin-logout-button");
   const pinInput = document.querySelector("#admin-pin");
   const gateNote = document.querySelector("#admin-gate-note");
 
@@ -121,8 +122,19 @@ if (bookingApi) {
   function unlockDashboard() {
     gateSection.classList.add("is-hidden");
     dashboard.classList.remove("is-hidden");
+    logoutButton?.classList.remove("is-hidden");
     isDashboardUnlocked = true;
     renderDashboard();
+  }
+
+  function lockDashboard(message = "Ingresá tu clave para abrir el panel administrativo.") {
+    isDashboardUnlocked = false;
+    gateSection.classList.remove("is-hidden");
+    dashboard.classList.add("is-hidden");
+    logoutButton?.classList.add("is-hidden");
+    closeScheduleDeleteModal();
+    resetScheduleForm();
+    gateNote.textContent = message;
   }
 
   function setConditionalFieldVisibility(field, input, shouldShow) {
@@ -449,16 +461,14 @@ if (bookingApi) {
   loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     toggleButtonLoading(loginButton, true);
-    gateNote.textContent = "Validando acceso al panel...";
+    gateNote.textContent = "Validando acceso seguro...";
 
     try {
       await wait(280);
-      const session = await bookingApi.login(pinInput.value.trim());
+      await bookingApi.login(pinInput.value.trim());
 
       unlockDashboard();
-      gateNote.textContent = session.mode === "server"
-        ? "Acceso habilitado y sincronizado con el servidor."
-        : "Acceso habilitado en modo local.";
+      gateNote.textContent = "Acceso habilitado y protegido por el servidor.";
       pinInput.value = "";
     } catch (error) {
       gateNote.textContent = error.message;
@@ -557,6 +567,18 @@ if (bookingApi) {
     }
   });
 
+  logoutButton?.addEventListener("click", async () => {
+    logoutButton.disabled = true;
+
+    try {
+      await bookingApi.logout();
+      lockDashboard("Sesión cerrada correctamente.");
+      showToast("Sesión cerrada.", "success");
+    } finally {
+      logoutButton.disabled = false;
+    }
+  });
+
   window.addEventListener(bookingApi.changeEvent, () => {
     if (!isDashboardUnlocked) {
       return;
@@ -575,17 +597,36 @@ if (bookingApi) {
     }
   });
 
+  window.addEventListener(bookingApi.authChangeEvent, (event) => {
+    if (event.detail?.authenticated) {
+      return;
+    }
+
+    if (isDashboardUnlocked) {
+      lockDashboard("La sesión del panel venció. Ingresá nuevamente.");
+      showToast("Tu sesión venció. Volvé a ingresar.", "error");
+    }
+  });
+
   if (bookingApi.ready && typeof bookingApi.ready.then === "function") {
     bookingApi.ready
-      .then(() => {
+      .then(async () => {
         populateScheduleFields();
 
-        if (isDashboardUnlocked) {
+        if (bookingApi.hasActiveSession()) {
+          try {
+            await bookingApi.restoreSession();
+            unlockDashboard();
+            gateNote.textContent = "Sesión restaurada correctamente.";
+          } catch (error) {
+            lockDashboard("Ingresá tu clave para abrir el panel administrativo.");
+          }
+        } else if (isDashboardUnlocked) {
           renderDashboard();
         }
       })
       .catch(() => {
-        // Si no hay backend, el panel sigue funcionando con el estado local.
+        lockDashboard("No pudimos conectar con el panel seguro. Verificá la API.");
       });
   }
 }

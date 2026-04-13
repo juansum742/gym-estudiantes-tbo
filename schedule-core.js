@@ -12,6 +12,7 @@
   const CUSTOM_ACCENTS = ["available", "accent", "highlight", "danger", "neutral"];
   const CUSTOM_DISCIPLINE_VALUE = "__custom_discipline__";
   const CUSTOM_SLOT_VALUE = "__custom_slot__";
+  const MAX_DISCIPLINE_LABEL_LENGTH = 48;
 
   const WEEKDAYS = [
     { key: "lunes", label: "Lunes", order: 1 },
@@ -85,6 +86,16 @@
     return String(value || "").replace(/\s+/g, " ").trim();
   }
 
+  function isValidDisciplineLabel(value) {
+    const label = sanitizeDisciplineLabel(value);
+
+    if (!label || label.length > MAX_DISCIPLINE_LABEL_LENGTH) {
+      return false;
+    }
+
+    return /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9][A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9 +/&().-]*$/.test(label);
+  }
+
   function toTitleCase(value) {
     return sanitizeDisciplineLabel(value)
       .split(" ")
@@ -105,6 +116,10 @@
   }
 
   function createId() {
+    if (typeof crypto !== "undefined" && crypto && typeof crypto.randomUUID === "function") {
+      return `schedule-${crypto.randomUUID()}`;
+    }
+
     return `schedule-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
   }
 
@@ -265,7 +280,7 @@
     const label = discipline?.label ? discipline.label : toTitleCase(discipline);
     const key = String(discipline?.key || slugify(label)).trim();
 
-    if (!key || !label) {
+    if (!key || !label || !isValidDisciplineLabel(label)) {
       return null;
     }
 

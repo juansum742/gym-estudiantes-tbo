@@ -5,11 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Panel Privado | Estudiantes TBÓ</title>
   <meta name="description" content="Panel privado de horarios y disciplinas de Estudiantes TBÓ.">
+  <meta name="robots" content="noindex,nofollow">
+  <meta http-equiv="Cache-Control" content="no-store">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260413-1">
-  <link rel="stylesheet" href="admin.css?v=20260413-1">
+  <link rel="stylesheet" href="style.css?v=20260413-3">
+  <link rel="stylesheet" href="admin.css?v=20260413-3">
 </head>
 <body class="admin-body">
   <div class="site-shell">
@@ -24,6 +26,9 @@
         </a>
 
         <div class="admin-header-actions">
+          <button class="btn btn-secondary admin-btn is-hidden" type="button" id="admin-logout-button">
+            Cerrar sesión
+          </button>
           <a class="btn btn-secondary admin-btn" href="index.html">Volver al sitio</a>
         </div>
       </div>
@@ -41,8 +46,8 @@
 
             <form class="admin-login-form" id="admin-login-form">
               <label class="form-field">
-                <span>PIN de acceso</span>
-                <input id="admin-pin" type="password" placeholder="Ingresá tu PIN" required>
+                <span>Clave de acceso</span>
+                <input id="admin-pin" type="password" placeholder="Ingresá tu clave" autocomplete="current-password" required>
               </label>
 
               <button class="btn btn-primary admin-btn" type="submit" id="admin-login-button">
@@ -51,7 +56,7 @@
               </button>
             </form>
 
-            <p class="admin-gate-note" id="admin-gate-note">Acceso privado del gimnasio. Ingresá tu PIN para abrir el panel administrativo.</p>
+            <p class="admin-gate-note" id="admin-gate-note">Acceso privado del gimnasio. Ingresá tu clave para abrir el panel administrativo.</p>
           </div>
         </div>
       </section>
@@ -209,9 +214,9 @@
 
   <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
 
-  <script src="config.js?v=20260413-1"></script>
-  <script src="schedule-core.js?v=20260413-1"></script>
-  <script src="booking-data.js?v=20260413-1"></script>
-  <script src="admin.js?v=20260413-1"></script>
+  <script src="config.js?v=20260413-3"></script>
+  <script src="schedule-core.js?v=20260413-3"></script>
+  <script src="booking-data.js?v=20260413-3"></script>
+  <script src="admin.js?v=20260413-3"></script>
 </body>
 </html>

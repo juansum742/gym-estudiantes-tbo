@@ -13,7 +13,9 @@ Sitio oficial y panel administrativo del Club Estudiantes TBÓ.
 - `booking-data.js`: store del frontend que consume la API y mantiene un respaldo local
 - `cloudflare/worker.mjs`: API para Cloudflare Workers
 - `migrations/0001_schedule_schema.sql`: esquema inicial para D1
+- `migrations/0002_admin_security.sql`: endurecimiento del panel admin, sesiones y rate limit
 - `wrangler.toml`: configuración del Worker y binding de D1
+- `scripts/generate-admin-password-hash.mjs`: utilitario para generar el hash seguro de la clave admin
 - `assets/`: imágenes y logos del club
 
 ## Arquitectura
@@ -21,7 +23,7 @@ Sitio oficial y panel administrativo del Club Estudiantes TBÓ.
 - Frontend público y panel admin: GitHub Pages
 - API: Cloudflare Workers
 - Base de datos: Cloudflare D1
-- Autenticación del panel: token Bearer administrado por el frontend
+- Autenticación del panel: hash PBKDF2 validado solo en backend y sesión opaca de corta duración
 
 ## Qué se eliminó
 
@@ -41,13 +43,31 @@ Sitio oficial y panel administrativo del Club Estudiantes TBÓ.
 wrangler d1 migrations apply estudiantes-tbo
 ```
 
-4. Configurá el PIN del panel:
+4. Generá el hash seguro de la clave admin:
 
 ```bash
-wrangler secret put ADMIN_PIN
+npm run security:hash-admin -- "tu-clave-admin"
 ```
 
-5. Configurá el origen permitido para GitHub Pages:
+5. Guardá ese hash en Cloudflare:
+
+```bash
+wrangler secret put ADMIN_PASSWORD_HASH
+```
+
+6. Generá un pepper aleatorio para sesiones y rate limit:
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+```
+
+7. Guardalo en Cloudflare:
+
+```bash
+wrangler secret put AUTH_PEPPER
+```
+
+8. Configurá el origen permitido para GitHub Pages:
 
 ```bash
 wrangler secret put ALLOWED_ORIGIN
@@ -94,7 +114,8 @@ Secrets que tenés que cargar en GitHub:
 
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
-- `CF_ADMIN_PIN`
+- `CF_ADMIN_PASSWORD_HASH`
+- `CF_AUTH_PEPPER`
 - `CF_ALLOWED_ORIGIN`
 
 ## Nota importante

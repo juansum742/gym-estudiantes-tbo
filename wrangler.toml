@@ -1,6 +1,9 @@
 name = "estudiantes-tbo-api"
 main = "cloudflare/worker.mjs"
 compatibility_date = "2026-04-13"
+workers_dev = true
+preview_urls = false
+compatibility_flags = ["nodejs_compat"]
 
 [[d1_databases]]
 binding = "DB"

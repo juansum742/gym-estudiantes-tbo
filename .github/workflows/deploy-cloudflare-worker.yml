@@ -24,10 +24,11 @@ jobs:
         id: cf-ready
         shell: bash
         env:
-          CF_ADMIN_PIN: ${{ secrets.CF_ADMIN_PIN }}
+          CF_ADMIN_PASSWORD_HASH: ${{ secrets.CF_ADMIN_PASSWORD_HASH }}
+          CF_AUTH_PEPPER: ${{ secrets.CF_AUTH_PEPPER }}
           CF_ALLOWED_ORIGIN: ${{ secrets.CF_ALLOWED_ORIGIN }}
         run: |
-          if [ -z "${CLOUDFLARE_API_TOKEN}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID}" ] || [ -z "${CF_ADMIN_PIN}" ] || [ -z "${CF_ALLOWED_ORIGIN}" ]; then
+          if [ -z "${CLOUDFLARE_API_TOKEN}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID}" ] || [ -z "${CF_ADMIN_PASSWORD_HASH}" ] || [ -z "${CF_AUTH_PEPPER}" ] || [ -z "${CF_ALLOWED_ORIGIN}" ]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
             echo "Cloudflare secrets missing. Skipping Worker deploy until repository secrets are configured."
           else
@@ -49,10 +50,12 @@ jobs:
         if: steps.cf-ready.outputs.ready == 'true'
         shell: bash
         env:
-          CF_ADMIN_PIN: ${{ secrets.CF_ADMIN_PIN }}
+          CF_ADMIN_PASSWORD_HASH: ${{ secrets.CF_ADMIN_PASSWORD_HASH }}
+          CF_AUTH_PEPPER: ${{ secrets.CF_AUTH_PEPPER }}
           CF_ALLOWED_ORIGIN: ${{ secrets.CF_ALLOWED_ORIGIN }}
         run: |
-          printf "%s" "$CF_ADMIN_PIN" | npx wrangler secret put ADMIN_PIN
+          printf "%s" "$CF_ADMIN_PASSWORD_HASH" | npx wrangler secret put ADMIN_PASSWORD_HASH
+          printf "%s" "$CF_AUTH_PEPPER" | npx wrangler secret put AUTH_PEPPER
           printf "%s" "$CF_ALLOWED_ORIGIN" | npx wrangler secret put ALLOWED_ORIGIN
 
       - name: Apply D1 migrations
