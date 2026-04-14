@@ -17,6 +17,18 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function configureAdminLinks() {
+  const adminUrl = String(window.__ESTUDIANTES_ADMIN_URL__ || "").trim();
+
+  if (!adminUrl) {
+    return;
+  }
+
+  document.querySelectorAll("[data-admin-entry]").forEach((link) => {
+    link.setAttribute("href", adminUrl);
+  });
+}
+
 if (menuToggle && nav) {
   menuToggle.addEventListener("click", () => {
     const isOpen = body.classList.toggle("nav-open");
@@ -254,5 +266,6 @@ window.addEventListener("scroll", onScroll, { passive: true });
 window.addEventListener("resize", updateMediaMotion);
 
 setupScheduleBoard();
+configureAdminLinks();
 updateHeaderState();
 updateMediaMotion();

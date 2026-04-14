@@ -5,6 +5,15 @@ workers_dev = true
 preview_urls = false
 compatibility_flags = ["nodejs_compat"]
 
+[build]
+command = "npm run cf:build-assets"
+watch_dir = "."
+
+[assets]
+directory = "./dist-worker"
+binding = "ASSETS"
+run_worker_first = true
+
 [[d1_databases]]
 binding = "DB"
 database_name = "estudiantes-tbo"

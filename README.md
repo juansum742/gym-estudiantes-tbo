@@ -20,10 +20,14 @@ Sitio oficial y panel administrativo del Club Estudiantes TBÓ.
 
 ## Arquitectura
 
-- Frontend público y panel admin: GitHub Pages
-- API: Cloudflare Workers
-- Base de datos: Cloudflare D1
-- Autenticación del panel: hash PBKDF2 validado solo en backend y sesión opaca de corta duración
+- Producción segura recomendada:
+  - mismo Worker de Cloudflare sirviendo `index.html`, `admin.html`, CSS, JS, assets y `/api/*`
+  - base de datos en Cloudflare D1
+  - autenticación del panel con hash PBKDF2 validado solo en backend
+  - sesión admin por cookie segura `HttpOnly`, `Secure`, `SameSite=Strict`
+- GitHub Pages puede seguir funcionando como espejo público.
+- El acceso al panel admin queda redirigido al sitio seguro del Worker para evitar autenticación cross-site.
+- La URL canónica del panel seguro es `/admin`.
 
 ## Qué se eliminó
 
@@ -67,7 +71,7 @@ node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 wrangler secret put AUTH_PEPPER
 ```
 
-8. Configurá el origen permitido para GitHub Pages:
+8. Configurá el origen permitido para GitHub Pages o cualquier mirror público cross-origin:
 
 ```bash
 wrangler secret put ALLOWED_ORIGIN
@@ -80,6 +84,16 @@ https://juansum742.github.io
 ```
 
 Si también vas a usar un dominio personalizado o pruebas locales, podés guardar varios orígenes separados por coma.
+
+## Sesión admin segura
+
+- El panel ya no guarda tokens de sesión en `localStorage` ni `sessionStorage`.
+- El login del panel emite una cookie segura de backend:
+  - `HttpOnly`
+  - `Secure`
+  - `SameSite=Strict`
+  - `Path=/api`
+- Los endpoints privados validan la cookie en el Worker y nunca devuelven el valor de sesión al frontend.
 
 ## Publicación
 
@@ -95,9 +109,14 @@ wrangler deploy
 https://estudiantes-tbo-api.tu-subdominio.workers.dev
 ```
 
-3. Pegala en `config.js` dentro de `explicitBase`.
+3. Pegala en `config.js` dentro de `explicitAppBase`.
 
-Desde ese momento, la home y `admin.html` dejan de depender del navegador local y usan la misma base compartida desde cualquier dispositivo.
+Desde ese momento:
+
+- la URL del Worker puede servir la home y el panel en el mismo origen
+- `admin.html` ya puede usar cookie `HttpOnly` real
+- la home pública y el panel usan la misma base compartida desde cualquier dispositivo
+- GitHub Pages puede seguir mostrando la home, pero el acceso al panel se redirige al origen seguro del Worker
 
 ## Deploy automático
 
@@ -118,6 +137,16 @@ Secrets que tenés que cargar en GitHub:
 - `CF_AUTH_PEPPER`
 - `CF_ALLOWED_ORIGIN`
 
+## Dominio recomendado
+
+La arquitectura más segura para producción es:
+
+- `https://gymtbo.com/`
+- `https://gymtbo.com/admin`
+- `https://gymtbo.com/api/...`
+
+Mientras configurás el dominio final, podés usar directamente la URL del Worker `workers.dev` como origen seguro único.
+
 ## Nota importante
 
-Mientras `config.js` siga con `explicitBase` vacío, la web entra en modo de respaldo local y no comparte datos entre dispositivos.
+Mientras `config.js` siga con `explicitAppBase` vacío, la web entra en modo de respaldo local y no comparte datos entre dispositivos.

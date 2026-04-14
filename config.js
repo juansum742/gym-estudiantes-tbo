@@ -1,17 +1,47 @@
-window.__ESTUDIANTES_API_BASE__ = (() => {
-  const explicitBase = "https://estudiantes-tbo-api.juansum742.workers.dev";
+(() => {
+  const explicitAppBase = "https://estudiantes-tbo-api.juansum742.workers.dev";
 
-  if (explicitBase) {
-    return explicitBase.replace(/\/+$/, "");
+  function normalizeBase(value) {
+    return String(value || "").trim().replace(/\/+$/, "");
   }
 
-  if (typeof window !== "undefined") {
-    const hostname = window.location.hostname;
+  function isLocalHostname(hostname) {
+    return hostname === "127.0.0.1" || hostname === "localhost";
+  }
 
-    if (hostname === "127.0.0.1" || hostname === "localhost") {
+  function resolveConfiguredAppBase() {
+    if (typeof window === "undefined") {
+      return normalizeBase(explicitAppBase);
+    }
+
+    if (isLocalHostname(window.location.hostname)) {
       return "http://127.0.0.1:8787";
     }
+
+    return normalizeBase(explicitAppBase);
   }
 
-  return "";
+  function resolveAppUrl(pathname = "/") {
+    const normalizedPath = pathname.startsWith("/") ? pathname : `/${pathname}`;
+    const appBase = resolveConfiguredAppBase();
+
+    if (!appBase) {
+      return normalizedPath;
+    }
+
+    return `${appBase}${normalizedPath}`;
+  }
+
+  const appBase = resolveConfiguredAppBase();
+  const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
+  const appOrigin = appBase ? new URL(appBase).origin : currentOrigin;
+  const isAppOrigin = Boolean(appOrigin) && currentOrigin === appOrigin;
+  const apiBase = isAppOrigin ? "" : appBase;
+
+  window.__ESTUDIANTES_APP_BASE__ = appBase;
+  window.__ESTUDIANTES_API_BASE__ = apiBase;
+  window.__ESTUDIANTES_ADMIN_URL__ = resolveAppUrl("/admin");
+  window.__ESTUDIANTES_PUBLIC_URL__ = resolveAppUrl("/");
+  window.__ESTUDIANTES_IS_APP_ORIGIN__ = isAppOrigin;
+  window.__ESTUDIANTES_RESOLVE_APP_URL__ = resolveAppUrl;
 })();

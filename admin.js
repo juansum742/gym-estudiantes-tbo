@@ -613,17 +613,19 @@ if (bookingApi) {
       .then(async () => {
         populateScheduleFields();
 
-        if (bookingApi.hasActiveSession()) {
-          try {
-            await bookingApi.restoreSession();
+        try {
+          const restored = await bookingApi.restoreSession();
+
+          if (restored) {
             unlockDashboard();
             gateNote.textContent = "Sesión restaurada correctamente.";
-          } catch (error) {
-            lockDashboard("Ingresá tu clave para abrir el panel administrativo.");
+            return;
           }
-        } else if (isDashboardUnlocked) {
-          renderDashboard();
+        } catch (error) {
+          // Si no hay cookie válida o la sesión expiró, dejamos el login visible.
         }
+
+        lockDashboard("Ingresá tu clave para abrir el panel administrativo.");
       })
       .catch(() => {
         lockDashboard("No pudimos conectar con el panel seguro. Verificá la API.");

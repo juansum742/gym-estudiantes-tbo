@@ -17,14 +17,42 @@ const MAX_JSON_BODY_BYTES = 4096;
 const MIN_PASSWORD_HASH_ITERATIONS = 60000;
 const MAX_PASSWORD_HASH_ITERATIONS = 100000;
 const PASSWORD_HASH_PREFIX = "pbkdf2_sha256";
-const RESPONSE_HEADERS = {
+const SESSION_COOKIE_NAME = "__Secure-estudiantes_tbo_admin";
+const SESSION_COOKIE_PATH = "/api";
+const API_RESPONSE_HEADERS = {
   "Cache-Control": "no-store, no-cache, must-revalidate",
   "Content-Type": "application/json; charset=utf-8",
   "Pragma": "no-cache",
   "Referrer-Policy": "no-referrer",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
+  "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+  "Cross-Origin-Resource-Policy": "same-site",
   "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+};
+const STATIC_SHARED_HEADERS = {
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+  "Cross-Origin-Resource-Policy": "same-site",
+  "Permissions-Policy": "accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()",
+};
+const HTML_SECURITY_HEADERS = {
+  "Content-Security-Policy": [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "img-src 'self' data: https:",
+    "connect-src 'self'",
+    "frame-src https://www.google.com https://maps.google.com",
+    "upgrade-insecure-requests",
+  ].join("; "),
 };
 
 class HttpError extends Error {
@@ -36,54 +64,107 @@ class HttpError extends Error {
 }
 
 function getAllowedOrigins(env) {
-  const origins = String(env.ALLOWED_ORIGIN || "")
+  return String(env.ALLOWED_ORIGIN || "")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
-
-  if (!origins.length) {
-    throw new HttpError(503, "La configuración de seguridad del servidor está incompleta.");
-  }
-
-  return origins;
 }
 
-function buildCorsHeaders(origin) {
+function getRequestUrl(request) {
+  return new URL(request.url);
+}
+
+function getRequestOrigin(request) {
+  return getRequestUrl(request).origin;
+}
+
+function getOriginHeader(request) {
+  return String(request.headers.get("Origin") || "").trim();
+}
+
+function getSecFetchSite(request) {
+  return String(request.headers.get("Sec-Fetch-Site") || "").trim().toLowerCase();
+}
+
+function resolvePublicCorsOrigin(request, env) {
+  const requestOrigin = getOriginHeader(request);
+  const requestSiteOrigin = getRequestOrigin(request);
+
+  if (!requestOrigin) {
+    return null;
+  }
+
+  if (requestOrigin === requestSiteOrigin) {
+    return requestOrigin;
+  }
+
+  if (getAllowedOrigins(env).includes(requestOrigin)) {
+    return requestOrigin;
+  }
+
+  throw new HttpError(403, "No autorizado.");
+}
+
+function assertSameOriginRead(request) {
+  const requestOrigin = getOriginHeader(request);
+  const requestSiteOrigin = getRequestOrigin(request);
+  const secFetchSite = getSecFetchSite(request);
+
+  if (requestOrigin && requestOrigin !== requestSiteOrigin) {
+    throw new HttpError(403, "No autorizado.");
+  }
+
+  if (secFetchSite && !["same-origin", "same-site", "none", "empty"].includes(secFetchSite)) {
+    throw new HttpError(403, "No autorizado.");
+  }
+
+  return requestSiteOrigin;
+}
+
+function assertTrustedWriteRequest(request) {
+  const requestOrigin = getOriginHeader(request);
+  const requestSiteOrigin = getRequestOrigin(request);
+  const secFetchSite = getSecFetchSite(request);
+
+  if (!requestOrigin || requestOrigin !== requestSiteOrigin) {
+    throw new HttpError(403, "No autorizado.");
+  }
+
+  if (secFetchSite && !["same-origin", "same-site", "none"].includes(secFetchSite)) {
+    throw new HttpError(403, "No autorizado.");
+  }
+
+  return requestSiteOrigin;
+}
+
+function buildCorsHeaders(origin, { allowCredentials = false } = {}) {
+  if (!origin) {
+    return {};
+  }
+
   return {
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Headers": "Accept, Authorization, Content-Type",
+    "Access-Control-Allow-Headers": "Accept, Content-Type",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Max-Age": "86400",
+    ...(allowCredentials ? { "Access-Control-Allow-Credentials": "true" } : {}),
     Vary: "Origin",
   };
 }
 
-function resolveResponseOrigin(request, env, options = {}) {
-  const requestOrigin = String(request.headers.get("Origin") || "").trim();
-  const allowedOrigins = getAllowedOrigins(env);
+function jsonResponse(payload, { status = 200, corsOrigin = null, allowCredentials = false, setCookie } = {}) {
+  const headers = new Headers({
+    ...API_RESPONSE_HEADERS,
+    ...buildCorsHeaders(corsOrigin, { allowCredentials }),
+  });
 
-  if (!requestOrigin) {
-    if (options.requireOrigin) {
-      throw new HttpError(403, "No autorizado.");
-    }
-
-    return allowedOrigins[0];
+  if (setCookie) {
+    headers.append("Set-Cookie", setCookie);
   }
 
-  if (!allowedOrigins.includes(requestOrigin)) {
-    throw new HttpError(403, "No autorizado.");
-  }
-
-  return requestOrigin;
-}
-
-function jsonResponse(payload, { status = 200, origin } = {}) {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: {
-      ...RESPONSE_HEADERS,
-      ...buildCorsHeaders(origin),
-    },
+    headers,
   });
 }
 
@@ -201,14 +282,57 @@ function createOpaqueToken() {
   return toBase64Url(randomBytes(32));
 }
 
-function readBearerToken(request) {
-  const authorization = String(request.headers.get("Authorization") || "");
+function parseCookies(request) {
+  const cookieHeader = String(request.headers.get("Cookie") || "");
+  const entries = cookieHeader
+    .split(";")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 
-  if (!authorization.startsWith("Bearer ")) {
-    return "";
+  const cookies = new Map();
+
+  for (const entry of entries) {
+    const separatorIndex = entry.indexOf("=");
+
+    if (separatorIndex <= 0) {
+      continue;
+    }
+
+    const key = entry.slice(0, separatorIndex).trim();
+    const value = entry.slice(separatorIndex + 1).trim();
+    cookies.set(key, value);
   }
 
-  return authorization.slice("Bearer ".length).trim().slice(0, 256);
+  return cookies;
+}
+
+function readSessionCookie(request) {
+  return parseCookies(request).get(SESSION_COOKIE_NAME) || "";
+}
+
+function buildSessionCookie(token, env) {
+  const maxAgeSeconds = Math.max(1, Math.floor(getSessionTtl(env) / 1000));
+
+  return [
+    `${SESSION_COOKIE_NAME}=${token}`,
+    `Max-Age=${maxAgeSeconds}`,
+    `Path=${SESSION_COOKIE_PATH}`,
+    "HttpOnly",
+    "Secure",
+    "SameSite=Strict",
+  ].join("; ");
+}
+
+function buildClearSessionCookie() {
+  return [
+    `${SESSION_COOKIE_NAME}=`,
+    "Max-Age=0",
+    "Expires=Thu, 01 Jan 1970 00:00:00 GMT",
+    `Path=${SESSION_COOKIE_PATH}`,
+    "HttpOnly",
+    "Secure",
+    "SameSite=Strict",
+  ].join("; ");
 }
 
 function getClientIp(request) {
@@ -224,9 +348,9 @@ function getClientIp(request) {
 
 async function getClientKey(request, env) {
   const pepper = getRequiredSecret(env, "AUTH_PEPPER");
-  const origin = String(request.headers.get("Origin") || "").trim();
+  const siteOrigin = getRequestOrigin(request);
   const userAgent = String(request.headers.get("User-Agent") || "").trim();
-  const fingerprint = `${getClientIp(request)}|${origin}|${userAgent}`;
+  const fingerprint = `${getClientIp(request)}|${siteOrigin}|${userAgent}`;
   return hashWithPepper(fingerprint, pepper);
 }
 
@@ -310,7 +434,7 @@ async function createAdminSession(db, request, env) {
   const rawToken = createOpaqueToken();
   const tokenHash = await getSessionTokenHash(rawToken, env);
   const userAgentHash = await getUserAgentHash(request, env);
-  const origin = resolveResponseOrigin(request, env, { requireOrigin: true });
+  const siteOrigin = getRequestOrigin(request);
   const now = Date.now();
   const nowIso = new Date(now).toISOString();
   const expiresAt = now + getSessionTtl(env);
@@ -320,7 +444,7 @@ async function createAdminSession(db, request, env) {
       INSERT INTO admin_sessions_secure (token_hash, expires_at, created_at, last_seen_at, origin, user_agent_hash)
       VALUES (?, ?, ?, ?, ?, ?)
     `)
-    .bind(tokenHash, expiresAt, nowIso, nowIso, origin, userAgentHash)
+    .bind(tokenHash, expiresAt, nowIso, nowIso, siteOrigin, userAgentHash)
     .run();
 
   return rawToken;
@@ -335,8 +459,7 @@ async function invalidateSession(db, tokenHash) {
 }
 
 async function requireAdminSession(request, env) {
-  const origin = resolveResponseOrigin(request, env, { requireOrigin: true });
-  const rawToken = readBearerToken(request);
+  const rawToken = readSessionCookie(request);
 
   if (!rawToken) {
     throw new HttpError(401, "No autorizado.");
@@ -365,7 +488,10 @@ async function requireAdminSession(request, env) {
   const currentUserAgentHash = textEncoder.encode(String(expectedUserAgentHash));
   const storedUserAgentHash = textEncoder.encode(String(session.user_agent_hash || ""));
 
-  if (!constantTimeEqual(currentUserAgentHash, storedUserAgentHash) || String(session.origin || "") !== origin) {
+  if (
+    !constantTimeEqual(currentUserAgentHash, storedUserAgentHash)
+    || String(session.origin || "") !== getRequestOrigin(request)
+  ) {
     await invalidateSession(db, tokenHash);
     throw new HttpError(401, "No autorizado.");
   }
@@ -381,7 +507,7 @@ async function requireAdminSession(request, env) {
     .bind(nextExpiresAt, new Date().toISOString(), tokenHash)
     .run();
 
-  return { tokenHash, origin };
+  return { tokenHash };
 }
 
 async function readStateFromDb(db) {
@@ -512,8 +638,57 @@ async function persistState(db, sourceState) {
   return state;
 }
 
+function decorateStaticResponse(request, response) {
+  if (!response || response.status >= 400 || response.status === 304) {
+    return response;
+  }
+
+  const url = getRequestUrl(request);
+  const pathname = url.pathname;
+  const headers = new Headers(response.headers);
+  const contentType = String(headers.get("content-type") || "");
+  const isHtml = contentType.includes("text/html");
+
+  Object.entries(STATIC_SHARED_HEADERS).forEach(([key, value]) => {
+    headers.set(key, value);
+  });
+
+  if (isHtml) {
+    Object.entries(HTML_SECURITY_HEADERS).forEach(([key, value]) => {
+      headers.set(key, value);
+    });
+
+    headers.set("Cache-Control", pathname === "/admin.html" ? "no-store" : "no-cache");
+
+    if (pathname === "/admin.html") {
+      headers.set("X-Robots-Tag", "noindex, nofollow");
+    }
+  }
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+async function serveStaticAsset(request, env) {
+  if (!env.ASSETS || typeof env.ASSETS.fetch !== "function") {
+    throw new HttpError(503, "Los assets públicos del sitio no están configurados.");
+  }
+
+  const url = getRequestUrl(request);
+
+  if (url.pathname === "/home") {
+    return Response.redirect(`${url.origin}/`, 302);
+  }
+
+  const assetResponse = await env.ASSETS.fetch(request);
+  return decorateStaticResponse(request, assetResponse);
+}
+
 async function handleSchedulesGet(request, env) {
-  const origin = resolveResponseOrigin(request, env);
+  const corsOrigin = resolvePublicCorsOrigin(request, env);
   const state = await readStateFromDb(getDb(env));
 
   return jsonResponse(
@@ -522,14 +697,15 @@ async function handleSchedulesGet(request, env) {
       stats: core.getStats(state),
       mode: "cloudflare-d1",
     },
-    { origin }
+    { corsOrigin }
   );
 }
 
 async function handleLogin(request, env) {
-  const origin = resolveResponseOrigin(request, env, { requireOrigin: true });
+  const corsOrigin = getRequestOrigin(request);
+  assertTrustedWriteRequest(request);
   const body = await readJson(request);
-  const candidatePassword = String(body?.pin || "").trim();
+  const candidatePassword = String(body?.pin || body?.password || "").trim();
   const db = getDb(env);
   const clientKey = await getClientKey(request, env);
 
@@ -545,7 +721,7 @@ async function handleLogin(request, env) {
       {
         error: "Credenciales inválidas.",
       },
-      { status: 401, origin }
+      { status: 401, corsOrigin }
     );
   }
 
@@ -557,15 +733,19 @@ async function handleLogin(request, env) {
 
   return jsonResponse(
     {
-      token,
+      authenticated: true,
       state,
     },
-    { origin }
+    {
+      corsOrigin,
+      setCookie: buildSessionCookie(token, env),
+    }
   );
 }
 
 async function handleSession(request, env) {
-  const origin = resolveResponseOrigin(request, env, { requireOrigin: true });
+  const corsOrigin = getRequestOrigin(request);
+  assertSameOriginRead(request);
   await requireAdminSession(request, env);
   const state = await readStateFromDb(getDb(env));
 
@@ -574,27 +754,33 @@ async function handleSession(request, env) {
       state,
       authenticated: true,
     },
-    { origin }
+    { corsOrigin }
   );
 }
 
 async function handleLogout(request, env) {
-  const origin = resolveResponseOrigin(request, env, { requireOrigin: true });
-  const rawToken = readBearerToken(request);
+  const corsOrigin = getRequestOrigin(request);
+  assertTrustedWriteRequest(request);
+  const rawToken = readSessionCookie(request);
+  const db = getDb(env);
 
-  if (!rawToken) {
-    return jsonResponse({ ok: true }, { origin });
+  if (rawToken) {
+    const tokenHash = await getSessionTokenHash(rawToken, env);
+    await invalidateSession(db, tokenHash);
   }
 
-  const db = getDb(env);
-  const tokenHash = await getSessionTokenHash(rawToken, env);
-  await invalidateSession(db, tokenHash);
-
-  return jsonResponse({ ok: true }, { origin });
+  return jsonResponse(
+    { ok: true },
+    {
+      corsOrigin,
+      setCookie: buildClearSessionCookie(),
+    }
+  );
 }
 
 async function handleScheduleCreate(request, env) {
-  const origin = resolveResponseOrigin(request, env, { requireOrigin: true });
+  const corsOrigin = getRequestOrigin(request);
+  assertTrustedWriteRequest(request);
   await requireAdminSession(request, env);
   const db = getDb(env);
   const body = await readJson(request);
@@ -615,12 +801,13 @@ async function handleScheduleCreate(request, env) {
       state: nextState,
       schedule,
     },
-    { status: 201, origin }
+    { status: 201, corsOrigin }
   );
 }
 
 async function handleScheduleUpdate(request, env, scheduleId) {
-  const origin = resolveResponseOrigin(request, env, { requireOrigin: true });
+  const corsOrigin = getRequestOrigin(request);
+  assertTrustedWriteRequest(request);
   await requireAdminSession(request, env);
   const db = getDb(env);
   const body = await readJson(request);
@@ -641,12 +828,13 @@ async function handleScheduleUpdate(request, env, scheduleId) {
       state: nextState,
       schedule,
     },
-    { origin }
+    { corsOrigin }
   );
 }
 
 async function handleScheduleDelete(request, env, scheduleId) {
-  const origin = resolveResponseOrigin(request, env, { requireOrigin: true });
+  const corsOrigin = getRequestOrigin(request);
+  assertTrustedWriteRequest(request);
   await requireAdminSession(request, env);
   const db = getDb(env);
   const currentState = await readStateFromDb(db);
@@ -665,34 +853,43 @@ async function handleScheduleDelete(request, env, scheduleId) {
       state: nextState,
       schedule: result.schedule,
     },
-    { origin }
+    { corsOrigin }
   );
 }
 
-async function routeRequest(request, env) {
-  const url = new URL(request.url);
-  const pathname = url.pathname.replace(/\/+$/, "") || "/";
+async function handleOptions(request, env) {
+  const pathname = getRequestUrl(request).pathname.replace(/\/+$/, "") || "/";
 
-  if (request.method === "OPTIONS") {
-    const origin = resolveResponseOrigin(request, env);
+  if (pathname === "/api/schedules" || pathname === "/api/health") {
+    const corsOrigin = resolvePublicCorsOrigin(request, env);
     return new Response(null, {
       status: 204,
       headers: {
-        ...buildCorsHeaders(origin),
+        ...buildCorsHeaders(corsOrigin),
         "Cache-Control": "no-store",
       },
     });
   }
 
+  throw new HttpError(403, "No autorizado.");
+}
+
+async function routeApiRequest(request, env) {
+  const pathname = getRequestUrl(request).pathname.replace(/\/+$/, "") || "/";
+
+  if (request.method === "OPTIONS") {
+    return handleOptions(request, env);
+  }
+
   if (pathname === "/api/health" && request.method === "GET") {
-    const origin = resolveResponseOrigin(request, env);
+    const corsOrigin = resolvePublicCorsOrigin(request, env);
     return jsonResponse(
       {
         ok: true,
         mode: "cloudflare-d1",
         timestamp: new Date().toISOString(),
       },
-      { origin }
+      { corsOrigin }
     );
   }
 
@@ -720,12 +917,11 @@ async function routeRequest(request, env) {
     const scheduleId = decodeURIComponent(pathname.slice("/api/schedules/".length)).trim();
 
     if (!scheduleId) {
-      const origin = resolveResponseOrigin(request, env, { requireOrigin: true });
       return jsonResponse(
         {
           error: "No recibimos el identificador del horario.",
         },
-        { status: 400, origin }
+        { status: 400, corsOrigin: getRequestOrigin(request) }
       );
     }
 
@@ -738,13 +934,22 @@ async function routeRequest(request, env) {
     }
   }
 
-  const origin = resolveResponseOrigin(request, env);
   return jsonResponse(
     {
       error: "No encontramos ese endpoint.",
     },
-    { status: 404, origin }
+    { status: 404, corsOrigin: resolvePublicCorsOrigin(request, env) }
   );
+}
+
+async function routeRequest(request, env) {
+  const pathname = getRequestUrl(request).pathname;
+
+  if (pathname.startsWith("/api/")) {
+    return routeApiRequest(request, env);
+  }
+
+  return serveStaticAsset(request, env);
 }
 
 export default {
@@ -752,19 +957,39 @@ export default {
     try {
       return await routeRequest(request, env);
     } catch (error) {
-      const origin = (() => {
-        try {
-          return resolveResponseOrigin(request, env);
-        } catch (responseOriginError) {
-          return getAllowedOrigins(env)[0];
-        }
-      })();
-      const status = error instanceof HttpError ? error.status : 500;
-      const message = error instanceof HttpError
-        ? error.message
-        : "No pudimos procesar la solicitud.";
+      if (getRequestUrl(request).pathname.startsWith("/api/")) {
+        const corsOrigin = (() => {
+          try {
+            return resolvePublicCorsOrigin(request, env) || getRequestOrigin(request);
+          } catch (resolveError) {
+            return getRequestOrigin(request);
+          }
+        })();
+        const status = error instanceof HttpError ? error.status : 500;
+        const message = error instanceof HttpError
+          ? error.message
+          : "No pudimos procesar la solicitud.";
 
-      return jsonResponse({ error: message }, { status, origin });
+        const options = {
+          status,
+          corsOrigin,
+        };
+
+        if (status === 401) {
+          options.setCookie = buildClearSessionCookie();
+        }
+
+        return jsonResponse({ error: message }, options);
+      }
+
+      return new Response("No pudimos cargar el sitio.", {
+        status: error instanceof HttpError ? error.status : 500,
+        headers: {
+          "Cache-Control": "no-store",
+          "Content-Type": "text/plain; charset=utf-8",
+          ...STATIC_SHARED_HEADERS,
+        },
+      });
     }
   },
 };

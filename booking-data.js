@@ -7,27 +7,18 @@
 
   const STORAGE_KEY = "estudiantes_tbo_schedule_v2";
   const LEGACY_STORAGE_KEYS = ["estudiantes_tbo_schedule_v1", "estudiantes_tbo_premium_v3", "estudiantes_tbo_premium_v2"];
-  const AUTH_TOKEN_KEY = "estudiantes_tbo_admin_session";
   const CHANGE_EVENT = "estudiantes-tbo-schedule:changed";
   const AUTH_CHANGE_EVENT = "estudiantes-tbo-auth:changed";
   const SYNC_INTERVAL_MS = 30000;
 
   let state = loadInitialState();
-  let authToken = readSessionText(AUTH_TOKEN_KEY);
+  let isAuthenticated = false;
   let backendMode = "unknown";
   let refreshPromise = null;
 
   function hasLocalStorage() {
     try {
       return typeof window.localStorage !== "undefined";
-    } catch (error) {
-      return false;
-    }
-  }
-
-  function hasSessionStorage() {
-    try {
-      return typeof window.sessionStorage !== "undefined";
     } catch (error) {
       return false;
     }
@@ -55,34 +46,6 @@
       window.localStorage.setItem(storageKey, JSON.stringify(value));
     } catch (error) {
       // Ignoramos fallos de cuota para no romper la UI pública.
-    }
-  }
-
-  function readSessionText(storageKey) {
-    if (!hasSessionStorage()) {
-      return "";
-    }
-
-    try {
-      return window.sessionStorage.getItem(storageKey) || "";
-    } catch (error) {
-      return "";
-    }
-  }
-
-  function writeSessionText(storageKey, value) {
-    if (!hasSessionStorage()) {
-      return;
-    }
-
-    try {
-      if (value) {
-        window.sessionStorage.setItem(storageKey, value);
-      } else {
-        window.sessionStorage.removeItem(storageKey);
-      }
-    } catch (error) {
-      // Ignoramos fallos de almacenamiento para no romper la UI.
     }
   }
 
@@ -130,7 +93,7 @@
     window.dispatchEvent(
       new CustomEvent(AUTH_CHANGE_EVENT, {
         detail: {
-          authenticated: Boolean(authToken),
+          authenticated: isAuthenticated,
           backendMode,
         },
       })
@@ -150,14 +113,9 @@
     }
   }
 
-  function setAuthToken(nextToken) {
-    authToken = String(nextToken || "").trim();
-    writeSessionText(AUTH_TOKEN_KEY, authToken);
+  function setAuthenticated(nextValue) {
+    isAuthenticated = Boolean(nextValue);
     dispatchAuthChange();
-  }
-
-  function clearAuthToken() {
-    setAuthToken("");
   }
 
   function getApiBase() {
@@ -199,12 +157,9 @@
       headers.set("Content-Type", "application/json");
     }
 
-    if (authToken && options.requiresAuth) {
-      headers.set("Authorization", `Bearer ${authToken}`);
-    }
-
     const response = await window.fetch(buildApiUrl(pathname), {
       method: options.method || "GET",
+      credentials: options.credentials || "same-origin",
       headers,
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
     });
@@ -213,7 +168,7 @@
 
     if (!response.ok) {
       if (response.status === 401) {
-        clearAuthToken();
+        setAuthenticated(false);
       }
 
       throw new Error(payload?.error || "No pudimos conectar con el servidor.");
@@ -273,53 +228,48 @@
       body: { pin: normalizedPin },
     });
 
-    setAuthToken(String(payload?.token || ""));
+    setAuthenticated(true);
 
     if (payload?.state) {
       setState(payload.state);
     }
 
     return {
-      authenticated: Boolean(authToken),
+      authenticated: isAuthenticated,
     };
   }
 
   async function restoreSession() {
-    if (!authToken) {
-      return false;
-    }
-
     await ensureBackendAvailable();
 
     const payload = await requestJson("/api/admin/session", {
       method: "GET",
-      requiresAuth: true,
     });
 
     if (payload?.state) {
       setState(payload.state);
     }
 
-    return true;
+    setAuthenticated(Boolean(payload?.authenticated));
+    return isAuthenticated;
   }
 
   async function logout() {
-    if (authToken && backendMode === "available") {
+    if (backendMode === "available") {
       try {
         await requestJson("/api/admin/logout", {
           method: "POST",
-          requiresAuth: true,
         });
       } catch (error) {
         // Aunque el backend falle, invalidamos la sesión local.
       }
     }
 
-    clearAuthToken();
+    setAuthenticated(false);
   }
 
   function requireAuthenticatedSession() {
-    if (!authToken) {
+    if (!isAuthenticated) {
       throw new Error("Tu sesión del panel venció. Ingresá nuevamente.");
     }
   }
@@ -331,7 +281,6 @@
     const response = await requestJson("/api/schedules", {
       method: "POST",
       body: payload,
-      requiresAuth: true,
     });
 
     setState(response?.state || state);
@@ -345,7 +294,6 @@
     const response = await requestJson(`/api/schedules/${encodeURIComponent(scheduleId)}`, {
       method: "PUT",
       body: payload,
-      requiresAuth: true,
     });
 
     setState(response?.state || state);
@@ -358,7 +306,6 @@
 
     const response = await requestJson(`/api/schedules/${encodeURIComponent(scheduleId)}`, {
       method: "DELETE",
-      requiresAuth: true,
     });
 
     setState(response?.state || state);
@@ -448,7 +395,7 @@
     restoreSession,
     refresh: () => refreshFromServer({ silent: false }),
     isServerMode: () => backendMode === "available",
-    hasActiveSession: () => Boolean(authToken),
+    hasActiveSession: () => isAuthenticated,
     getTimeSlots,
     getDisciplines,
     getSchedules,
