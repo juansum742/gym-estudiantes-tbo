@@ -277,7 +277,8 @@
   const BASE_TIME_SLOT_META = BASE_TIME_SLOTS.map((slot) => buildTimeSlotMeta(slot, false)).sort(compareTimeSlots);
 
   function buildDisciplineMeta(discipline, custom = false) {
-    const label = discipline?.label ? discipline.label : toTitleCase(discipline);
+    const rawLabel = discipline?.label ? discipline.label : toTitleCase(discipline);
+    const label = sanitizeDisciplineLabel(rawLabel);
     const key = String(discipline?.key || slugify(label)).trim();
 
     if (!key || !label || !isValidDisciplineLabel(label)) {
@@ -445,9 +446,9 @@
       return existingDiscipline.key;
     }
 
-    const label = toTitleCase(value);
+    const label = sanitizeDisciplineLabel(value);
 
-    if (!label) {
+    if (!label || !isValidDisciplineLabel(label)) {
       return "";
     }
 
@@ -469,6 +470,10 @@
       },
       true
     );
+
+    if (!customDiscipline) {
+      return "";
+    }
 
     sourceState.customDisciplines.push(customDiscipline);
     sourceState.customDisciplines.sort(compareDisciplines);
@@ -506,6 +511,14 @@
       createdAt: payload.createdAt || now,
       updatedAt: payload.updatedAt || now,
     };
+  }
+
+  function pruneUnusedCustomMeta(sourceState) {
+    const usedSlotKeys = new Set((sourceState.schedules || []).map((schedule) => schedule.slotKey));
+    const usedDisciplineKeys = new Set((sourceState.schedules || []).map((schedule) => schedule.disciplineKey));
+
+    sourceState.customTimeSlots = (sourceState.customTimeSlots || []).filter((slot) => usedSlotKeys.has(slot.key));
+    sourceState.customDisciplines = (sourceState.customDisciplines || []).filter((discipline) => usedDisciplineKeys.has(discipline.key));
   }
 
   function createScheduleComparator(sourceState) {
@@ -737,6 +750,7 @@
     });
 
     nextState.schedules.sort(createScheduleComparator(nextState));
+    pruneUnusedCustomMeta(nextState);
 
     return {
       state: nextState,
@@ -753,6 +767,7 @@
     }
 
     nextState.schedules = nextState.schedules.filter((schedule) => schedule.id !== scheduleId);
+    pruneUnusedCustomMeta(nextState);
 
     return {
       state: nextState,

@@ -14,8 +14,14 @@
       return normalizeBase(explicitAppBase);
     }
 
-    if (isLocalHostname(window.location.hostname)) {
+    const hostname = window.location.hostname;
+
+    if (isLocalHostname(hostname)) {
       return "http://127.0.0.1:8787";
+    }
+
+    if (!hostname.endsWith("github.io")) {
+      return normalizeBase(window.location.origin);
     }
 
     return normalizeBase(explicitAppBase);

@@ -645,6 +645,7 @@ function decorateStaticResponse(request, response) {
 
   const url = getRequestUrl(request);
   const pathname = url.pathname;
+  const isAdminPage = pathname === "/admin" || pathname === "/admin.html";
   const headers = new Headers(response.headers);
   const contentType = String(headers.get("content-type") || "");
   const isHtml = contentType.includes("text/html");
@@ -658,9 +659,9 @@ function decorateStaticResponse(request, response) {
       headers.set(key, value);
     });
 
-    headers.set("Cache-Control", pathname === "/admin.html" ? "no-store" : "no-cache");
+    headers.set("Cache-Control", isAdminPage ? "no-store" : "no-cache");
 
-    if (pathname === "/admin.html") {
+    if (isAdminPage) {
       headers.set("X-Robots-Tag", "noindex, nofollow");
     }
   }

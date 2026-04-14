@@ -27,6 +27,8 @@
 
 html {
   scroll-behavior: smooth;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 body {
@@ -38,7 +40,8 @@ body {
     radial-gradient(circle at 80% 0%, rgba(197, 64, 53, 0.16), transparent 34%),
     linear-gradient(180deg, #050609 0%, #07080d 45%, #090b10 100%);
   min-height: 100vh;
-  overflow-x: hidden;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 body::before,
@@ -84,6 +87,7 @@ select {
 .site-shell {
   position: relative;
   isolation: isolate;
+  overflow-x: clip;
 }
 
 .container {
@@ -94,6 +98,7 @@ select {
 .section {
   position: relative;
   padding: var(--section-space) 0;
+  overflow-x: clip;
 }
 
 .section::before {
@@ -251,9 +256,8 @@ select {
 .hero {
   position: relative;
   min-height: 100svh;
-  display: flex;
-  align-items: center;
-  overflow: clip;
+  overflow-x: clip;
+  overflow-y: visible;
   padding: 2rem 0 0;
 }
 
@@ -288,6 +292,8 @@ select {
   grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
   gap: clamp(1.5rem, 4vw, 4rem);
   align-items: center;
+  align-content: center;
+  min-height: calc(100svh - 2rem);
   padding: 4.5rem 0 6rem;
 }
 
@@ -2392,6 +2398,7 @@ select {
 
   .hero-grid {
     padding-top: 3rem;
+    min-height: auto;
   }
 
   .hero-stats {
@@ -2498,6 +2505,7 @@ select {
 
   .hero-visual {
     min-height: 460px;
+    overflow: clip;
   }
 
   .hero-main {
