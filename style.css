@@ -2802,6 +2802,11 @@ select {
     box-sizing: border-box;
   }
 
+  .schedule-board::before {
+    inset: calc(1rem + 1px);
+    border-radius: 22px;
+  }
+
   .schedule-board > *,
   .schedule-mobile,
   .schedule-mobile > *,
@@ -2840,13 +2845,13 @@ select {
   .schedule-mobile-list,
   .schedule-note,
   .schedule-board-head p {
-    padding-inline: 0.1rem;
+    padding-inline: 0;
   }
 
   .schedule-mobile-tabs {
     width: 100%;
     max-width: 100%;
-    padding-inline: 0.1rem;
+    padding-inline: 0;
     overflow-x: auto;
     overflow-y: hidden;
   }
