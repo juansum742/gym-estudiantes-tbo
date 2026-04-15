@@ -2796,6 +2796,8 @@ select {
   }
 
   .schedule-board {
+    --schedule-mobile-frame-inset: calc(1rem + 1px);
+    --schedule-mobile-content-inset: 0.72rem;
     overflow: hidden;
     padding: 1rem;
     border-radius: 28px;
@@ -2803,8 +2805,13 @@ select {
   }
 
   .schedule-board::before {
-    inset: calc(1rem + 1px);
+    inset: var(--schedule-mobile-frame-inset);
     border-radius: 22px;
+  }
+
+  .schedule-board-head {
+    padding: 0.72rem var(--schedule-mobile-content-inset) 0;
+    margin-bottom: 1.1rem;
   }
 
   .schedule-board > *,
@@ -2845,13 +2852,13 @@ select {
   .schedule-mobile-list,
   .schedule-note,
   .schedule-board-head p {
-    padding-inline: 0;
+    padding-inline: var(--schedule-mobile-content-inset);
   }
 
   .schedule-mobile-tabs {
     width: 100%;
     max-width: 100%;
-    padding-inline: 0;
+    padding-inline: var(--schedule-mobile-content-inset);
     overflow-x: auto;
     overflow-y: hidden;
   }
@@ -2883,6 +2890,12 @@ select {
   .schedule-mobile-empty,
   .schedule-mobile-discipline {
     overflow: hidden;
+  }
+
+  .schedule-note {
+    margin-top: 1.2rem;
+    padding-top: 0.14rem;
+    padding-bottom: 0.82rem;
   }
 
   .gallery-grid {
