@@ -2766,7 +2766,12 @@ select {
   }
 
   .hero-title {
-    font-size: clamp(4rem, 20vw, 6rem);
+    font-size: clamp(3.45rem, 15.4vw, 5rem);
+    line-height: 0.9;
+    letter-spacing: 0.045em;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
 
   .hero-actions,
@@ -2799,6 +2804,53 @@ select {
   .hero-visual {
     min-height: 460px;
     overflow: clip;
+  }
+
+  .hero-grid {
+    min-height: auto;
+    padding: 2.4rem 0 5rem;
+  }
+
+  .hero-copy {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding-inline: 0.18rem;
+    box-sizing: border-box;
+  }
+
+  .eyebrow,
+  .hero-title,
+  .hero-subtitle,
+  .hero-text,
+  .hero-actions {
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .hero-subtitle {
+    margin-top: 0.95rem;
+    font-size: clamp(1.2rem, 6vw, 1.55rem);
+    line-height: 1.28;
+  }
+
+  .hero-text {
+    margin-top: 0.9rem;
+    font-size: 1rem;
+    line-height: 1.62;
+  }
+
+  .hero-actions {
+    width: 100%;
+    gap: 0.75rem;
+    margin-top: 1.45rem;
+  }
+
+  .hero-actions .btn {
+    max-width: 100%;
   }
 
   .partner-rate-banner {
@@ -2967,6 +3019,31 @@ select {
     right: 0.6rem;
     left: 0.6rem;
     width: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-grid {
+    padding-top: 2rem;
+  }
+
+  .hero-copy {
+    padding-inline: 0.1rem;
+  }
+
+  .hero-title {
+    font-size: clamp(3rem, 14vw, 4.15rem);
+    letter-spacing: 0.032em;
+  }
+
+  .eyebrow {
+    font-size: 0.74rem;
+    line-height: 1.55;
+    letter-spacing: 0.18em;
+  }
+
+  .hero-subtitle {
+    font-size: 1.14rem;
   }
 }
 
