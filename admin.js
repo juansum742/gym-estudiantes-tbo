@@ -68,6 +68,96 @@ function toggleButtonLoading(button, isLoading) {
   button.disabled = isLoading;
 }
 
+function bindPasswordPeekButtons(root = document) {
+  root.querySelectorAll("[data-password-peek]").forEach((button) => {
+    if (button.dataset.peekBound === "true") {
+      return;
+    }
+
+    const targetId = String(button.dataset.passwordTarget || "").trim();
+    const input = targetId ? document.getElementById(targetId) : null;
+
+    if (!input) {
+      return;
+    }
+
+    const hide = () => {
+      if (input.type !== "password") {
+        input.type = "password";
+      }
+
+      button.classList.remove("is-active");
+      button.setAttribute("aria-pressed", "false");
+    };
+
+    const show = () => {
+      if (input.disabled) {
+        return;
+      }
+
+      input.type = "text";
+      button.classList.add("is-active");
+      button.setAttribute("aria-pressed", "true");
+    };
+
+    button.__hidePasswordPeek = hide;
+    button.setAttribute("aria-pressed", "false");
+
+    button.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) {
+        return;
+      }
+
+      event.preventDefault();
+      show();
+
+      if (typeof button.setPointerCapture === "function") {
+        try {
+          button.setPointerCapture(event.pointerId);
+        } catch (error) {
+          // Algunos navegadores pueden rechazar el capture; no rompemos la UX.
+        }
+      }
+    });
+
+    button.addEventListener("pointerup", hide);
+    button.addEventListener("pointercancel", hide);
+    button.addEventListener("lostpointercapture", hide);
+    button.addEventListener("pointerleave", (event) => {
+      if (event.pointerType === "mouse") {
+        hide();
+      }
+    });
+    button.addEventListener("blur", hide);
+    button.addEventListener("contextmenu", (event) => event.preventDefault());
+    button.addEventListener("keydown", (event) => {
+      if (event.key !== " " && event.key !== "Enter") {
+        return;
+      }
+
+      event.preventDefault();
+      show();
+    });
+    button.addEventListener("keyup", (event) => {
+      if (event.key === " " || event.key === "Enter") {
+        hide();
+      }
+    });
+
+    button.dataset.peekBound = "true";
+  });
+}
+
+function hidePasswordPeekButtons(root = document) {
+  root.querySelectorAll("[data-password-peek]").forEach((button) => {
+    if (typeof button.__hidePasswordPeek === "function") {
+      button.__hidePasswordPeek();
+    }
+  });
+}
+
+bindPasswordPeekButtons();
+
 if (bookingApi) {
   const gateSection = document.querySelector("#admin-gate-section");
   const dashboard = document.querySelector("#admin-dashboard");
@@ -76,6 +166,12 @@ if (bookingApi) {
   const logoutButton = document.querySelector("#admin-logout-button");
   const pinInput = document.querySelector("#admin-pin");
   const gateNote = document.querySelector("#admin-gate-note");
+  const passwordForm = document.querySelector("#admin-password-form");
+  const passwordCurrentInput = document.querySelector("#admin-password-current");
+  const passwordNextInput = document.querySelector("#admin-password-next");
+  const passwordRepeatInput = document.querySelector("#admin-password-repeat");
+  const passwordButton = document.querySelector("#admin-password-button");
+  const passwordFeedback = document.querySelector("#admin-password-feedback");
 
   const statTotalSchedules = document.querySelector("#stat-total-schedules");
   const statDisciplines = document.querySelector("#stat-disciplines");
@@ -124,6 +220,7 @@ if (bookingApi) {
     dashboard.classList.remove("is-hidden");
     logoutButton?.classList.remove("is-hidden");
     isDashboardUnlocked = true;
+    resetPasswordForm();
     renderDashboard();
   }
 
@@ -134,6 +231,7 @@ if (bookingApi) {
     logoutButton?.classList.add("is-hidden");
     closeScheduleDeleteModal();
     resetScheduleForm();
+    resetPasswordForm();
     gateNote.textContent = message;
   }
 
@@ -401,6 +499,20 @@ if (bookingApi) {
     );
   }
 
+  function resetPasswordForm() {
+    if (!passwordForm || !passwordFeedback) {
+      return;
+    }
+
+    passwordForm.reset();
+    hidePasswordPeekButtons(passwordForm);
+    setFeedback(
+      passwordFeedback,
+      "idle",
+      "Elegí una clave nueva con al menos 7 caracteres que combine letras y números. Al confirmarla, el panel te pedirá ingresar otra vez."
+    );
+  }
+
   function startEditSchedule(scheduleId) {
     const schedule = bookingApi.getScheduleById(scheduleId);
 
@@ -454,6 +566,7 @@ if (bookingApi) {
 
   populateScheduleFields();
   resetScheduleForm();
+  resetPasswordForm();
 
   disciplineSelect.addEventListener("change", updateDisciplineMode);
   slotSelect.addEventListener("change", updateSlotMode);
@@ -504,6 +617,31 @@ if (bookingApi) {
       showToast(error.message, "error");
     } finally {
       toggleButtonLoading(scheduleButton, false);
+    }
+  });
+
+  passwordForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    toggleButtonLoading(passwordButton, true);
+    setFeedback(passwordFeedback, "loading", "Actualizando la clave segura del panel...");
+
+    try {
+      await wait(220);
+      const response = await bookingApi.changePassword({
+        currentPassword: passwordCurrentInput.value,
+        newPassword: passwordNextInput.value,
+        confirmPassword: passwordRepeatInput.value,
+      });
+
+      resetPasswordForm();
+      lockDashboard(response?.message || "Clave actualizada. Ingresá nuevamente con la nueva contraseña.");
+      showToast("Clave actualizada correctamente. Volvé a ingresar.", "success");
+      pinInput?.focus();
+    } catch (error) {
+      setFeedback(passwordFeedback, "error", error.message);
+      showToast(error.message, "error");
+    } finally {
+      toggleButtonLoading(passwordButton, false);
     }
   });
 
@@ -599,6 +737,12 @@ if (bookingApi) {
 
   window.addEventListener(bookingApi.authChangeEvent, (event) => {
     if (event.detail?.authenticated) {
+      return;
+    }
+
+    const reason = String(event.detail?.reason || "");
+
+    if (reason === "logout" || reason === "password-changed") {
       return;
     }
 

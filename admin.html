@@ -12,8 +12,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260413-3">
-  <link rel="stylesheet" href="admin.css?v=20260413-3">
+  <link rel="stylesheet" href="style.css?v=20260415-2">
+  <link rel="stylesheet" href="admin.css?v=20260415-2">
 </head>
 <body class="admin-body">
   <div class="site-shell">
@@ -49,7 +49,22 @@
             <form class="admin-login-form" id="admin-login-form">
               <label class="form-field">
                 <span>Clave de acceso</span>
-                <input id="admin-pin" type="password" placeholder="Ingresá tu clave" autocomplete="current-password" required>
+                <div class="password-field-shell">
+                  <input id="admin-pin" type="password" placeholder="Ingresá tu clave" autocomplete="current-password" required>
+                  <button
+                    class="password-peek-button"
+                    type="button"
+                    data-password-peek
+                    data-password-target="admin-pin"
+                    aria-label="Mantener presionado para ver la clave"
+                    aria-controls="admin-pin"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M2.2 12s3.6-6.2 9.8-6.2S21.8 12 21.8 12s-3.6 6.2-9.8 6.2S2.2 12 2.2 12Z"></path>
+                      <circle cx="12" cy="12" r="3.2"></circle>
+                    </svg>
+                  </button>
+                </div>
               </label>
 
               <button class="btn btn-primary admin-btn" type="submit" id="admin-login-button">
@@ -169,6 +184,89 @@
             </section>
           </div>
 
+          <section class="admin-list-shell admin-password-shell">
+            <div class="admin-panel-head">
+              <p class="section-kicker">Seguridad</p>
+              <h3>Cambiar clave</h3>
+              <p>Actualizá la contraseña del panel desde acá. El cambio se valida únicamente en backend y, por seguridad, cierra todas las sesiones activas.</p>
+            </div>
+
+            <form class="admin-password-form" id="admin-password-form" novalidate>
+              <div class="admin-password-grid">
+                <label class="form-field">
+                  <span>Clave actual</span>
+                  <div class="password-field-shell">
+                    <input id="admin-password-current" type="password" placeholder="Ingresá tu clave actual" autocomplete="current-password" required>
+                    <button
+                      class="password-peek-button"
+                      type="button"
+                      data-password-peek
+                      data-password-target="admin-password-current"
+                      aria-label="Mantener presionado para ver la clave actual"
+                      aria-controls="admin-password-current"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M2.2 12s3.6-6.2 9.8-6.2S21.8 12 21.8 12s-3.6 6.2-9.8 6.2S2.2 12 2.2 12Z"></path>
+                        <circle cx="12" cy="12" r="3.2"></circle>
+                      </svg>
+                    </button>
+                  </div>
+                </label>
+
+                <label class="form-field">
+                  <span>Nueva clave</span>
+                  <div class="password-field-shell">
+                    <input id="admin-password-next" type="password" placeholder="Mínimo 7 caracteres" autocomplete="new-password" required>
+                    <button
+                      class="password-peek-button"
+                      type="button"
+                      data-password-peek
+                      data-password-target="admin-password-next"
+                      aria-label="Mantener presionado para ver la nueva clave"
+                      aria-controls="admin-password-next"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M2.2 12s3.6-6.2 9.8-6.2S21.8 12 21.8 12s-3.6 6.2-9.8 6.2S2.2 12 2.2 12Z"></path>
+                        <circle cx="12" cy="12" r="3.2"></circle>
+                      </svg>
+                    </button>
+                  </div>
+                </label>
+
+                <label class="form-field">
+                  <span>Repetir nueva clave</span>
+                  <div class="password-field-shell">
+                    <input id="admin-password-repeat" type="password" placeholder="Repetí la nueva clave" autocomplete="new-password" required>
+                    <button
+                      class="password-peek-button"
+                      type="button"
+                      data-password-peek
+                      data-password-target="admin-password-repeat"
+                      aria-label="Mantener presionado para ver la repetición de la nueva clave"
+                      aria-controls="admin-password-repeat"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M2.2 12s3.6-6.2 9.8-6.2S21.8 12 21.8 12s-3.6 6.2-9.8 6.2S2.2 12 2.2 12Z"></path>
+                        <circle cx="12" cy="12" r="3.2"></circle>
+                      </svg>
+                    </button>
+                  </div>
+                </label>
+              </div>
+
+              <div class="admin-form-actions">
+                <button class="btn btn-primary admin-btn" type="submit" id="admin-password-button">
+                  <span class="btn-text">Actualizar clave</span>
+                  <span class="btn-loader" aria-hidden="true"></span>
+                </button>
+              </div>
+            </form>
+
+            <div class="booking-feedback booking-feedback-idle" id="admin-password-feedback" aria-live="polite">
+              Elegí una clave nueva con al menos 7 caracteres que combine letras y números. Al confirmarla, el panel te pedirá ingresar otra vez.
+            </div>
+          </section>
+
           <section class="admin-list-shell">
             <div class="admin-panel-head admin-panel-head-inline">
               <div>
@@ -217,7 +315,7 @@
   <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
 
   <script src="schedule-core.js?v=20260414-1"></script>
-  <script src="booking-data.js?v=20260414-1"></script>
-  <script src="admin.js?v=20260414-1"></script>
+  <script src="booking-data.js?v=20260415-2"></script>
+  <script src="admin.js?v=20260415-2"></script>
 </body>
 </html>

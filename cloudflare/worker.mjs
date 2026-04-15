@@ -14,9 +14,13 @@ const LOGIN_WINDOW_MS = 1000 * 60 * 10;
 const LOGIN_BLOCK_MS = 1000 * 60 * 15;
 const MAX_LOGIN_ATTEMPTS = 5;
 const MAX_JSON_BODY_BYTES = 4096;
+const MIN_ADMIN_PASSWORD_LENGTH = 7;
+const MAX_ADMIN_PASSWORD_LENGTH = 128;
 const MIN_PASSWORD_HASH_ITERATIONS = 60000;
 const MAX_PASSWORD_HASH_ITERATIONS = 100000;
+const DEFAULT_PASSWORD_HASH_ITERATIONS = 100000;
 const PASSWORD_HASH_PREFIX = "pbkdf2_sha256";
+const PASSWORD_HASH_PREFIX_PEPPERED = "pbkdf2_sha256_peppered";
 const SESSION_COOKIE_NAME = "__Secure-estudiantes_tbo_admin";
 const SESSION_COOKIE_PATH = "/api";
 const API_RESPONSE_HEADERS = {
@@ -222,7 +226,7 @@ function parsePasswordHashRecord(record) {
   const iterations = Number(iterationsRaw);
 
   if (
-    algorithm !== PASSWORD_HASH_PREFIX
+    ![PASSWORD_HASH_PREFIX, PASSWORD_HASH_PREFIX_PEPPERED].includes(algorithm)
     || !Number.isInteger(iterations)
     || iterations < MIN_PASSWORD_HASH_ITERATIONS
     || iterations > MAX_PASSWORD_HASH_ITERATIONS
@@ -233,6 +237,7 @@ function parsePasswordHashRecord(record) {
   }
 
   return {
+    algorithm,
     iterations,
     salt: fromBase64Url(saltRaw),
     hash: fromBase64Url(hashRaw),
@@ -243,17 +248,103 @@ async function derivePasswordHash(password, saltBytes, iterations) {
   return new Uint8Array(pbkdf2Sync(password, Buffer.from(saltBytes), iterations, 32, "sha256"));
 }
 
-async function verifyPassword(inputPassword, passwordHashRecord) {
-  const normalizedPassword = String(inputPassword || "").trim();
+function normalizePasswordInput(inputPassword) {
+  return String(inputPassword || "").trim();
+}
 
-  if (!normalizedPassword || normalizedPassword.length > 128) {
+function validatePasswordStrength(password) {
+  const normalizedPassword = normalizePasswordInput(password);
+
+  if (normalizedPassword.length < MIN_ADMIN_PASSWORD_LENGTH) {
+    throw new HttpError(400, `La nueva clave debe tener al menos ${MIN_ADMIN_PASSWORD_LENGTH} caracteres.`);
+  }
+
+  if (normalizedPassword.length > MAX_ADMIN_PASSWORD_LENGTH) {
+    throw new HttpError(400, "La nueva clave es demasiado larga.");
+  }
+
+  if (!/[A-Za-z]/.test(normalizedPassword) || !/[0-9]/.test(normalizedPassword)) {
+    throw new HttpError(400, "La nueva clave debe combinar letras y números.");
+  }
+
+  return normalizedPassword;
+}
+
+async function buildPasswordHashRecord(password, env, { peppered = true } = {}) {
+  const normalizedPassword = validatePasswordStrength(password);
+  const salt = randomBytes(16);
+  const pepper = peppered ? getRequiredSecret(env, "AUTH_PEPPER") : "";
+  const material = peppered ? `${pepper}:${normalizedPassword}` : normalizedPassword;
+  const hash = await derivePasswordHash(material, salt, DEFAULT_PASSWORD_HASH_ITERATIONS);
+  const algorithm = peppered ? PASSWORD_HASH_PREFIX_PEPPERED : PASSWORD_HASH_PREFIX;
+
+  return `${algorithm}$${DEFAULT_PASSWORD_HASH_ITERATIONS}$${toBase64Url(salt)}$${toBase64Url(hash)}`;
+}
+
+async function verifyPassword(inputPassword, passwordHashRecord, env) {
+  const normalizedPassword = normalizePasswordInput(inputPassword);
+
+  if (!normalizedPassword || normalizedPassword.length > MAX_ADMIN_PASSWORD_LENGTH) {
     return false;
   }
 
   const parsedHash = parsePasswordHashRecord(passwordHashRecord);
-  const derivedHash = await derivePasswordHash(normalizedPassword, parsedHash.salt, parsedHash.iterations);
+  const pepper = parsedHash.algorithm === PASSWORD_HASH_PREFIX_PEPPERED
+    ? getRequiredSecret(env, "AUTH_PEPPER")
+    : "";
+  const material = parsedHash.algorithm === PASSWORD_HASH_PREFIX_PEPPERED
+    ? `${pepper}:${normalizedPassword}`
+    : normalizedPassword;
+  const derivedHash = await derivePasswordHash(material, parsedHash.salt, parsedHash.iterations);
 
   return constantTimeEqual(derivedHash, parsedHash.hash);
+}
+
+async function readAdminPasswordHashRecord(db, env) {
+  try {
+    const row = await db
+      .prepare(`
+        SELECT password_hash
+        FROM admin_credentials
+        WHERE id = 1
+        LIMIT 1
+      `)
+      .first();
+
+    return String(row?.password_hash || "").trim() || getRequiredSecret(env, "ADMIN_PASSWORD_HASH");
+  } catch (error) {
+    if (String(error?.message || "").includes("no such table: admin_credentials")) {
+      return getRequiredSecret(env, "ADMIN_PASSWORD_HASH");
+    }
+
+    throw error;
+  }
+}
+
+async function persistAdminPasswordHashRecord(db, passwordHashRecord) {
+  const timestamp = new Date().toISOString();
+
+  await db
+    .prepare(`
+      CREATE TABLE IF NOT EXISTS admin_credentials (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        password_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `)
+    .run();
+
+  await db
+    .prepare(`
+      INSERT INTO admin_credentials (id, password_hash, created_at, updated_at)
+      VALUES (1, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        password_hash = excluded.password_hash,
+        updated_at = excluded.updated_at
+    `)
+    .bind(passwordHashRecord, timestamp, timestamp)
+    .run();
 }
 
 function readRequestBodySize(request) {
@@ -456,6 +547,10 @@ async function invalidateSession(db, tokenHash) {
   }
 
   await db.prepare("DELETE FROM admin_sessions_secure WHERE token_hash = ?").bind(tokenHash).run();
+}
+
+async function invalidateAllSessions(db) {
+  await db.prepare("DELETE FROM admin_sessions_secure").run();
 }
 
 async function requireAdminSession(request, env) {
@@ -713,8 +808,8 @@ async function handleLogin(request, env) {
   await cleanupExpiredLoginAttempts(db);
   await assertLoginAllowed(db, clientKey);
 
-  const passwordHashRecord = getRequiredSecret(env, "ADMIN_PASSWORD_HASH");
-  const isValidPassword = await verifyPassword(candidatePassword, passwordHashRecord);
+  const passwordHashRecord = await readAdminPasswordHashRecord(db, env);
+  const isValidPassword = await verifyPassword(candidatePassword, passwordHashRecord, env);
 
   if (!isValidPassword) {
     await recordLoginFailure(db, clientKey);
@@ -740,6 +835,60 @@ async function handleLogin(request, env) {
     {
       corsOrigin,
       setCookie: buildSessionCookie(token, env),
+    }
+  );
+}
+
+async function handlePasswordChange(request, env) {
+  const corsOrigin = getRequestOrigin(request);
+  assertTrustedWriteRequest(request);
+  await requireAdminSession(request, env);
+  const db = getDb(env);
+  const body = await readJson(request);
+  const currentPassword = normalizePasswordInput(body?.currentPassword);
+  const nextPassword = normalizePasswordInput(body?.nextPassword || body?.newPassword);
+  const repeatedPassword = normalizePasswordInput(body?.confirmPassword || body?.repeatPassword);
+
+  if (!currentPassword) {
+    throw new HttpError(400, "Ingresá tu clave actual.");
+  }
+
+  if (!nextPassword) {
+    throw new HttpError(400, "Ingresá la nueva clave.");
+  }
+
+  if (!repeatedPassword) {
+    throw new HttpError(400, "Repetí la nueva clave.");
+  }
+
+  if (nextPassword !== repeatedPassword) {
+    throw new HttpError(400, "La nueva clave y su repetición no coinciden.");
+  }
+
+  if (currentPassword === nextPassword) {
+    throw new HttpError(400, "La nueva clave tiene que ser distinta a la actual.");
+  }
+
+  const currentHashRecord = await readAdminPasswordHashRecord(db, env);
+  const currentPasswordIsValid = await verifyPassword(currentPassword, currentHashRecord, env);
+
+  if (!currentPasswordIsValid) {
+    throw new HttpError(400, "La clave actual no es correcta.");
+  }
+
+  const nextHashRecord = await buildPasswordHashRecord(nextPassword, env, { peppered: true });
+  await persistAdminPasswordHashRecord(db, nextHashRecord);
+  await invalidateAllSessions(db);
+
+  return jsonResponse(
+    {
+      ok: true,
+      message: "Clave actualizada. Por seguridad, volvé a ingresar con la nueva contraseña.",
+      requiresReauth: true,
+    },
+    {
+      corsOrigin,
+      setCookie: buildClearSessionCookie(),
     }
   );
 }
@@ -908,6 +1057,10 @@ async function routeApiRequest(request, env) {
 
   if (pathname === "/api/admin/logout" && request.method === "POST") {
     return handleLogout(request, env);
+  }
+
+  if (pathname === "/api/admin/password" && request.method === "POST") {
+    return handlePasswordChange(request, env);
   }
 
   if (pathname === "/api/schedules" && request.method === "POST") {

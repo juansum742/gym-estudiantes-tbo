@@ -60,6 +60,55 @@
   color: var(--muted);
 }
 
+.password-field-shell {
+  position: relative;
+}
+
+.password-field-shell input {
+  padding-right: 4rem;
+}
+
+.password-peek-button {
+  position: absolute;
+  top: 50%;
+  right: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.65rem;
+  height: 2.65rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.password-peek-button:hover,
+.password-peek-button:focus-visible,
+.password-peek-button.is-active {
+  background: rgba(78, 93, 255, 0.16);
+  color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(78, 93, 255, 0.14);
+}
+
+.password-peek-button:focus-visible {
+  outline: none;
+}
+
+.password-peek-button svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .admin-intro {
   display: flex;
   align-items: end;
@@ -147,6 +196,21 @@
   grid-template-columns: minmax(320px, 0.4fr) minmax(0, 0.6fr);
   gap: 1rem;
   margin-top: 1.4rem;
+}
+
+.admin-password-shell {
+  margin-top: 1rem;
+}
+
+.admin-password-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-password-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
 }
 
 .admin-class-bookings-grid {
@@ -929,6 +993,7 @@
   }
 
   .admin-stats-grid,
+  .admin-password-grid,
   .admin-reservation-grid,
   .admin-capacity-form,
   .member-card-grid,

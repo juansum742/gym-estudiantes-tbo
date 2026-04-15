@@ -89,12 +89,13 @@
     );
   }
 
-  function dispatchAuthChange() {
+  function dispatchAuthChange(meta = {}) {
     window.dispatchEvent(
       new CustomEvent(AUTH_CHANGE_EVENT, {
         detail: {
           authenticated: isAuthenticated,
           backendMode,
+          reason: meta.reason || "",
         },
       })
     );
@@ -113,9 +114,9 @@
     }
   }
 
-  function setAuthenticated(nextValue) {
+  function setAuthenticated(nextValue, meta = {}) {
     isAuthenticated = Boolean(nextValue);
-    dispatchAuthChange();
+    dispatchAuthChange(meta);
   }
 
   function getApiBase() {
@@ -168,7 +169,7 @@
 
     if (!response.ok) {
       if (response.status === 401) {
-        setAuthenticated(false);
+        setAuthenticated(false, { reason: "expired" });
       }
 
       throw new Error(payload?.error || "No pudimos conectar con el servidor.");
@@ -228,7 +229,7 @@
       body: { pin: normalizedPin },
     });
 
-    setAuthenticated(true);
+    setAuthenticated(true, { reason: "login" });
 
     if (payload?.state) {
       setState(payload.state);
@@ -250,7 +251,7 @@
       setState(payload.state);
     }
 
-    setAuthenticated(Boolean(payload?.authenticated));
+    setAuthenticated(Boolean(payload?.authenticated), { reason: payload?.authenticated ? "restore" : "expired" });
     return isAuthenticated;
   }
 
@@ -265,7 +266,20 @@
       }
     }
 
-    setAuthenticated(false);
+    setAuthenticated(false, { reason: "logout" });
+  }
+
+  async function changePassword(payload) {
+    await ensureBackendAvailable();
+    requireAuthenticatedSession();
+
+    const response = await requestJson("/api/admin/password", {
+      method: "POST",
+      body: payload,
+    });
+
+    setAuthenticated(false, { reason: "password-changed" });
+    return response;
   }
 
   function requireAuthenticatedSession() {
@@ -392,6 +406,7 @@
     ready,
     login,
     logout,
+    changePassword,
     restoreSession,
     refresh: () => refreshFromServer({ silent: false }),
     isServerMode: () => backendMode === "available",
