@@ -783,6 +783,62 @@ async function requireAdminSession(request, env) {
   return { tokenHash };
 }
 
+async function authorizeCredentialAction(request, env, currentPassword) {
+  const normalizedCurrentPassword = normalizePasswordInput(currentPassword);
+
+  if (!normalizedCurrentPassword) {
+    throw new HttpError(400, "Ingresá tu clave actual para confirmar este cambio.");
+  }
+
+  const db = getDb(env);
+  const passwordHashRecord = await readAdminPasswordHashRecord(db, env);
+
+  try {
+    await requireAdminSession(request, env);
+
+    const isValidPassword = await verifyPassword(normalizedCurrentPassword, passwordHashRecord, env);
+
+    if (!isValidPassword) {
+      throw new HttpError(400, "La clave actual no es correcta.");
+    }
+
+    const currentToken = readSessionCookie(request);
+
+    return {
+      db,
+      refreshedSessionCookie: currentToken ? buildSessionCookie(currentToken, env) : undefined,
+      reauthenticated: false,
+    };
+  } catch (error) {
+    if (!(error instanceof HttpError) || error.status !== 401) {
+      throw error;
+    }
+  }
+
+  const clientKey = await getClientKey(request, env);
+
+  await cleanupExpiredLoginAttempts(db);
+  await assertLoginAllowed(db, clientKey);
+
+  const isValidPassword = await verifyPassword(normalizedCurrentPassword, passwordHashRecord, env);
+
+  if (!isValidPassword) {
+    await recordLoginFailure(db, clientKey);
+    throw new HttpError(401, "La clave actual no es correcta.");
+  }
+
+  await clearLoginAttempts(db, clientKey);
+  await cleanupExpiredSessions(db);
+
+  const token = await createAdminSession(db, request, env);
+
+  return {
+    db,
+    refreshedSessionCookie: buildSessionCookie(token, env),
+    reauthenticated: true,
+  };
+}
+
 function readRecoveryCookie(request) {
   return parseCookies(request).get(RECOVERY_COOKIE_NAME) || "";
 }
@@ -1182,16 +1238,10 @@ async function handleLogin(request, env) {
 async function handlePasswordChange(request, env) {
   const corsOrigin = getRequestOrigin(request);
   assertTrustedWriteRequest(request);
-  await requireAdminSession(request, env);
-  const db = getDb(env);
   const body = await readJson(request);
   const currentPassword = normalizePasswordInput(body?.currentPassword);
   const nextPassword = normalizePasswordInput(body?.nextPassword || body?.newPassword);
   const repeatedPassword = normalizePasswordInput(body?.confirmPassword || body?.repeatPassword);
-
-  if (!currentPassword) {
-    throw new HttpError(400, "Ingresá tu clave actual.");
-  }
 
   if (!nextPassword) {
     throw new HttpError(400, "Ingresá la nueva clave.");
@@ -1209,12 +1259,7 @@ async function handlePasswordChange(request, env) {
     throw new HttpError(400, "La nueva clave tiene que ser distinta a la actual.");
   }
 
-  const currentHashRecord = await readAdminPasswordHashRecord(db, env);
-  const currentPasswordIsValid = await verifyPassword(currentPassword, currentHashRecord, env);
-
-  if (!currentPasswordIsValid) {
-    throw new HttpError(400, "La clave actual no es correcta.");
-  }
+  const { db } = await authorizeCredentialAction(request, env, currentPassword);
 
   const nextHashRecord = await buildPasswordHashRecord(nextPassword, env, { peppered: true });
   await persistAdminPasswordHashRecord(db, nextHashRecord);
@@ -1245,21 +1290,9 @@ async function handleSecurityStatus(request, env) {
 async function handleSecurityQuestionsSave(request, env) {
   const corsOrigin = getRequestOrigin(request);
   assertTrustedWriteRequest(request);
-  await requireAdminSession(request, env);
-  const db = getDb(env);
   const body = await readJson(request);
   const currentPassword = normalizePasswordInput(body?.currentPassword);
-
-  if (!currentPassword) {
-    throw new HttpError(400, "Ingresá tu clave actual para guardar las preguntas.");
-  }
-
-  const currentHashRecord = await readAdminPasswordHashRecord(db, env);
-  const currentPasswordIsValid = await verifyPassword(currentPassword, currentHashRecord, env);
-
-  if (!currentPasswordIsValid) {
-    throw new HttpError(400, "La clave actual no es correcta.");
-  }
+  const { db, refreshedSessionCookie, reauthenticated } = await authorizeCredentialAction(request, env, currentPassword);
 
   const answers = validateSecurityAnswersPayload(body?.answers || {});
   await persistSecurityAnswers(db, answers, env);
@@ -1269,30 +1302,23 @@ async function handleSecurityQuestionsSave(request, env) {
     {
       ...payload,
       ok: true,
+      authenticated: true,
+      reauthenticated,
       message: "Las preguntas de seguridad quedaron actualizadas.",
     },
-    { corsOrigin }
+    {
+      corsOrigin,
+      setCookie: refreshedSessionCookie,
+    }
   );
 }
 
 async function handleSecurityQuestionsClear(request, env) {
   const corsOrigin = getRequestOrigin(request);
   assertTrustedWriteRequest(request);
-  await requireAdminSession(request, env);
-  const db = getDb(env);
   const body = await readJson(request);
   const currentPassword = normalizePasswordInput(body?.currentPassword);
-
-  if (!currentPassword) {
-    throw new HttpError(400, "Ingresá tu clave actual para quitar la recuperación.");
-  }
-
-  const currentHashRecord = await readAdminPasswordHashRecord(db, env);
-  const currentPasswordIsValid = await verifyPassword(currentPassword, currentHashRecord, env);
-
-  if (!currentPasswordIsValid) {
-    throw new HttpError(400, "La clave actual no es correcta.");
-  }
+  const { db, refreshedSessionCookie, reauthenticated } = await authorizeCredentialAction(request, env, currentPassword);
 
   await clearSecurityAnswers(db);
   const payload = await getSecurityStatusPayload(db);
@@ -1301,9 +1327,14 @@ async function handleSecurityQuestionsClear(request, env) {
     {
       ...payload,
       ok: true,
+      authenticated: true,
+      reauthenticated,
       message: "La recuperación por preguntas quedó desactivada.",
     },
-    { corsOrigin }
+    {
+      corsOrigin,
+      setCookie: refreshedSessionCookie,
+    }
   );
 }
 

@@ -271,7 +271,6 @@
 
   async function changePassword(payload) {
     await ensureBackendAvailable();
-    requireAuthenticatedSession();
 
     const response = await requestJson("/api/admin/password", {
       method: "POST",
@@ -293,22 +292,24 @@
 
   async function saveSecurityQuestions(payload) {
     await ensureBackendAvailable();
-    requireAuthenticatedSession();
-
-    return requestJson("/api/admin/security/questions", {
+    const response = await requestJson("/api/admin/security/questions", {
       method: "POST",
       body: payload,
     });
+
+    setAuthenticated(true, { reason: response?.reauthenticated ? "reauth" : "restore" });
+    return response;
   }
 
   async function clearSecurityQuestions(payload) {
     await ensureBackendAvailable();
-    requireAuthenticatedSession();
-
-    return requestJson("/api/admin/security/questions/clear", {
+    const response = await requestJson("/api/admin/security/questions/clear", {
       method: "POST",
       body: payload,
     });
+
+    setAuthenticated(true, { reason: response?.reauthenticated ? "reauth" : "restore" });
+    return response;
   }
 
   async function getRecoveryStatus() {
