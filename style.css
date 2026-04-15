@@ -2701,6 +2701,11 @@ select {
 }
 
 @media (max-width: 720px) {
+  html,
+  body {
+    overflow-x: hidden;
+  }
+
   .container {
     width: min(100% - 1.2rem, 100%);
   }
@@ -2794,6 +2799,20 @@ select {
     overflow: hidden;
     padding: 1rem;
     border-radius: 28px;
+    box-sizing: border-box;
+  }
+
+  .schedule-board > *,
+  .schedule-mobile,
+  .schedule-mobile > *,
+  .schedule-mobile-card,
+  .schedule-mobile-empty,
+  .schedule-mobile-discipline,
+  .schedule-note {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
   }
 
   .schedule-grid,
@@ -2807,6 +2826,7 @@ select {
     display: grid;
     gap: 1rem;
     margin-top: 1rem;
+    overflow: hidden;
   }
 
   .schedule-mobile-day-head,
@@ -2815,13 +2835,49 @@ select {
     flex-direction: column;
   }
 
+  .schedule-mobile-head,
+  .schedule-mobile-panel,
+  .schedule-mobile-list,
+  .schedule-note,
+  .schedule-board-head p {
+    padding-inline: 0.1rem;
+  }
+
+  .schedule-mobile-tabs {
+    width: 100%;
+    max-width: 100%;
+    padding-inline: 0.1rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .schedule-mobile-tab {
+    width: auto;
+    max-width: calc(100vw - 5.8rem);
+  }
+
   .schedule-mobile-day-head span,
   .schedule-mobile-count {
     min-height: auto;
   }
 
-  .schedule-mobile-tab {
-    min-width: 112px;
+  .schedule-mobile-copy,
+  .schedule-note,
+  .schedule-mobile-day-head strong,
+  .schedule-mobile-day-head span,
+  .schedule-mobile-time,
+  .schedule-mobile-count,
+  .schedule-mobile-tab span,
+  .schedule-mobile-tab small,
+  .schedule-mobile-discipline strong {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  .schedule-mobile-card,
+  .schedule-mobile-empty,
+  .schedule-mobile-discipline {
+    overflow: hidden;
   }
 
   .gallery-grid {
