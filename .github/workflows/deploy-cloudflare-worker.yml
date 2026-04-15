@@ -42,6 +42,23 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Validate Cloudflare secret formats
+        if: steps.cf-ready.outputs.ready == 'true'
+        shell: bash
+        env:
+          CF_ADMIN_PASSWORD_HASH: ${{ secrets.CF_ADMIN_PASSWORD_HASH }}
+          CF_AUTH_PEPPER: ${{ secrets.CF_AUTH_PEPPER }}
+        run: |
+          if [[ ! "$CF_ADMIN_PASSWORD_HASH" =~ ^pbkdf2_sha256\$[0-9]+\$[A-Za-z0-9_-]+\$[A-Za-z0-9_-]+$ ]]; then
+            echo "CF_ADMIN_PASSWORD_HASH does not match the expected pbkdf2_sha256 format."
+            exit 1
+          fi
+
+          if [[ "$CF_AUTH_PEPPER" =~ [[:space:]] ]]; then
+            echo "CF_AUTH_PEPPER must not contain whitespace."
+            exit 1
+          fi
+
       - name: Install dependencies
         if: steps.cf-ready.outputs.ready == 'true'
         run: npm ci
