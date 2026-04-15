@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260413-3">
+  <link rel="stylesheet" href="style.css?v=20260415-1">
 </head>
 <body>
   <div class="site-shell">
@@ -214,6 +214,16 @@
               </div>
 
               <div class="schedule-grid" id="schedule-grid"></div>
+
+              <div class="schedule-mobile" id="schedule-mobile" aria-label="Agenda semanal optimizada para celular">
+                <div class="schedule-mobile-head">
+                  <p class="schedule-mobile-kicker">Vista mobile</p>
+                  <p class="schedule-mobile-copy">Tocá un día para ver sus horarios activos en formato rápido y cómodo para celular.</p>
+                </div>
+
+                <div class="schedule-mobile-tabs" id="schedule-mobile-tabs" role="tablist" aria-label="Seleccionar día de la agenda"></div>
+                <div class="schedule-mobile-panel" id="schedule-mobile-panel" aria-live="polite"></div>
+              </div>
 
               <div class="booking-summary schedule-summary" id="schedule-summary"></div>
 
@@ -555,6 +565,6 @@
 
   <script src="schedule-core.js?v=20260414-1"></script>
   <script src="booking-data.js?v=20260414-1"></script>
-  <script src="script.js?v=20260414-1"></script>
+  <script src="script.js?v=20260415-1"></script>
 </body>
 </html>

@@ -170,6 +170,11 @@ function renderScheduleCellContent(cell) {
   return escapeHtml(cell?.label || "Libre");
 }
 
+function getTodayWeekdayKey() {
+  const weekdayKeys = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
+  return weekdayKeys[new Date().getDay()] || "";
+}
+
 function renderDisciplineRoster(rosterElement) {
   if (!bookingApi || !rosterElement) {
     return;
@@ -213,16 +218,155 @@ function setupScheduleBoard() {
   }
 
   const scheduleGrid = document.querySelector("#schedule-grid");
+  const scheduleMobile = document.querySelector("#schedule-mobile");
+  const scheduleMobileTabs = document.querySelector("#schedule-mobile-tabs");
+  const scheduleMobilePanel = document.querySelector("#schedule-mobile-panel");
   const scheduleSummary = document.querySelector("#schedule-summary");
   const disciplineRoster = document.querySelector("#discipline-roster");
+  let activeMobileDay = "";
 
-  if (!scheduleGrid && !disciplineRoster) {
+  if (!scheduleGrid && !scheduleMobile && !disciplineRoster) {
     return;
   }
 
+  function resolveMobileDay(board) {
+    if (!board?.columns?.length) {
+      return "";
+    }
+
+    const availableKeys = board.columns.map((column) => column.key);
+
+    if (availableKeys.includes(activeMobileDay)) {
+      return activeMobileDay;
+    }
+
+    const todayKey = getTodayWeekdayKey();
+
+    if (availableKeys.includes(todayKey)) {
+      return todayKey;
+    }
+
+    return availableKeys[0];
+  }
+
+  function getMobileDayEntries(board, dayKey) {
+    const columnIndex = board.columns.findIndex((column) => column.key === dayKey);
+
+    if (columnIndex < 0) {
+      return [];
+    }
+
+    return board.rows
+      .map((row) => ({
+        slotLabel: row.label,
+        cell: row.cells[columnIndex],
+      }))
+      .filter((entry) => Array.isArray(entry.cell?.items) && entry.cell.items.length);
+  }
+
+  function renderMobileSchedule(board) {
+    if (!scheduleMobile || !scheduleMobileTabs || !scheduleMobilePanel) {
+      return;
+    }
+
+    if (!board?.columns?.length || !board?.rows?.length) {
+      scheduleMobileTabs.innerHTML = "";
+      scheduleMobilePanel.innerHTML = `
+        <article class="schedule-mobile-empty">
+          <strong>Sin horarios cargados</strong>
+          <p>La agenda del club se actualiza automáticamente desde la administración.</p>
+        </article>
+      `;
+      return;
+    }
+
+    activeMobileDay = resolveMobileDay(board);
+    const selectedColumn = board.columns.find((column) => column.key === activeMobileDay) || board.columns[0];
+    const selectedEntries = getMobileDayEntries(board, selectedColumn.key);
+
+    scheduleMobileTabs.innerHTML = board.columns
+      .map((column) => {
+        const entries = getMobileDayEntries(board, column.key);
+        const count = entries.reduce((total, entry) => total + entry.cell.items.length, 0);
+        const isActive = column.key === selectedColumn.key;
+        return `
+          <button
+            class="schedule-mobile-tab${isActive ? " is-active" : ""}"
+            type="button"
+            role="tab"
+            aria-selected="${isActive ? "true" : "false"}"
+            aria-controls="schedule-mobile-panel"
+            data-schedule-day="${escapeHtml(column.key)}"
+          >
+            <span>${escapeHtml(column.label)}</span>
+            <small>${count.toLocaleString("es-UY")} clase${count === 1 ? "" : "s"}</small>
+          </button>
+        `;
+      })
+      .join("");
+
+    if (!selectedEntries.length) {
+      scheduleMobilePanel.innerHTML = `
+        <div class="schedule-mobile-day-head">
+          <div>
+            <p class="schedule-mobile-day-kicker">Agenda del día</p>
+            <strong>${escapeHtml(selectedColumn.label)}</strong>
+          </div>
+          <span>Sin clases</span>
+        </div>
+        <article class="schedule-mobile-empty">
+          <strong>Sin clases cargadas para ${escapeHtml(selectedColumn.label.toLowerCase())}</strong>
+          <p>Probá con otro día o consultanos por WhatsApp para conocer nuevas franjas y disciplinas.</p>
+        </article>
+      `;
+      return;
+    }
+
+    scheduleMobilePanel.innerHTML = `
+      <div class="schedule-mobile-day-head">
+        <div>
+          <p class="schedule-mobile-day-kicker">Agenda del día</p>
+          <strong>${escapeHtml(selectedColumn.label)}</strong>
+        </div>
+        <span>${selectedEntries.length.toLocaleString("es-UY")} franja${selectedEntries.length === 1 ? "" : "s"}</span>
+      </div>
+
+      <div class="schedule-mobile-list">
+        ${selectedEntries
+          .map((entry) => {
+            const items = entry.cell.items;
+            const cardAccent = items.length > 1 ? "highlight" : items[0].accent;
+            return `
+              <article class="schedule-mobile-card accent-${escapeHtml(cardAccent)}">
+                <div class="schedule-mobile-card-head">
+                  <span class="schedule-mobile-time">${escapeHtml(entry.slotLabel)}</span>
+                  <span class="schedule-mobile-count">${items.length.toLocaleString("es-UY")} disciplina${items.length === 1 ? "" : "s"}</span>
+                </div>
+
+                <div class="schedule-mobile-discipline-list">
+                  ${items
+                    .map(
+                      (item) => `
+                        <div class="schedule-mobile-discipline accent-${escapeHtml(item.accent)}">
+                          <span class="schedule-mobile-discipline-dot" aria-hidden="true"></span>
+                          <strong>${escapeHtml(item.label)}</strong>
+                        </div>
+                      `
+                    )
+                    .join("")}
+                </div>
+              </article>
+            `;
+          })
+          .join("")}
+      </div>
+    `;
+  }
+
   function renderScheduleExperience() {
+    const board = bookingApi.getScheduleBoardData();
+
     if (scheduleGrid) {
-      const board = bookingApi.getScheduleBoardData();
       const headers = [
         '<div class="schedule-head schedule-head-time">Turno</div>',
         ...board.columns.map((column) => `<div class="schedule-head">${escapeHtml(column.label)}</div>`),
@@ -242,8 +386,20 @@ function setupScheduleBoard() {
       renderScheduleSummary(scheduleSummary);
     }
 
+    renderMobileSchedule(board);
     renderDisciplineRoster(disciplineRoster);
   }
+
+  scheduleMobileTabs?.addEventListener("click", (event) => {
+    const dayButton = event.target.closest("[data-schedule-day]");
+
+    if (!dayButton) {
+      return;
+    }
+
+    activeMobileDay = dayButton.dataset.scheduleDay || "";
+    renderScheduleExperience();
+  });
 
   window.addEventListener(bookingApi.changeEvent, renderScheduleExperience);
   renderScheduleExperience();
