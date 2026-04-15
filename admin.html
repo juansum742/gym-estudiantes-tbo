@@ -12,8 +12,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260415-2">
-  <link rel="stylesheet" href="admin.css?v=20260415-2">
+  <link rel="stylesheet" href="style.css?v=20260415-3">
+  <link rel="stylesheet" href="admin.css?v=20260415-3">
 </head>
 <body class="admin-body">
   <div class="site-shell">
@@ -28,6 +28,9 @@
         </a>
 
         <div class="admin-header-actions">
+          <button class="btn btn-secondary admin-btn is-hidden" type="button" id="admin-security-button">
+            Seguridad
+          </button>
           <button class="btn btn-secondary admin-btn is-hidden" type="button" id="admin-logout-button">
             Cerrar sesión
           </button>
@@ -72,6 +75,10 @@
                 <span class="btn-loader" aria-hidden="true"></span>
               </button>
             </form>
+
+            <button class="btn btn-secondary admin-btn admin-inline-security-trigger" type="button" id="admin-recovery-open">
+              Recuperar contraseña
+            </button>
 
             <p class="admin-gate-note" id="admin-gate-note">Acceso privado del gimnasio. Ingresá tu clave para abrir el panel administrativo.</p>
           </div>
@@ -184,89 +191,6 @@
             </section>
           </div>
 
-          <section class="admin-list-shell admin-password-shell">
-            <div class="admin-panel-head">
-              <p class="section-kicker">Seguridad</p>
-              <h3>Cambiar clave</h3>
-              <p>Actualizá la contraseña del panel desde acá. El cambio se valida únicamente en backend y, por seguridad, cierra todas las sesiones activas.</p>
-            </div>
-
-            <form class="admin-password-form" id="admin-password-form" novalidate>
-              <div class="admin-password-grid">
-                <label class="form-field">
-                  <span>Clave actual</span>
-                  <div class="password-field-shell">
-                    <input id="admin-password-current" type="password" placeholder="Ingresá tu clave actual" autocomplete="current-password" required>
-                    <button
-                      class="password-peek-button"
-                      type="button"
-                      data-password-peek
-                      data-password-target="admin-password-current"
-                      aria-label="Mantener presionado para ver la clave actual"
-                      aria-controls="admin-password-current"
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M2.2 12s3.6-6.2 9.8-6.2S21.8 12 21.8 12s-3.6 6.2-9.8 6.2S2.2 12 2.2 12Z"></path>
-                        <circle cx="12" cy="12" r="3.2"></circle>
-                      </svg>
-                    </button>
-                  </div>
-                </label>
-
-                <label class="form-field">
-                  <span>Nueva clave</span>
-                  <div class="password-field-shell">
-                    <input id="admin-password-next" type="password" placeholder="Mínimo 7 caracteres" autocomplete="new-password" required>
-                    <button
-                      class="password-peek-button"
-                      type="button"
-                      data-password-peek
-                      data-password-target="admin-password-next"
-                      aria-label="Mantener presionado para ver la nueva clave"
-                      aria-controls="admin-password-next"
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M2.2 12s3.6-6.2 9.8-6.2S21.8 12 21.8 12s-3.6 6.2-9.8 6.2S2.2 12 2.2 12Z"></path>
-                        <circle cx="12" cy="12" r="3.2"></circle>
-                      </svg>
-                    </button>
-                  </div>
-                </label>
-
-                <label class="form-field">
-                  <span>Repetir nueva clave</span>
-                  <div class="password-field-shell">
-                    <input id="admin-password-repeat" type="password" placeholder="Repetí la nueva clave" autocomplete="new-password" required>
-                    <button
-                      class="password-peek-button"
-                      type="button"
-                      data-password-peek
-                      data-password-target="admin-password-repeat"
-                      aria-label="Mantener presionado para ver la repetición de la nueva clave"
-                      aria-controls="admin-password-repeat"
-                    >
-                      <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M2.2 12s3.6-6.2 9.8-6.2S21.8 12 21.8 12s-3.6 6.2-9.8 6.2S2.2 12 2.2 12Z"></path>
-                        <circle cx="12" cy="12" r="3.2"></circle>
-                      </svg>
-                    </button>
-                  </div>
-                </label>
-              </div>
-
-              <div class="admin-form-actions">
-                <button class="btn btn-primary admin-btn" type="submit" id="admin-password-button">
-                  <span class="btn-text">Actualizar clave</span>
-                  <span class="btn-loader" aria-hidden="true"></span>
-                </button>
-              </div>
-            </form>
-
-            <div class="booking-feedback booking-feedback-idle" id="admin-password-feedback" aria-live="polite">
-              Elegí una clave nueva con al menos 7 caracteres que combine letras y números. Al confirmarla, el panel te pedirá ingresar otra vez.
-            </div>
-          </section>
-
           <section class="admin-list-shell">
             <div class="admin-panel-head admin-panel-head-inline">
               <div>
@@ -287,6 +211,373 @@
 
             <div class="admin-schedule-list-shell" id="admin-schedules-list"></div>
           </section>
+        </div>
+      </section>
+
+      <section class="section admin-dashboard admin-security-section is-hidden" id="admin-security-section">
+        <div class="container">
+          <div class="admin-intro">
+            <div>
+              <p class="section-kicker">Seguridad</p>
+              <h2 class="section-title">Credenciales y recuperación del panel</h2>
+              <p class="section-text">
+                Esta sección concentra toda la seguridad del panel: cambio de contraseña, preguntas de seguridad y recuperación segura del acceso.
+              </p>
+            </div>
+
+            <div class="admin-security-top-actions">
+              <button class="btn btn-secondary admin-btn" type="button" id="admin-security-back">
+                Volver al panel
+              </button>
+            </div>
+          </div>
+
+          <div id="admin-security-auth-view" class="admin-security-view is-hidden">
+            <div class="admin-security-grid">
+              <section class="admin-form-shell">
+                <div class="admin-panel-head">
+                  <p class="section-kicker">Cambiar contraseña</p>
+                  <h3>Clave del admin</h3>
+                  <p>Actualizá la clave del panel sin exponerla en frontend. Al guardarla, se cierran las sesiones activas y el backend exige volver a ingresar.</p>
+                </div>
+
+                <form class="admin-password-form" id="admin-password-form" novalidate>
+                  <div class="admin-password-grid">
+                    <label class="form-field">
+                      <span>Clave actual</span>
+                      <div class="password-field-shell">
+                        <input id="admin-password-current" type="password" placeholder="Ingresá tu clave actual" autocomplete="current-password" required>
+                        <button
+                          class="password-peek-button"
+                          type="button"
+                          data-password-peek
+                          data-password-target="admin-password-current"
+                          aria-label="Mantener presionado para ver la clave actual"
+                          aria-controls="admin-password-current"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M2.2 12s3.6-6.2 9.8-6.2S21.8 12 21.8 12s-3.6 6.2-9.8 6.2S2.2 12 2.2 12Z"></path>
+                            <circle cx="12" cy="12" r="3.2"></circle>
+                          </svg>
+                        </button>
+                      </div>
+                    </label>
+
+                    <label class="form-field">
+                      <span>Nueva clave</span>
+                      <div class="password-field-shell">
+                        <input id="admin-password-next" type="password" placeholder="Mínimo 7 caracteres" autocomplete="new-password" required>
+                        <button
+                          class="password-peek-button"
+                          type="button"
+                          data-password-peek
+                          data-password-target="admin-password-next"
+                          aria-label="Mantener presionado para ver la nueva clave"
+                          aria-controls="admin-password-next"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M2.2 12s3.6-6.2 9.8-6.2S21.8 12 21.8 12s-3.6 6.2-9.8 6.2S2.2 12 2.2 12Z"></path>
+                            <circle cx="12" cy="12" r="3.2"></circle>
+                          </svg>
+                        </button>
+                      </div>
+                    </label>
+
+                    <label class="form-field">
+                      <span>Repetir nueva clave</span>
+                      <div class="password-field-shell">
+                        <input id="admin-password-repeat" type="password" placeholder="Repetí la nueva clave" autocomplete="new-password" required>
+                        <button
+                          class="password-peek-button"
+                          type="button"
+                          data-password-peek
+                          data-password-target="admin-password-repeat"
+                          aria-label="Mantener presionado para ver la repetición de la nueva clave"
+                          aria-controls="admin-password-repeat"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M2.2 12s3.6-6.2 9.8-6.2S21.8 12 21.8 12s-3.6 6.2-9.8 6.2S2.2 12 2.2 12Z"></path>
+                            <circle cx="12" cy="12" r="3.2"></circle>
+                          </svg>
+                        </button>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div class="admin-form-actions">
+                    <button class="btn btn-primary admin-btn" type="submit" id="admin-password-button">
+                      <span class="btn-text">Actualizar clave</span>
+                      <span class="btn-loader" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                </form>
+
+                <div class="booking-feedback booking-feedback-idle" id="admin-password-feedback" aria-live="polite">
+                  Elegí una clave nueva con al menos 7 caracteres que combine letras y números. Al confirmarla, el panel te pedirá ingresar otra vez.
+                </div>
+              </section>
+
+              <section class="admin-form-shell">
+                <div class="admin-panel-head">
+                  <p class="section-kicker">Preguntas de seguridad</p>
+                  <h3>Recuperación segura</h3>
+                  <p>Guardá tres respuestas cifradas para recuperar el acceso sin exponer datos en el navegador ni en el repositorio.</p>
+                </div>
+
+                <div class="admin-security-status-card" id="admin-security-status-card">
+                  <strong id="admin-security-status-title">Recuperación pendiente</strong>
+                  <p id="admin-security-status-copy">Todavía no configuraste las preguntas de seguridad. Completalas para habilitar la recuperación segura del panel.</p>
+                </div>
+
+                <form class="admin-security-questions-form" id="admin-security-questions-form" novalidate>
+                  <div class="admin-security-questions-grid">
+                    <label class="form-field">
+                      <span>¿Nombre de tu primera mascota?</span>
+                      <div class="password-field-shell">
+                        <input id="security-answer-first-pet" type="password" placeholder="Ingresá la respuesta" autocomplete="off" required>
+                        <button
+                          class="password-peek-button"
+                          type="button"
+                          data-password-peek
+                          data-password-target="security-answer-first-pet"
+                          aria-label="Mantener presionada para ver la respuesta"
+                          aria-controls="security-answer-first-pet"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M2.2 12s3.6-6.2 9.8-6.2S21.8 12 21.8 12s-3.6 6.2-9.8 6.2S2.2 12 2.2 12Z"></path>
+                            <circle cx="12" cy="12" r="3.2"></circle>
+                          </svg>
+                        </button>
+                      </div>
+                    </label>
+
+                    <label class="form-field">
+                      <span>¿Ciudad donde naciste?</span>
+                      <div class="password-field-shell">
+                        <input id="security-answer-birth-city" type="password" placeholder="Ingresá la respuesta" autocomplete="off" required>
+                        <button
+                          class="password-peek-button"
+                          type="button"
+                          data-password-peek
+                          data-password-target="security-answer-birth-city"
+                          aria-label="Mantener presionada para ver la respuesta"
+                          aria-controls="security-answer-birth-city"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M2.2 12s3.6-6.2 9.8-6.2S21.8 12 21.8 12s-3.6 6.2-9.8 6.2S2.2 12 2.2 12Z"></path>
+                            <circle cx="12" cy="12" r="3.2"></circle>
+                          </svg>
+                        </button>
+                      </div>
+                    </label>
+
+                    <label class="form-field">
+                      <span>¿Nombre de tu escuela primaria?</span>
+                      <div class="password-field-shell">
+                        <input id="security-answer-primary-school" type="password" placeholder="Ingresá la respuesta" autocomplete="off" required>
+                        <button
+                          class="password-peek-button"
+                          type="button"
+                          data-password-peek
+                          data-password-target="security-answer-primary-school"
+                          aria-label="Mantener presionada para ver la respuesta"
+                          aria-controls="security-answer-primary-school"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M2.2 12s3.6-6.2 9.8-6.2S21.8 12 21.8 12s-3.6 6.2-9.8 6.2S2.2 12 2.2 12Z"></path>
+                            <circle cx="12" cy="12" r="3.2"></circle>
+                          </svg>
+                        </button>
+                      </div>
+                    </label>
+
+                    <label class="form-field">
+                      <span>Clave actual para confirmar</span>
+                      <div class="password-field-shell">
+                        <input id="security-questions-current-password" type="password" placeholder="Confirmá con tu clave actual" autocomplete="current-password" required>
+                        <button
+                          class="password-peek-button"
+                          type="button"
+                          data-password-peek
+                          data-password-target="security-questions-current-password"
+                          aria-label="Mantener presionado para ver la clave actual"
+                          aria-controls="security-questions-current-password"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M2.2 12s3.6-6.2 9.8-6.2S21.8 12 21.8 12s-3.6 6.2-9.8 6.2S2.2 12 2.2 12Z"></path>
+                            <circle cx="12" cy="12" r="3.2"></circle>
+                          </svg>
+                        </button>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div class="admin-form-actions">
+                    <button class="btn btn-primary admin-btn" type="submit" id="admin-security-questions-button">
+                      <span class="btn-text">Guardar preguntas</span>
+                      <span class="btn-loader" aria-hidden="true"></span>
+                    </button>
+                    <button class="btn btn-secondary admin-btn admin-btn-danger" type="button" id="admin-security-clear-button">
+                      Desactivar recuperación
+                    </button>
+                  </div>
+                </form>
+
+                <div class="booking-feedback booking-feedback-idle" id="admin-security-questions-feedback" aria-live="polite">
+                  Las respuestas se guardan con hash seguro y solo se usan para validar la recuperación. No quedan visibles después de guardarlas.
+                </div>
+              </section>
+            </div>
+
+            <section class="admin-list-shell admin-security-recovery-info">
+              <div class="admin-panel-head">
+                <p class="section-kicker">Recuperación</p>
+                <h3>Cómo funciona</h3>
+                <p>Si olvidás la clave, desde la pantalla de acceso podés entrar a “Recuperar contraseña”, responder correctamente las 3 preguntas y definir una nueva contraseña. El sistema invalida las sesiones anteriores automáticamente.</p>
+              </div>
+            </section>
+          </div>
+
+          <div id="admin-security-recovery-view" class="admin-security-view is-hidden">
+            <div class="admin-security-recovery-shell">
+              <section class="admin-gate-card admin-security-recovery-card">
+                <p class="section-kicker">Recuperar contraseña</p>
+                <h2 class="section-title">Recuperá el acceso al panel</h2>
+                <p class="section-text" id="admin-recovery-status-copy">
+                  Respondé correctamente las preguntas de seguridad para habilitar una nueva contraseña.
+                </p>
+
+                <form class="admin-security-questions-form" id="admin-recovery-form" novalidate>
+                  <div class="admin-security-questions-grid">
+                    <label class="form-field">
+                      <span>¿Nombre de tu primera mascota?</span>
+                      <div class="password-field-shell">
+                        <input id="recovery-answer-first-pet" type="password" placeholder="Tu respuesta" autocomplete="off" required>
+                        <button
+                          class="password-peek-button"
+                          type="button"
+                          data-password-peek
+                          data-password-target="recovery-answer-first-pet"
+                          aria-label="Mantener presionada para ver la respuesta"
+                          aria-controls="recovery-answer-first-pet"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M2.2 12s3.6-6.2 9.8-6.2S21.8 12 21.8 12s-3.6 6.2-9.8 6.2S2.2 12 2.2 12Z"></path>
+                            <circle cx="12" cy="12" r="3.2"></circle>
+                          </svg>
+                        </button>
+                      </div>
+                    </label>
+
+                    <label class="form-field">
+                      <span>¿Ciudad donde naciste?</span>
+                      <div class="password-field-shell">
+                        <input id="recovery-answer-birth-city" type="password" placeholder="Tu respuesta" autocomplete="off" required>
+                        <button
+                          class="password-peek-button"
+                          type="button"
+                          data-password-peek
+                          data-password-target="recovery-answer-birth-city"
+                          aria-label="Mantener presionada para ver la respuesta"
+                          aria-controls="recovery-answer-birth-city"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M2.2 12s3.6-6.2 9.8-6.2S21.8 12 21.8 12s-3.6 6.2-9.8 6.2S2.2 12 2.2 12Z"></path>
+                            <circle cx="12" cy="12" r="3.2"></circle>
+                          </svg>
+                        </button>
+                      </div>
+                    </label>
+
+                    <label class="form-field">
+                      <span>¿Nombre de tu escuela primaria?</span>
+                      <div class="password-field-shell">
+                        <input id="recovery-answer-primary-school" type="password" placeholder="Tu respuesta" autocomplete="off" required>
+                        <button
+                          class="password-peek-button"
+                          type="button"
+                          data-password-peek
+                          data-password-target="recovery-answer-primary-school"
+                          aria-label="Mantener presionada para ver la respuesta"
+                          aria-controls="recovery-answer-primary-school"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M2.2 12s3.6-6.2 9.8-6.2S21.8 12 21.8 12s-3.6 6.2-9.8 6.2S2.2 12 2.2 12Z"></path>
+                            <circle cx="12" cy="12" r="3.2"></circle>
+                          </svg>
+                        </button>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div class="admin-form-actions">
+                    <button class="btn btn-primary admin-btn" type="submit" id="admin-recovery-verify-button">
+                      <span class="btn-text">Validar respuestas</span>
+                      <span class="btn-loader" aria-hidden="true"></span>
+                    </button>
+                    <button class="btn btn-secondary admin-btn" type="button" id="admin-recovery-back-button">
+                      Volver al acceso
+                    </button>
+                  </div>
+                </form>
+
+                <form class="admin-password-form is-hidden" id="admin-recovery-reset-form" novalidate>
+                  <div class="admin-password-grid">
+                    <label class="form-field">
+                      <span>Nueva clave</span>
+                      <div class="password-field-shell">
+                        <input id="admin-recovery-next-password" type="password" placeholder="Mínimo 7 caracteres" autocomplete="new-password" required>
+                        <button
+                          class="password-peek-button"
+                          type="button"
+                          data-password-peek
+                          data-password-target="admin-recovery-next-password"
+                          aria-label="Mantener presionado para ver la nueva clave"
+                          aria-controls="admin-recovery-next-password"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M2.2 12s3.6-6.2 9.8-6.2S21.8 12 21.8 12s-3.6 6.2-9.8 6.2S2.2 12 2.2 12Z"></path>
+                            <circle cx="12" cy="12" r="3.2"></circle>
+                          </svg>
+                        </button>
+                      </div>
+                    </label>
+
+                    <label class="form-field">
+                      <span>Repetir nueva clave</span>
+                      <div class="password-field-shell">
+                        <input id="admin-recovery-repeat-password" type="password" placeholder="Repetí la nueva clave" autocomplete="new-password" required>
+                        <button
+                          class="password-peek-button"
+                          type="button"
+                          data-password-peek
+                          data-password-target="admin-recovery-repeat-password"
+                          aria-label="Mantener presionado para ver la repetición de la nueva clave"
+                          aria-controls="admin-recovery-repeat-password"
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M2.2 12s3.6-6.2 9.8-6.2S21.8 12 21.8 12s-3.6 6.2-9.8 6.2S2.2 12 2.2 12Z"></path>
+                            <circle cx="12" cy="12" r="3.2"></circle>
+                          </svg>
+                        </button>
+                      </div>
+                    </label>
+                  </div>
+
+                  <div class="admin-form-actions">
+                    <button class="btn btn-primary admin-btn" type="submit" id="admin-recovery-reset-button">
+                      <span class="btn-text">Definir nueva clave</span>
+                      <span class="btn-loader" aria-hidden="true"></span>
+                    </button>
+                  </div>
+                </form>
+
+                <div class="booking-feedback booking-feedback-idle" id="admin-recovery-feedback" aria-live="polite">
+                  La recuperación queda habilitada solo si las 3 respuestas coinciden con las que configuraste previamente.
+                </div>
+              </section>
+            </div>
+          </div>
         </div>
       </section>
     </main>
@@ -315,7 +606,7 @@
   <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
 
   <script src="schedule-core.js?v=20260414-1"></script>
-  <script src="booking-data.js?v=20260415-2"></script>
-  <script src="admin.js?v=20260415-2"></script>
+  <script src="booking-data.js?v=20260415-3"></script>
+  <script src="admin.js?v=20260415-3"></script>
 </body>
 </html>

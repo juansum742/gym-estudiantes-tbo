@@ -29,6 +29,17 @@
   display: none;
 }
 
+.admin-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.admin-header-actions .admin-btn.is-active {
+  border-color: rgba(78, 93, 255, 0.36);
+  background: linear-gradient(135deg, rgba(78, 93, 255, 0.16), rgba(197, 64, 53, 0.12));
+}
+
 .admin-gate-card,
 .admin-stat-card,
 .admin-form-shell,
@@ -53,6 +64,10 @@
   display: grid;
   gap: 1rem;
   margin-top: 1.6rem;
+}
+
+.admin-inline-security-trigger {
+  margin-top: 0.9rem;
 }
 
 .admin-gate-note {
@@ -209,8 +224,81 @@
 
 .admin-password-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
+}
+
+.admin-security-section .admin-intro {
+  margin-bottom: 1.2rem;
+}
+
+.admin-security-top-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.admin-security-view {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-security-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.admin-security-status-card {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.admin-security-status-card strong {
+  font-size: 1.08rem;
+}
+
+.admin-security-status-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.admin-security-status-card.is-ready {
+  border-color: rgba(51, 209, 122, 0.24);
+  background: linear-gradient(180deg, rgba(51, 209, 122, 0.11), rgba(8, 18, 12, 0.78));
+}
+
+.admin-security-status-card.is-pending {
+  border-color: rgba(255, 191, 71, 0.24);
+  background: linear-gradient(180deg, rgba(255, 191, 71, 0.11), rgba(24, 16, 6, 0.78));
+}
+
+.admin-security-questions-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-security-questions-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-security-recovery-info {
+  margin-top: 0.2rem;
+}
+
+.admin-security-recovery-shell {
+  display: flex;
+  justify-content: center;
+}
+
+.admin-security-recovery-card {
+  width: min(100%, 820px);
 }
 
 .admin-class-bookings-grid {
@@ -965,6 +1053,7 @@
 
 @media (max-width: 1100px) {
   .admin-stats-grid,
+  .admin-security-grid,
   .admin-workspace,
   .admin-class-bookings-grid,
   .admin-membership-workspace {
@@ -980,6 +1069,7 @@
 
 @media (max-width: 760px) {
   .admin-header-inner,
+  .admin-header-actions,
   .admin-intro,
   .admin-panel-head-inline,
   .admin-reservation-head,
@@ -1003,6 +1093,14 @@
 
   .admin-header-actions,
   .admin-header-actions .admin-btn {
+    width: 100%;
+  }
+
+  .admin-security-top-actions {
+    width: 100%;
+  }
+
+  .admin-security-top-actions .admin-btn {
     width: 100%;
   }
 

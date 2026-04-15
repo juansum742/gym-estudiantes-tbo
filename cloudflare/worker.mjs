@@ -12,10 +12,13 @@ const textEncoder = new TextEncoder();
 const SESSION_TTL_MS = 1000 * 60 * 60 * 4;
 const LOGIN_WINDOW_MS = 1000 * 60 * 10;
 const LOGIN_BLOCK_MS = 1000 * 60 * 15;
+const RECOVERY_SESSION_TTL_MS = 1000 * 60 * 10;
 const MAX_LOGIN_ATTEMPTS = 5;
 const MAX_JSON_BODY_BYTES = 4096;
 const MIN_ADMIN_PASSWORD_LENGTH = 7;
 const MAX_ADMIN_PASSWORD_LENGTH = 128;
+const MIN_SECURITY_ANSWER_LENGTH = 2;
+const MAX_SECURITY_ANSWER_LENGTH = 160;
 const MIN_PASSWORD_HASH_ITERATIONS = 60000;
 const MAX_PASSWORD_HASH_ITERATIONS = 100000;
 const DEFAULT_PASSWORD_HASH_ITERATIONS = 100000;
@@ -23,6 +26,13 @@ const PASSWORD_HASH_PREFIX = "pbkdf2_sha256";
 const PASSWORD_HASH_PREFIX_PEPPERED = "pbkdf2_sha256_peppered";
 const SESSION_COOKIE_NAME = "__Secure-estudiantes_tbo_admin";
 const SESSION_COOKIE_PATH = "/api";
+const RECOVERY_COOKIE_NAME = "__Secure-estudiantes_tbo_recovery";
+const RECOVERY_COOKIE_PATH = "/api/admin/recovery";
+const SECURITY_QUESTIONS = [
+  { key: "first_pet", label: "¿Nombre de tu primera mascota?" },
+  { key: "birth_city", label: "¿Ciudad donde naciste?" },
+  { key: "primary_school", label: "¿Nombre de tu escuela primaria?" },
+];
 const API_RESPONSE_HEADERS = {
   "Cache-Control": "no-store, no-cache, must-revalidate",
   "Content-Type": "application/json; charset=utf-8",
@@ -252,6 +262,26 @@ function normalizePasswordInput(inputPassword) {
   return String(inputPassword || "").trim();
 }
 
+function normalizeSecurityAnswerInput(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function getSecurityQuestionDefinition(questionKey) {
+  return SECURITY_QUESTIONS.find((question) => question.key === questionKey) || null;
+}
+
+function getSecurityQuestionList() {
+  return SECURITY_QUESTIONS.map((question) => ({
+    key: question.key,
+    label: question.label,
+  }));
+}
+
 function validatePasswordStrength(password) {
   const normalizedPassword = normalizePasswordInput(password);
 
@@ -281,10 +311,10 @@ async function buildPasswordHashRecord(password, env, { peppered = true } = {}) 
   return `${algorithm}$${DEFAULT_PASSWORD_HASH_ITERATIONS}$${toBase64Url(salt)}$${toBase64Url(hash)}`;
 }
 
-async function verifyPassword(inputPassword, passwordHashRecord, env) {
-  const normalizedPassword = normalizePasswordInput(inputPassword);
+async function verifyHashRecord(normalizedValue, passwordHashRecord, env) {
+  const safeValue = String(normalizedValue || "");
 
-  if (!normalizedPassword || normalizedPassword.length > MAX_ADMIN_PASSWORD_LENGTH) {
+  if (!safeValue) {
     return false;
   }
 
@@ -293,11 +323,55 @@ async function verifyPassword(inputPassword, passwordHashRecord, env) {
     ? getRequiredSecret(env, "AUTH_PEPPER")
     : "";
   const material = parsedHash.algorithm === PASSWORD_HASH_PREFIX_PEPPERED
-    ? `${pepper}:${normalizedPassword}`
-    : normalizedPassword;
+    ? `${pepper}:${safeValue}`
+    : safeValue;
   const derivedHash = await derivePasswordHash(material, parsedHash.salt, parsedHash.iterations);
 
   return constantTimeEqual(derivedHash, parsedHash.hash);
+}
+
+async function verifyPassword(inputPassword, passwordHashRecord, env) {
+  const normalizedPassword = normalizePasswordInput(inputPassword);
+
+  if (!normalizedPassword || normalizedPassword.length > MAX_ADMIN_PASSWORD_LENGTH) {
+    return false;
+  }
+
+  return verifyHashRecord(normalizedPassword, passwordHashRecord, env);
+}
+
+function validateSecurityAnswer(answer) {
+  const normalizedAnswer = normalizeSecurityAnswerInput(answer);
+
+  if (normalizedAnswer.length < MIN_SECURITY_ANSWER_LENGTH) {
+    throw new HttpError(400, "Completá las tres respuestas de seguridad.");
+  }
+
+  if (normalizedAnswer.length > MAX_SECURITY_ANSWER_LENGTH) {
+    throw new HttpError(400, "Una de las respuestas es demasiado larga.");
+  }
+
+  return normalizedAnswer;
+}
+
+async function buildSecurityAnswerHashRecord(answer, env) {
+  const normalizedAnswer = validateSecurityAnswer(answer);
+  const salt = randomBytes(16);
+  const pepper = getRequiredSecret(env, "AUTH_PEPPER");
+  const material = `${pepper}:${normalizedAnswer}`;
+  const hash = await derivePasswordHash(material, salt, DEFAULT_PASSWORD_HASH_ITERATIONS);
+
+  return `${PASSWORD_HASH_PREFIX_PEPPERED}$${DEFAULT_PASSWORD_HASH_ITERATIONS}$${toBase64Url(salt)}$${toBase64Url(hash)}`;
+}
+
+async function verifySecurityAnswer(answer, answerHashRecord, env) {
+  const normalizedAnswer = normalizeSecurityAnswerInput(answer);
+
+  if (!normalizedAnswer || normalizedAnswer.length > MAX_SECURITY_ANSWER_LENGTH) {
+    return false;
+  }
+
+  return verifyHashRecord(normalizedAnswer, answerHashRecord, env);
 }
 
 async function readAdminPasswordHashRecord(db, env) {
@@ -426,6 +500,31 @@ function buildClearSessionCookie() {
   ].join("; ");
 }
 
+function buildRecoverySessionCookie(token) {
+  const maxAgeSeconds = Math.max(1, Math.floor(RECOVERY_SESSION_TTL_MS / 1000));
+
+  return [
+    `${RECOVERY_COOKIE_NAME}=${token}`,
+    `Max-Age=${maxAgeSeconds}`,
+    `Path=${RECOVERY_COOKIE_PATH}`,
+    "HttpOnly",
+    "Secure",
+    "SameSite=Strict",
+  ].join("; ");
+}
+
+function buildClearRecoveryCookie() {
+  return [
+    `${RECOVERY_COOKIE_NAME}=`,
+    "Max-Age=0",
+    "Expires=Thu, 01 Jan 1970 00:00:00 GMT",
+    `Path=${RECOVERY_COOKIE_PATH}`,
+    "HttpOnly",
+    "Secure",
+    "SameSite=Strict",
+  ].join("; ");
+}
+
 function getClientIp(request) {
   const headerValue = String(
     request.headers.get("CF-Connecting-IP")
@@ -470,11 +569,32 @@ async function cleanupExpiredLoginAttempts(db) {
   await db.prepare("DELETE FROM admin_login_attempts WHERE blocked_until <= ? AND last_attempt_at <= ?").bind(Date.now(), cutoff).run();
 }
 
+async function cleanupExpiredRecoveryAttempts(db) {
+  const cutoff = Date.now() - LOGIN_WINDOW_MS;
+  await db.prepare("DELETE FROM admin_recovery_attempts WHERE blocked_until <= ? AND last_attempt_at <= ?").bind(Date.now(), cutoff).run();
+}
+
 async function assertLoginAllowed(db, clientKey) {
   const row = await db
     .prepare(`
       SELECT attempts, blocked_until
       FROM admin_login_attempts
+      WHERE client_key = ?
+      LIMIT 1
+    `)
+    .bind(clientKey)
+    .first();
+
+  if (row && Number(row.blocked_until) > Date.now()) {
+    throw new HttpError(429, "Demasiados intentos. Esperá unos minutos y volvé a probar.");
+  }
+}
+
+async function assertRecoveryAllowed(db, clientKey) {
+  const row = await db
+    .prepare(`
+      SELECT attempts, blocked_until
+      FROM admin_recovery_attempts
       WHERE client_key = ?
       LIMIT 1
     `)
@@ -517,8 +637,43 @@ async function recordLoginFailure(db, clientKey) {
     .run();
 }
 
+async function recordRecoveryFailure(db, clientKey) {
+  const now = Date.now();
+  const existingRow = await db
+    .prepare(`
+      SELECT attempts, first_attempt_at, blocked_until
+      FROM admin_recovery_attempts
+      WHERE client_key = ?
+      LIMIT 1
+    `)
+    .bind(clientKey)
+    .first();
+
+  const withinWindow = existingRow && now - Number(existingRow.first_attempt_at) <= LOGIN_WINDOW_MS;
+  const attempts = withinWindow ? Number(existingRow.attempts) + 1 : 1;
+  const firstAttemptAt = withinWindow ? Number(existingRow.first_attempt_at) : now;
+  const blockedUntil = attempts >= MAX_LOGIN_ATTEMPTS ? now + LOGIN_BLOCK_MS : 0;
+
+  await db
+    .prepare(`
+      INSERT INTO admin_recovery_attempts (client_key, attempts, first_attempt_at, last_attempt_at, blocked_until)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(client_key) DO UPDATE SET
+        attempts = excluded.attempts,
+        first_attempt_at = excluded.first_attempt_at,
+        last_attempt_at = excluded.last_attempt_at,
+        blocked_until = excluded.blocked_until
+    `)
+    .bind(clientKey, attempts, firstAttemptAt, now, blockedUntil)
+    .run();
+}
+
 async function clearLoginAttempts(db, clientKey) {
   await db.prepare("DELETE FROM admin_login_attempts WHERE client_key = ?").bind(clientKey).run();
+}
+
+async function clearRecoveryAttempts(db, clientKey) {
+  await db.prepare("DELETE FROM admin_recovery_attempts WHERE client_key = ?").bind(clientKey).run();
 }
 
 async function createAdminSession(db, request, env) {
@@ -541,6 +696,25 @@ async function createAdminSession(db, request, env) {
   return rawToken;
 }
 
+async function createRecoverySession(db, request, env) {
+  const rawToken = createOpaqueToken();
+  const tokenHash = await getSessionTokenHash(rawToken, env);
+  const userAgentHash = await getUserAgentHash(request, env);
+  const siteOrigin = getRequestOrigin(request);
+  const now = new Date().toISOString();
+  const expiresAt = Date.now() + RECOVERY_SESSION_TTL_MS;
+
+  await db
+    .prepare(`
+      INSERT INTO admin_recovery_sessions (token_hash, expires_at, created_at, origin, user_agent_hash)
+      VALUES (?, ?, ?, ?, ?)
+    `)
+    .bind(tokenHash, expiresAt, now, siteOrigin, userAgentHash)
+    .run();
+
+  return rawToken;
+}
+
 async function invalidateSession(db, tokenHash) {
   if (!tokenHash) {
     return;
@@ -551,6 +725,10 @@ async function invalidateSession(db, tokenHash) {
 
 async function invalidateAllSessions(db) {
   await db.prepare("DELETE FROM admin_sessions_secure").run();
+}
+
+async function invalidateAllRecoverySessions(db) {
+  await db.prepare("DELETE FROM admin_recovery_sessions").run();
 }
 
 async function requireAdminSession(request, env) {
@@ -603,6 +781,168 @@ async function requireAdminSession(request, env) {
     .run();
 
   return { tokenHash };
+}
+
+function readRecoveryCookie(request) {
+  return parseCookies(request).get(RECOVERY_COOKIE_NAME) || "";
+}
+
+async function cleanupExpiredRecoverySessions(db) {
+  await db.prepare("DELETE FROM admin_recovery_sessions WHERE expires_at <= ?").bind(Date.now()).run();
+}
+
+async function requireRecoverySession(request, env) {
+  const rawToken = readRecoveryCookie(request);
+
+  if (!rawToken) {
+    throw new HttpError(401, "No autorizado.");
+  }
+
+  const db = getDb(env);
+  await cleanupExpiredRecoverySessions(db);
+
+  const tokenHash = await getSessionTokenHash(rawToken, env);
+  const recoverySession = await db
+    .prepare(`
+      SELECT token_hash, expires_at, origin, user_agent_hash
+      FROM admin_recovery_sessions
+      WHERE token_hash = ?
+      LIMIT 1
+    `)
+    .bind(tokenHash)
+    .first();
+
+  if (!recoverySession || Number(recoverySession.expires_at) <= Date.now()) {
+    await db.prepare("DELETE FROM admin_recovery_sessions WHERE token_hash = ?").bind(tokenHash).run();
+    throw new HttpError(401, "No autorizado.");
+  }
+
+  const expectedUserAgentHash = await getUserAgentHash(request, env);
+  const currentUserAgentHash = textEncoder.encode(String(expectedUserAgentHash));
+  const storedUserAgentHash = textEncoder.encode(String(recoverySession.user_agent_hash || ""));
+
+  if (
+    !constantTimeEqual(currentUserAgentHash, storedUserAgentHash)
+    || String(recoverySession.origin || "") !== getRequestOrigin(request)
+  ) {
+    await db.prepare("DELETE FROM admin_recovery_sessions WHERE token_hash = ?").bind(tokenHash).run();
+    throw new HttpError(401, "No autorizado.");
+  }
+
+  return { tokenHash };
+}
+
+async function ensureSecurityQuestionTables(db) {
+  await db.batch([
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS admin_security_questions (
+        question_key TEXT PRIMARY KEY,
+        question_label TEXT NOT NULL,
+        answer_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `),
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS admin_recovery_attempts (
+        client_key TEXT PRIMARY KEY,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        first_attempt_at INTEGER NOT NULL,
+        last_attempt_at INTEGER NOT NULL,
+        blocked_until INTEGER NOT NULL DEFAULT 0
+      )
+    `),
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS admin_recovery_sessions (
+        token_hash TEXT PRIMARY KEY,
+        expires_at INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        origin TEXT NOT NULL,
+        user_agent_hash TEXT NOT NULL
+      )
+    `),
+  ]);
+}
+
+async function readConfiguredSecurityQuestions(db) {
+  await ensureSecurityQuestionTables(db);
+  const rows = await db
+    .prepare(`
+      SELECT question_key, question_label, answer_hash, created_at, updated_at
+      FROM admin_security_questions
+      ORDER BY question_key ASC
+    `)
+    .all();
+
+  const byKey = new Map((rows?.results || []).map((row) => [row.question_key, row]));
+
+  return SECURITY_QUESTIONS.map((question) => {
+    const row = byKey.get(question.key);
+
+    return row
+      ? {
+          key: question.key,
+          label: question.label,
+          answerHash: row.answer_hash,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        }
+      : null;
+  }).filter(Boolean);
+}
+
+async function getSecurityStatusPayload(db) {
+  const configuredQuestions = await readConfiguredSecurityQuestions(db);
+
+  return {
+    configured: configuredQuestions.length === SECURITY_QUESTIONS.length,
+    questions: getSecurityQuestionList(),
+    configuredQuestions: configuredQuestions.map((question) => ({
+      key: question.key,
+      label: question.label,
+      updatedAt: question.updatedAt,
+    })),
+  };
+}
+
+function validateSecurityAnswersPayload(rawAnswers) {
+  const answers = {};
+
+  for (const question of SECURITY_QUESTIONS) {
+    const nextAnswer = rawAnswers?.[question.key];
+    answers[question.key] = validateSecurityAnswer(nextAnswer);
+  }
+
+  return answers;
+}
+
+async function persistSecurityAnswers(db, answers, env) {
+  await ensureSecurityQuestionTables(db);
+  const now = new Date().toISOString();
+  const inserts = [db.prepare("DELETE FROM admin_security_questions")];
+
+  for (const question of SECURITY_QUESTIONS) {
+    const answerHash = await buildSecurityAnswerHashRecord(answers[question.key], env);
+    inserts.push(
+      db
+        .prepare(`
+          INSERT INTO admin_security_questions (question_key, question_label, answer_hash, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?)
+        `)
+        .bind(question.key, question.label, answerHash, now, now)
+    );
+  }
+
+  await db.batch(inserts);
+}
+
+async function clearSecurityAnswers(db) {
+  await ensureSecurityQuestionTables(db);
+  await db.batch([
+    db.prepare("DELETE FROM admin_security_questions"),
+    db.prepare("DELETE FROM admin_recovery_attempts"),
+    db.prepare("DELETE FROM admin_recovery_sessions"),
+  ]);
 }
 
 async function readStateFromDb(db) {
@@ -893,6 +1233,177 @@ async function handlePasswordChange(request, env) {
   );
 }
 
+async function handleSecurityStatus(request, env) {
+  const corsOrigin = getRequestOrigin(request);
+  assertSameOriginRead(request);
+  await requireAdminSession(request, env);
+  const payload = await getSecurityStatusPayload(getDb(env));
+
+  return jsonResponse(payload, { corsOrigin });
+}
+
+async function handleSecurityQuestionsSave(request, env) {
+  const corsOrigin = getRequestOrigin(request);
+  assertTrustedWriteRequest(request);
+  await requireAdminSession(request, env);
+  const db = getDb(env);
+  const body = await readJson(request);
+  const currentPassword = normalizePasswordInput(body?.currentPassword);
+
+  if (!currentPassword) {
+    throw new HttpError(400, "Ingresá tu clave actual para guardar las preguntas.");
+  }
+
+  const currentHashRecord = await readAdminPasswordHashRecord(db, env);
+  const currentPasswordIsValid = await verifyPassword(currentPassword, currentHashRecord, env);
+
+  if (!currentPasswordIsValid) {
+    throw new HttpError(400, "La clave actual no es correcta.");
+  }
+
+  const answers = validateSecurityAnswersPayload(body?.answers || {});
+  await persistSecurityAnswers(db, answers, env);
+  const payload = await getSecurityStatusPayload(db);
+
+  return jsonResponse(
+    {
+      ...payload,
+      ok: true,
+      message: "Las preguntas de seguridad quedaron actualizadas.",
+    },
+    { corsOrigin }
+  );
+}
+
+async function handleSecurityQuestionsClear(request, env) {
+  const corsOrigin = getRequestOrigin(request);
+  assertTrustedWriteRequest(request);
+  await requireAdminSession(request, env);
+  const db = getDb(env);
+  const body = await readJson(request);
+  const currentPassword = normalizePasswordInput(body?.currentPassword);
+
+  if (!currentPassword) {
+    throw new HttpError(400, "Ingresá tu clave actual para quitar la recuperación.");
+  }
+
+  const currentHashRecord = await readAdminPasswordHashRecord(db, env);
+  const currentPasswordIsValid = await verifyPassword(currentPassword, currentHashRecord, env);
+
+  if (!currentPasswordIsValid) {
+    throw new HttpError(400, "La clave actual no es correcta.");
+  }
+
+  await clearSecurityAnswers(db);
+  const payload = await getSecurityStatusPayload(db);
+
+  return jsonResponse(
+    {
+      ...payload,
+      ok: true,
+      message: "La recuperación por preguntas quedó desactivada.",
+    },
+    { corsOrigin }
+  );
+}
+
+async function handleRecoveryStatus(request, env) {
+  const corsOrigin = getRequestOrigin(request);
+  assertSameOriginRead(request);
+  const payload = await getSecurityStatusPayload(getDb(env));
+
+  return jsonResponse(
+    {
+      configured: payload.configured,
+      questions: payload.questions,
+    },
+    { corsOrigin }
+  );
+}
+
+async function handleRecoveryVerify(request, env) {
+  const corsOrigin = getRequestOrigin(request);
+  assertTrustedWriteRequest(request);
+  const db = getDb(env);
+  const body = await readJson(request);
+  const clientKey = await getClientKey(request, env);
+
+  await ensureSecurityQuestionTables(db);
+  await cleanupExpiredRecoveryAttempts(db);
+  await assertRecoveryAllowed(db, clientKey);
+
+  const configuredQuestions = await readConfiguredSecurityQuestions(db);
+
+  if (configuredQuestions.length !== SECURITY_QUESTIONS.length) {
+    throw new HttpError(400, "La recuperación todavía no está configurada.");
+  }
+
+  const answers = validateSecurityAnswersPayload(body?.answers || {});
+
+  for (const question of configuredQuestions) {
+    const answerIsValid = await verifySecurityAnswer(answers[question.key], question.answerHash, env);
+
+    if (!answerIsValid) {
+      await recordRecoveryFailure(db, clientKey);
+      throw new HttpError(401, "No pudimos validar las respuestas de seguridad.");
+    }
+  }
+
+  await clearRecoveryAttempts(db, clientKey);
+  await invalidateAllRecoverySessions(db);
+  const token = await createRecoverySession(db, request, env);
+
+  return jsonResponse(
+    {
+      ok: true,
+      verified: true,
+      message: "Respuestas verificadas. Ahora podés definir una nueva clave.",
+    },
+    {
+      corsOrigin,
+      setCookie: buildRecoverySessionCookie(token),
+    }
+  );
+}
+
+async function handleRecoveryReset(request, env) {
+  const corsOrigin = getRequestOrigin(request);
+  assertTrustedWriteRequest(request);
+  const db = getDb(env);
+  await requireRecoverySession(request, env);
+  const body = await readJson(request);
+  const nextPassword = normalizePasswordInput(body?.nextPassword || body?.newPassword);
+  const repeatedPassword = normalizePasswordInput(body?.confirmPassword || body?.repeatPassword);
+
+  if (!nextPassword) {
+    throw new HttpError(400, "Ingresá una nueva clave.");
+  }
+
+  if (!repeatedPassword) {
+    throw new HttpError(400, "Repetí la nueva clave.");
+  }
+
+  if (nextPassword !== repeatedPassword) {
+    throw new HttpError(400, "La nueva clave y su repetición no coinciden.");
+  }
+
+  const nextHashRecord = await buildPasswordHashRecord(nextPassword, env, { peppered: true });
+  await persistAdminPasswordHashRecord(db, nextHashRecord);
+  await invalidateAllSessions(db);
+  await invalidateAllRecoverySessions(db);
+
+  return jsonResponse(
+    {
+      ok: true,
+      message: "Acceso recuperado. Ingresá con tu nueva clave.",
+    },
+    {
+      corsOrigin,
+      setCookie: buildClearRecoveryCookie(),
+    }
+  );
+}
+
 async function handleSession(request, env) {
   const corsOrigin = getRequestOrigin(request);
   assertSameOriginRead(request);
@@ -1061,6 +1572,30 @@ async function routeApiRequest(request, env) {
 
   if (pathname === "/api/admin/password" && request.method === "POST") {
     return handlePasswordChange(request, env);
+  }
+
+  if (pathname === "/api/admin/security" && request.method === "GET") {
+    return handleSecurityStatus(request, env);
+  }
+
+  if (pathname === "/api/admin/security/questions" && request.method === "POST") {
+    return handleSecurityQuestionsSave(request, env);
+  }
+
+  if (pathname === "/api/admin/security/questions/clear" && request.method === "POST") {
+    return handleSecurityQuestionsClear(request, env);
+  }
+
+  if (pathname === "/api/admin/recovery/status" && request.method === "GET") {
+    return handleRecoveryStatus(request, env);
+  }
+
+  if (pathname === "/api/admin/recovery/verify" && request.method === "POST") {
+    return handleRecoveryVerify(request, env);
+  }
+
+  if (pathname === "/api/admin/recovery/reset" && request.method === "POST") {
+    return handleRecoveryReset(request, env);
   }
 
   if (pathname === "/api/schedules" && request.method === "POST") {

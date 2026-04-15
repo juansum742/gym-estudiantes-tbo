@@ -282,6 +282,64 @@
     return response;
   }
 
+  async function getSecurityStatus() {
+    await ensureBackendAvailable();
+    requireAuthenticatedSession();
+
+    return requestJson("/api/admin/security", {
+      method: "GET",
+    });
+  }
+
+  async function saveSecurityQuestions(payload) {
+    await ensureBackendAvailable();
+    requireAuthenticatedSession();
+
+    return requestJson("/api/admin/security/questions", {
+      method: "POST",
+      body: payload,
+    });
+  }
+
+  async function clearSecurityQuestions(payload) {
+    await ensureBackendAvailable();
+    requireAuthenticatedSession();
+
+    return requestJson("/api/admin/security/questions/clear", {
+      method: "POST",
+      body: payload,
+    });
+  }
+
+  async function getRecoveryStatus() {
+    await ensureBackendAvailable();
+
+    return requestJson("/api/admin/recovery/status", {
+      method: "GET",
+    });
+  }
+
+  async function verifyRecoveryAnswers(payload) {
+    await ensureBackendAvailable();
+
+    return requestJson("/api/admin/recovery/verify", {
+      method: "POST",
+      body: payload,
+    });
+  }
+
+  async function resetPasswordWithRecovery(payload) {
+    await ensureBackendAvailable();
+
+    const response = await requestJson("/api/admin/recovery/reset", {
+      method: "POST",
+      body: payload,
+    });
+
+    setAuthenticated(false, { reason: "password-recovered" });
+    return response;
+  }
+
   function requireAuthenticatedSession() {
     if (!isAuthenticated) {
       throw new Error("Tu sesión del panel venció. Ingresá nuevamente.");
@@ -407,6 +465,12 @@
     login,
     logout,
     changePassword,
+    getSecurityStatus,
+    saveSecurityQuestions,
+    clearSecurityQuestions,
+    getRecoveryStatus,
+    verifyRecoveryAnswers,
+    resetPasswordWithRecovery,
     restoreSession,
     refresh: () => refreshFromServer({ silent: false }),
     isServerMode: () => backendMode === "available",

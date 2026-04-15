@@ -161,9 +161,16 @@ bindPasswordPeekButtons();
 if (bookingApi) {
   const gateSection = document.querySelector("#admin-gate-section");
   const dashboard = document.querySelector("#admin-dashboard");
+  const securitySection = document.querySelector("#admin-security-section");
+  const securityAuthView = document.querySelector("#admin-security-auth-view");
+  const securityRecoveryView = document.querySelector("#admin-security-recovery-view");
   const loginForm = document.querySelector("#admin-login-form");
   const loginButton = document.querySelector("#admin-login-button");
+  const securityButton = document.querySelector("#admin-security-button");
   const logoutButton = document.querySelector("#admin-logout-button");
+  const securityBackButton = document.querySelector("#admin-security-back");
+  const recoveryOpenButton = document.querySelector("#admin-recovery-open");
+  const recoveryBackButton = document.querySelector("#admin-recovery-back-button");
   const pinInput = document.querySelector("#admin-pin");
   const gateNote = document.querySelector("#admin-gate-note");
   const passwordForm = document.querySelector("#admin-password-form");
@@ -172,6 +179,28 @@ if (bookingApi) {
   const passwordRepeatInput = document.querySelector("#admin-password-repeat");
   const passwordButton = document.querySelector("#admin-password-button");
   const passwordFeedback = document.querySelector("#admin-password-feedback");
+  const securityStatusCard = document.querySelector("#admin-security-status-card");
+  const securityStatusTitle = document.querySelector("#admin-security-status-title");
+  const securityStatusCopy = document.querySelector("#admin-security-status-copy");
+  const securityQuestionsForm = document.querySelector("#admin-security-questions-form");
+  const securityAnswerFirstPet = document.querySelector("#security-answer-first-pet");
+  const securityAnswerBirthCity = document.querySelector("#security-answer-birth-city");
+  const securityAnswerPrimarySchool = document.querySelector("#security-answer-primary-school");
+  const securityQuestionsCurrentPassword = document.querySelector("#security-questions-current-password");
+  const securityQuestionsButton = document.querySelector("#admin-security-questions-button");
+  const securityClearButton = document.querySelector("#admin-security-clear-button");
+  const securityQuestionsFeedback = document.querySelector("#admin-security-questions-feedback");
+  const recoveryStatusCopy = document.querySelector("#admin-recovery-status-copy");
+  const recoveryForm = document.querySelector("#admin-recovery-form");
+  const recoveryAnswerFirstPet = document.querySelector("#recovery-answer-first-pet");
+  const recoveryAnswerBirthCity = document.querySelector("#recovery-answer-birth-city");
+  const recoveryAnswerPrimarySchool = document.querySelector("#recovery-answer-primary-school");
+  const recoveryVerifyButton = document.querySelector("#admin-recovery-verify-button");
+  const recoveryResetForm = document.querySelector("#admin-recovery-reset-form");
+  const recoveryNextPassword = document.querySelector("#admin-recovery-next-password");
+  const recoveryRepeatPassword = document.querySelector("#admin-recovery-repeat-password");
+  const recoveryResetButton = document.querySelector("#admin-recovery-reset-button");
+  const recoveryFeedback = document.querySelector("#admin-recovery-feedback");
 
   const statTotalSchedules = document.querySelector("#stat-total-schedules");
   const statDisciplines = document.querySelector("#stat-disciplines");
@@ -205,6 +234,12 @@ if (bookingApi) {
 
   let pendingDeleteId = "";
   let isDashboardUnlocked = false;
+  let activeView = "gate";
+  let recoveryVerified = false;
+  let securityStatus = {
+    configured: false,
+    questions: [],
+  };
   const scheduleListState = {
     query: "",
     filter: "all",
@@ -215,24 +250,73 @@ if (bookingApi) {
     element.textContent = message;
   }
 
+  function setSectionVisibility(section, shouldShow) {
+    if (!section) {
+      return;
+    }
+
+    section.classList.toggle("is-hidden", !shouldShow);
+  }
+
+  function syncView() {
+    setSectionVisibility(gateSection, activeView === "gate");
+    setSectionVisibility(dashboard, activeView === "dashboard" && isDashboardUnlocked);
+    setSectionVisibility(securitySection, activeView === "security-auth" || activeView === "security-recovery");
+    setSectionVisibility(securityAuthView, activeView === "security-auth" && isDashboardUnlocked);
+    setSectionVisibility(securityRecoveryView, activeView === "security-recovery");
+
+    securityButton?.classList.toggle("is-hidden", !isDashboardUnlocked);
+    securityButton?.classList.toggle("is-active", activeView === "security-auth");
+    logoutButton?.classList.toggle("is-hidden", !isDashboardUnlocked);
+
+    if (securityBackButton) {
+      securityBackButton.textContent = activeView === "security-recovery" ? "Volver al acceso" : "Volver al panel";
+    }
+  }
+
+  function openDashboardView() {
+    if (!isDashboardUnlocked) {
+      activeView = "gate";
+    } else {
+      activeView = "dashboard";
+      renderDashboard();
+    }
+
+    syncView();
+  }
+
+  async function openSecurityView(mode = "auth") {
+    activeView = mode === "recovery" ? "security-recovery" : "security-auth";
+    syncView();
+
+    if (activeView === "security-auth") {
+      await loadSecurityStatus();
+      return;
+    }
+
+    resetRecoveryForms();
+    await loadRecoveryStatus();
+  }
+
   function unlockDashboard() {
-    gateSection.classList.add("is-hidden");
-    dashboard.classList.remove("is-hidden");
-    logoutButton?.classList.remove("is-hidden");
     isDashboardUnlocked = true;
     resetPasswordForm();
+    resetSecurityQuestionsForm();
+    activeView = "dashboard";
+    syncView();
     renderDashboard();
   }
 
   function lockDashboard(message = "Ingresá tu clave para abrir el panel administrativo.") {
     isDashboardUnlocked = false;
-    gateSection.classList.remove("is-hidden");
-    dashboard.classList.add("is-hidden");
-    logoutButton?.classList.add("is-hidden");
+    activeView = "gate";
     closeScheduleDeleteModal();
     resetScheduleForm();
     resetPasswordForm();
+    resetSecurityQuestionsForm();
+    resetRecoveryForms();
     gateNote.textContent = message;
+    syncView();
   }
 
   function setConditionalFieldVisibility(field, input, shouldShow) {
@@ -513,6 +597,108 @@ if (bookingApi) {
     );
   }
 
+  function resetSecurityQuestionsForm() {
+    securityQuestionsForm?.reset();
+    hidePasswordPeekButtons(securityQuestionsForm);
+
+    if (!securityQuestionsFeedback) {
+      return;
+    }
+
+    setFeedback(
+      securityQuestionsFeedback,
+      "idle",
+      "Guardá 3 respuestas privadas para habilitar la recuperación. Se almacenan con hash seguro y nunca vuelven a mostrarse."
+    );
+  }
+
+  function resetRecoveryForms() {
+    recoveryVerified = false;
+    recoveryForm?.reset();
+    recoveryResetForm?.reset();
+    hidePasswordPeekButtons(recoveryForm);
+    hidePasswordPeekButtons(recoveryResetForm);
+    recoveryForm?.classList.remove("is-hidden");
+    recoveryResetForm?.classList.add("is-hidden");
+
+    if (recoveryFeedback) {
+      setFeedback(
+        recoveryFeedback,
+        "idle",
+        "La recuperación queda habilitada solo si las 3 respuestas coinciden con las que configuraste previamente."
+      );
+    }
+  }
+
+  function getSecurityAnswersPayload(prefix = "security") {
+    const isRecovery = prefix === "recovery";
+
+    return {
+      first_pet: isRecovery ? recoveryAnswerFirstPet.value : securityAnswerFirstPet.value,
+      birth_city: isRecovery ? recoveryAnswerBirthCity.value : securityAnswerBirthCity.value,
+      primary_school: isRecovery ? recoveryAnswerPrimarySchool.value : securityAnswerPrimarySchool.value,
+    };
+  }
+
+  function renderSecurityStatus(status) {
+    securityStatus = status || {
+      configured: false,
+      questions: [],
+    };
+
+    if (!securityStatusCard || !securityStatusTitle || !securityStatusCopy || !securityClearButton) {
+      return;
+    }
+
+    securityStatusCard.classList.toggle("is-ready", Boolean(securityStatus.configured));
+    securityStatusCard.classList.toggle("is-pending", !securityStatus.configured);
+    securityStatusTitle.textContent = securityStatus.configured ? "Recuperación activa" : "Recuperación pendiente";
+    securityStatusCopy.textContent = securityStatus.configured
+      ? "Las 3 preguntas ya están configuradas. Si querés, podés actualizarlas o desactivar la recuperación desde acá."
+      : "Todavía no configuraste las preguntas de seguridad. Completalas para habilitar la recuperación segura del panel.";
+    securityClearButton.classList.toggle("is-hidden", !securityStatus.configured);
+  }
+
+  async function loadSecurityStatus() {
+    if (!isDashboardUnlocked) {
+      return;
+    }
+
+    try {
+      const status = await bookingApi.getSecurityStatus();
+      renderSecurityStatus(status);
+    } catch (error) {
+      renderSecurityStatus({ configured: false, questions: [] });
+      setFeedback(securityQuestionsFeedback, "error", error.message);
+    }
+  }
+
+  async function loadRecoveryStatus() {
+    try {
+      const status = await bookingApi.getRecoveryStatus();
+      securityStatus = status;
+      const isConfigured = Boolean(status?.configured);
+
+      recoveryStatusCopy.textContent = isConfigured
+        ? "Respondé correctamente las 3 preguntas de seguridad para habilitar una nueva contraseña."
+        : "Todavía no hay preguntas de seguridad configuradas. Ingresá al panel y cargalas desde la sección Seguridad.";
+
+      recoveryForm.classList.toggle("is-hidden", !isConfigured || recoveryVerified);
+      recoveryResetForm.classList.toggle("is-hidden", !recoveryVerified);
+      recoveryVerifyButton.disabled = !isConfigured;
+      resetRecoveryForms();
+
+      if (!isConfigured) {
+        setFeedback(recoveryFeedback, "warning", "La recuperación todavía no está disponible. Primero configurá las preguntas desde Seguridad.");
+        recoveryForm.classList.add("is-hidden");
+      }
+    } catch (error) {
+      setFeedback(recoveryFeedback, "error", error.message);
+      recoveryForm.classList.add("is-hidden");
+      recoveryResetForm.classList.add("is-hidden");
+    }
+  }
+
   function startEditSchedule(scheduleId) {
     const schedule = bookingApi.getScheduleById(scheduleId);
 
@@ -567,6 +753,9 @@ if (bookingApi) {
   populateScheduleFields();
   resetScheduleForm();
   resetPasswordForm();
+  resetSecurityQuestionsForm();
+  resetRecoveryForms();
+  syncView();
 
   disciplineSelect.addEventListener("change", updateDisciplineMode);
   slotSelect.addEventListener("change", updateSlotMode);
@@ -588,6 +777,29 @@ if (bookingApi) {
     } finally {
       toggleButtonLoading(loginButton, false);
     }
+  });
+
+  recoveryOpenButton?.addEventListener("click", async () => {
+    await openSecurityView("recovery");
+  });
+
+  securityButton?.addEventListener("click", async () => {
+    await openSecurityView("auth");
+  });
+
+  securityBackButton?.addEventListener("click", () => {
+    if (activeView === "security-recovery") {
+      activeView = "gate";
+      syncView();
+      return;
+    }
+
+    openDashboardView();
+  });
+
+  recoveryBackButton?.addEventListener("click", () => {
+    activeView = "gate";
+    syncView();
   });
 
   scheduleForm.addEventListener("submit", async (event) => {
@@ -642,6 +854,105 @@ if (bookingApi) {
       showToast(error.message, "error");
     } finally {
       toggleButtonLoading(passwordButton, false);
+    }
+  });
+
+  securityQuestionsForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    toggleButtonLoading(securityQuestionsButton, true);
+    securityClearButton.disabled = true;
+    setFeedback(securityQuestionsFeedback, "loading", "Guardando preguntas de seguridad...");
+
+    try {
+      await wait(220);
+      const response = await bookingApi.saveSecurityQuestions({
+        currentPassword: securityQuestionsCurrentPassword.value,
+        answers: getSecurityAnswersPayload("security"),
+      });
+
+      renderSecurityStatus(response);
+      resetSecurityQuestionsForm();
+      setFeedback(securityQuestionsFeedback, "success", "Las preguntas de seguridad quedaron guardadas correctamente.");
+      showToast("Preguntas de seguridad actualizadas.", "success");
+    } catch (error) {
+      setFeedback(securityQuestionsFeedback, "error", error.message);
+      showToast(error.message, "error");
+    } finally {
+      toggleButtonLoading(securityQuestionsButton, false);
+      securityClearButton.disabled = false;
+    }
+  });
+
+  securityClearButton?.addEventListener("click", async () => {
+    securityQuestionsButton.disabled = true;
+    securityClearButton.disabled = true;
+    setFeedback(securityQuestionsFeedback, "loading", "Desactivando la recuperación segura...");
+
+    try {
+      await wait(220);
+      const response = await bookingApi.clearSecurityQuestions({
+        currentPassword: securityQuestionsCurrentPassword.value,
+      });
+
+      renderSecurityStatus(response);
+      resetSecurityQuestionsForm();
+      setFeedback(securityQuestionsFeedback, "success", "La recuperación por preguntas quedó desactivada.");
+      showToast("Recuperación desactivada.", "success");
+    } catch (error) {
+      setFeedback(securityQuestionsFeedback, "error", error.message);
+      showToast(error.message, "error");
+    } finally {
+      securityQuestionsButton.disabled = false;
+      securityClearButton.disabled = !securityStatus.configured;
+    }
+  });
+
+  recoveryForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    toggleButtonLoading(recoveryVerifyButton, true);
+    setFeedback(recoveryFeedback, "loading", "Validando respuestas de seguridad...");
+
+    try {
+      await wait(220);
+      await bookingApi.verifyRecoveryAnswers({
+        answers: getSecurityAnswersPayload("recovery"),
+      });
+
+      recoveryVerified = true;
+      recoveryForm.classList.add("is-hidden");
+      recoveryResetForm.classList.remove("is-hidden");
+      recoveryStatusCopy.textContent = "Respuestas validadas. Definí una nueva contraseña para recuperar el acceso.";
+      setFeedback(recoveryFeedback, "success", "Respuestas verificadas. Ahora definí una nueva clave.");
+      showToast("Respuestas verificadas.", "success");
+    } catch (error) {
+      setFeedback(recoveryFeedback, "error", error.message);
+      showToast(error.message, "error");
+    } finally {
+      toggleButtonLoading(recoveryVerifyButton, false);
+    }
+  });
+
+  recoveryResetForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    toggleButtonLoading(recoveryResetButton, true);
+    setFeedback(recoveryFeedback, "loading", "Guardando la nueva clave...");
+
+    try {
+      await wait(220);
+      const response = await bookingApi.resetPasswordWithRecovery({
+        newPassword: recoveryNextPassword.value,
+        confirmPassword: recoveryRepeatPassword.value,
+      });
+
+      resetRecoveryForms();
+      lockDashboard(response?.message || "Acceso recuperado. Ingresá con tu nueva clave.");
+      showToast("Acceso recuperado correctamente.", "success");
+      pinInput?.focus();
+    } catch (error) {
+      setFeedback(recoveryFeedback, "error", error.message);
+      showToast(error.message, "error");
+    } finally {
+      toggleButtonLoading(recoveryResetButton, false);
     }
   });
 
@@ -707,6 +1018,7 @@ if (bookingApi) {
 
   logoutButton?.addEventListener("click", async () => {
     logoutButton.disabled = true;
+    securityButton.disabled = true;
 
     try {
       await bookingApi.logout();
@@ -714,6 +1026,7 @@ if (bookingApi) {
       showToast("Sesión cerrada.", "success");
     } finally {
       logoutButton.disabled = false;
+      securityButton.disabled = false;
     }
   });
 
@@ -742,11 +1055,11 @@ if (bookingApi) {
 
     const reason = String(event.detail?.reason || "");
 
-    if (reason === "logout" || reason === "password-changed") {
+    if (reason === "logout" || reason === "password-changed" || reason === "password-recovered") {
       return;
     }
 
-    if (isDashboardUnlocked) {
+    if (isDashboardUnlocked || activeView === "security-auth") {
       lockDashboard("La sesión del panel venció. Ingresá nuevamente.");
       showToast("Tu sesión venció. Volvé a ingresar.", "error");
     }
