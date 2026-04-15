@@ -26,7 +26,7 @@
 }
 
 .is-hidden {
-  display: none;
+  display: none !important;
 }
 
 .admin-header-actions {
@@ -299,6 +299,25 @@
 
 .admin-security-recovery-card {
   width: min(100%, 820px);
+}
+
+.admin-security-recovery-card .section-text,
+.admin-security-recovery-card .booking-feedback {
+  max-width: 100%;
+}
+
+.admin-security-recovery-card .admin-security-questions-form,
+.admin-security-recovery-card .admin-password-form {
+  margin-top: 1.35rem;
+}
+
+.admin-security-recovery-card .admin-form-actions {
+  justify-content: center;
+}
+
+.admin-security-recovery-card .admin-password-form {
+  padding-top: 1.2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .admin-class-bookings-grid {
@@ -1140,5 +1159,23 @@
 
   .admin-filter-tab {
     flex: 1 1 170px;
+  }
+
+  .admin-security-recovery-card {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .admin-security-recovery-card .admin-form-actions {
+    justify-content: stretch;
+  }
+
+  .admin-security-recovery-card .admin-form-actions .admin-btn {
+    width: 100%;
+  }
+
+  .admin-security-recovery-card .admin-password-form {
+    padding-top: 1rem;
+    margin-top: 1rem;
   }
 }

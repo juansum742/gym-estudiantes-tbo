@@ -258,6 +258,16 @@ if (bookingApi) {
     section.classList.toggle("is-hidden", !shouldShow);
   }
 
+  function focusRecoveryAnswers() {
+    window.setTimeout(() => {
+      recoveryForm?.scrollIntoView({
+        block: "start",
+        behavior: "smooth",
+      });
+      recoveryAnswerFirstPet?.focus({ preventScroll: true });
+    }, 60);
+  }
+
   function syncView() {
     setSectionVisibility(gateSection, activeView === "gate");
     setSectionVisibility(dashboard, activeView === "dashboard" && isDashboardUnlocked);
@@ -691,7 +701,10 @@ if (bookingApi) {
       if (!isConfigured) {
         setFeedback(recoveryFeedback, "warning", "La recuperación todavía no está disponible. Primero configurá las preguntas desde Seguridad.");
         recoveryForm.classList.add("is-hidden");
+        return;
       }
+
+      focusRecoveryAnswers();
     } catch (error) {
       setFeedback(recoveryFeedback, "error", error.message);
       recoveryForm.classList.add("is-hidden");
@@ -923,6 +936,13 @@ if (bookingApi) {
       recoveryResetForm.classList.remove("is-hidden");
       recoveryStatusCopy.textContent = "Respuestas validadas. Definí una nueva contraseña para recuperar el acceso.";
       setFeedback(recoveryFeedback, "success", "Respuestas verificadas. Ahora definí una nueva clave.");
+      window.setTimeout(() => {
+        recoveryResetForm?.scrollIntoView({
+          block: "start",
+          behavior: "smooth",
+        });
+        recoveryNextPassword?.focus({ preventScroll: true });
+      }, 60);
       showToast("Respuestas verificadas.", "success");
     } catch (error) {
       setFeedback(recoveryFeedback, "error", error.message);
