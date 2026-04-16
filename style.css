@@ -631,6 +631,205 @@ select {
   color: rgba(255, 255, 255, 0.34);
 }
 
+.section-motion-strip {
+  padding: 1.35rem 0 1.55rem;
+}
+
+.section-motion-strip::before {
+  opacity: 0.28;
+}
+
+.motion-strip-shell {
+  position: relative;
+  overflow: hidden;
+  padding: 0.95rem;
+  border-radius: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(circle at top left, rgba(78, 93, 255, 0.15), transparent 26%),
+    radial-gradient(circle at bottom right, rgba(197, 64, 53, 0.12), transparent 24%),
+    linear-gradient(180deg, rgba(14, 17, 28, 0.96), rgba(9, 12, 20, 0.92));
+  box-shadow: var(--shadow-deep);
+}
+
+.motion-strip-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0.65rem;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  pointer-events: none;
+}
+
+.motion-strip-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.motion-chip {
+  --motion-accent: var(--blue-bright);
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 132px;
+  padding: 0.8rem;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background:
+    linear-gradient(180deg, rgba(19, 22, 36, 0.96), rgba(11, 13, 22, 0.92)),
+    rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+
+.motion-chip::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--motion-accent), rgba(255, 255, 255, 0.24), transparent);
+  opacity: 0.9;
+}
+
+.motion-chip::after {
+  content: "";
+  position: absolute;
+  width: 78px;
+  height: 78px;
+  right: -18px;
+  bottom: -24px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.08), transparent 68%);
+  pointer-events: none;
+}
+
+.motion-chip-bike {
+  --motion-accent: #52a7ff;
+}
+
+.motion-chip-lift {
+  --motion-accent: #f16255;
+}
+
+.motion-chip-boxing {
+  --motion-accent: #7a79ff;
+}
+
+.motion-chip-gap {
+  --motion-accent: #ff7264;
+}
+
+.motion-glyph {
+  width: min(100%, 156px);
+  height: auto;
+  overflow: visible;
+}
+
+.motion-glyph * {
+  vector-effect: non-scaling-stroke;
+}
+
+.glyph-figure-stroke,
+.glyph-bike-frame,
+.glyph-accent-stroke,
+.glyph-floor,
+.glyph-wheel {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.glyph-figure-stroke,
+.glyph-bike-frame {
+  stroke: rgba(246, 247, 251, 0.9);
+  stroke-width: 5;
+}
+
+.glyph-figure-fill {
+  fill: rgba(246, 247, 251, 0.94);
+}
+
+.glyph-accent-stroke {
+  stroke: var(--motion-accent);
+  stroke-width: 4.5;
+}
+
+.glyph-accent-fill {
+  fill: var(--motion-accent);
+}
+
+.glyph-floor {
+  stroke: rgba(255, 255, 255, 0.16);
+  stroke-width: 3;
+}
+
+.glyph-wheel {
+  stroke: rgba(255, 255, 255, 0.24);
+  stroke-width: 3.2;
+}
+
+.glyph-bike-rider,
+.glyph-boxing-body,
+.glyph-gap-body,
+.glyph-lift-body,
+.glyph-boxing-arm,
+.glyph-lift-arm,
+.glyph-bike-leg,
+.glyph-gap-leg {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.glyph-bike-rider {
+  animation: glyphRideBob 3.4s ease-in-out infinite;
+}
+
+.glyph-bike-leg-left {
+  transform-origin: 72px 56px;
+  animation: glyphPedalLeft 2.7s ease-in-out infinite;
+}
+
+.glyph-bike-leg-right {
+  transform-origin: 72px 56px;
+  animation: glyphPedalRight 2.7s ease-in-out infinite;
+}
+
+.glyph-lift-arm {
+  transform-origin: 78px 41px;
+  animation: glyphCurlLift 3.1s ease-in-out infinite;
+}
+
+.glyph-boxing-body {
+  animation: glyphBoxingBody 3.5s ease-in-out infinite;
+}
+
+.glyph-boxing-arm-front {
+  transform-origin: 77px 38px;
+  animation: glyphBoxingJab 2.8s ease-in-out infinite;
+}
+
+.glyph-boxing-arm-back {
+  transform-origin: 76px 39px;
+  animation: glyphBoxingHook 2.8s ease-in-out infinite;
+}
+
+.glyph-gap-body {
+  animation: glyphGapSquatBody 3.8s ease-in-out infinite;
+}
+
+.glyph-gap-leg-left {
+  transform-origin: 80px 51px;
+  animation: glyphGapLegLeft 3.8s ease-in-out infinite;
+}
+
+.glyph-gap-leg-right {
+  transform-origin: 80px 51px;
+  animation: glyphGapLegRight 3.8s ease-in-out infinite;
+}
+
 .section-heading {
   position: relative;
   z-index: 1;
@@ -2567,6 +2766,127 @@ select {
   }
 }
 
+@keyframes glyphRideBob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(2px);
+  }
+}
+
+@keyframes glyphPedalLeft {
+  0%,
+  100% {
+    transform: rotate(16deg);
+  }
+  50% {
+    transform: rotate(-18deg);
+  }
+}
+
+@keyframes glyphPedalRight {
+  0%,
+  100% {
+    transform: rotate(-18deg);
+  }
+  50% {
+    transform: rotate(16deg);
+  }
+}
+
+@keyframes glyphCurlLift {
+  0%,
+  100% {
+    transform: rotate(-10deg) translateY(0);
+  }
+  45% {
+    transform: rotate(28deg) translateY(-2px);
+  }
+  65% {
+    transform: rotate(22deg) translateY(-1px);
+  }
+}
+
+@keyframes glyphBoxingBody {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  35% {
+    transform: translateX(1px);
+  }
+  65% {
+    transform: translateX(-1.5px);
+  }
+}
+
+@keyframes glyphBoxingJab {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  30% {
+    transform: translateX(8px) rotate(-6deg);
+  }
+  45% {
+    transform: translateX(12px) rotate(-8deg);
+  }
+  62% {
+    transform: translateX(2px) rotate(-2deg);
+  }
+}
+
+@keyframes glyphBoxingHook {
+  0%,
+  100% {
+    transform: rotate(0deg) translateX(0);
+  }
+  28% {
+    transform: rotate(8deg) translateX(-1px);
+  }
+  50% {
+    transform: rotate(-12deg) translateX(-3px);
+  }
+  70% {
+    transform: rotate(4deg) translateX(0);
+  }
+}
+
+@keyframes glyphGapSquatBody {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  45% {
+    transform: translateY(8px);
+  }
+  65% {
+    transform: translateY(6px);
+  }
+}
+
+@keyframes glyphGapLegLeft {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  45% {
+    transform: rotate(11deg);
+  }
+}
+
+@keyframes glyphGapLegRight {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  45% {
+    transform: rotate(-11deg);
+  }
+}
+
 @media (max-width: 1120px) {
   .hero-grid,
   .location-layout,
@@ -2652,6 +2972,7 @@ select {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .motion-strip-grid,
   .contact-grid,
   .partners-grid,
   .program-grid,
@@ -2745,6 +3066,10 @@ select {
     grid-template-columns: 1fr;
   }
 
+  .motion-strip-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .hero-stats,
   .plans-grid,
   .memberships-grid,
@@ -2761,6 +3086,19 @@ select {
   .hero-visual {
     min-height: 460px;
     overflow: clip;
+  }
+
+  .section-motion-strip {
+    padding: 1rem 0 1.2rem;
+  }
+
+  .motion-strip-shell {
+    padding: 0.8rem;
+  }
+
+  .motion-chip {
+    min-height: 118px;
+    padding: 0.7rem;
   }
 
   .hero-grid {
@@ -2980,6 +3318,19 @@ select {
 }
 
 @media (max-width: 480px) {
+  .motion-strip-grid {
+    gap: 0.65rem;
+  }
+
+  .motion-chip {
+    min-height: 108px;
+    border-radius: 18px;
+  }
+
+  .motion-glyph {
+    width: min(100%, 132px);
+  }
+
   .hero-grid {
     padding-top: 2rem;
   }
