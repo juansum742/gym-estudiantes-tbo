@@ -1426,6 +1426,14 @@ select {
   overflow: hidden;
 }
 
+.program-media-kickboxing {
+  --scroll-scale: 1.03;
+}
+
+.program-media-kickboxing img {
+  object-position: center 42%;
+}
+
 .program-media img,
 [data-zoom] img {
   width: 100%;
