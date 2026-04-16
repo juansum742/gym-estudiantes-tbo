@@ -788,7 +788,6 @@ select {
 .scene-gap-leg {
   transform-box: fill-box;
   transform-origin: center;
-  will-change: transform;
 }
 
 .motion-scene-bike .scene-bike-arm,
@@ -886,87 +885,8 @@ select {
 }
 
 .scene-punch-trail {
-  opacity: 0.75;
-  filter: blur(0.5px);
-}
-
-.motion-scene-bike .scene-bike-rider {
-  animation: sceneRidePulse 3.8s ease-in-out infinite;
-}
-
-.motion-scene-bike .scene-bike-arm {
-  transform-origin: 96px 62px;
-  animation: sceneRideReach 3.8s ease-in-out infinite;
-}
-
-.motion-scene-bike .scene-bike-leg-front {
-  transform-origin: 86px 100px;
-  animation: scenePedalFront 2.7s ease-in-out infinite;
-}
-
-.motion-scene-bike .scene-bike-leg-back {
-  transform-origin: 96px 102px;
-  animation: scenePedalBack 2.7s ease-in-out infinite;
-}
-
-.motion-scene-bike .scene-bike-wheel-spin {
-  transform-origin: 150px 112px;
-  animation: sceneWheelOrbit 2.8s linear infinite;
-}
-
-.motion-scene-lift .scene-lift-athlete {
-  animation: sceneBodyPower 3.9s ease-in-out infinite;
-}
-
-.motion-scene-lift .scene-lift-arm-front {
-  transform-origin: 121px 72px;
-  animation: sceneCurlDrive 3.2s cubic-bezier(0.55, 0.06, 0.35, 1) infinite;
-}
-
-.motion-scene-lift .scene-lift-arm-back {
-  transform-origin: 78px 75px;
-  animation: sceneCounterBalance 3.2s ease-in-out infinite;
-}
-
-.motion-scene-lift .scene-dumbbell {
-  transform-origin: 150px 40px;
-  animation: sceneDumbbellLift 3.2s cubic-bezier(0.55, 0.06, 0.35, 1) infinite;
-}
-
-.motion-scene-boxing .scene-boxing-athlete {
-  animation: sceneFightShift 3.8s ease-in-out infinite;
-}
-
-.motion-scene-boxing .scene-boxing-arm-front {
-  transform-origin: 116px 69px;
-  animation: scenePunchLead 3.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
-.motion-scene-boxing .scene-boxing-arm-back {
-  transform-origin: 73px 82px;
-  animation: scenePunchGuard 3.1s ease-in-out infinite;
-}
-
-.motion-scene-boxing .scene-punch-trail {
-  animation: sceneTrailPulse 3.1s ease-in-out infinite;
-}
-
-.motion-scene-gap .scene-gap-athlete {
-  animation: sceneSquatFlow 3.6s ease-in-out infinite;
-}
-
-.motion-scene-gap .scene-gap-leg-front {
-  transform-origin: 118px 104px;
-  animation: sceneGapFront 3.6s ease-in-out infinite;
-}
-
-.motion-scene-gap .scene-gap-leg-back {
-  transform-origin: 99px 107px;
-  animation: sceneGapBack 3.6s ease-in-out infinite;
-}
-
-.motion-scene-gap .scene-gap-arm {
-  animation: sceneGapArms 3.6s ease-in-out infinite;
+  opacity: 0.38;
+  filter: none;
 }
 
 .section-heading {
