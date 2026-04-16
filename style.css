@@ -791,6 +791,20 @@ select {
   will-change: transform;
 }
 
+.motion-scene-bike .scene-bike-arm,
+.motion-scene-bike .scene-bike-leg-front,
+.motion-scene-bike .scene-bike-leg-back,
+.motion-scene-bike .scene-bike-wheel-spin,
+.motion-scene-lift .scene-lift-arm-front,
+.motion-scene-lift .scene-lift-arm-back,
+.motion-scene-lift .scene-dumbbell,
+.motion-scene-boxing .scene-boxing-arm-front,
+.motion-scene-boxing .scene-boxing-arm-back,
+.motion-scene-gap .scene-gap-leg-front,
+.motion-scene-gap .scene-gap-leg-back {
+  transform-box: view-box;
+}
+
 .scene-shadow {
   fill: rgba(5, 7, 15, 0.56);
   filter: blur(3px);
@@ -897,7 +911,7 @@ select {
 
 .motion-scene-bike .scene-bike-wheel-spin {
   transform-origin: 150px 112px;
-  animation: sceneWheelOrbit 2.2s linear infinite;
+  animation: sceneWheelOrbit 2.8s linear infinite;
 }
 
 .motion-scene-lift .scene-lift-athlete {
@@ -920,21 +934,21 @@ select {
 }
 
 .motion-scene-boxing .scene-boxing-athlete {
-  animation: sceneFightShift 3.4s ease-in-out infinite;
+  animation: sceneFightShift 3.8s ease-in-out infinite;
 }
 
 .motion-scene-boxing .scene-boxing-arm-front {
   transform-origin: 116px 69px;
-  animation: scenePunchLead 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation: scenePunchLead 3.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
 .motion-scene-boxing .scene-boxing-arm-back {
   transform-origin: 73px 82px;
-  animation: scenePunchGuard 2.8s ease-in-out infinite;
+  animation: scenePunchGuard 3.1s ease-in-out infinite;
 }
 
 .motion-scene-boxing .scene-punch-trail {
-  animation: sceneTrailPulse 2.8s ease-in-out infinite;
+  animation: sceneTrailPulse 3.1s ease-in-out infinite;
 }
 
 .motion-scene-gap .scene-gap-athlete {
