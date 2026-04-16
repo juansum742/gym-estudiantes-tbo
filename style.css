@@ -307,7 +307,6 @@ select {
 .coach-role,
 .map-kicker,
 .schedule-kicker,
-.testimonial-mark,
 .contact-label,
 .hero-note-label {
   font-size: 0.84rem;
@@ -355,7 +354,6 @@ select {
 .section-text,
 .program-copy p,
 .coach-copy p,
-.testimonial-card p,
 .location-details p,
 .site-footer p {
   font-size: 1.12rem;
@@ -491,7 +489,6 @@ select {
 .gallery-card,
 .partner-card,
 .coach-card,
-.testimonial-card,
 .contact-card,
 .map-shell,
 .cta-shell {
@@ -1147,7 +1144,6 @@ select {
 .program-card:hover,
 .partner-card:hover,
 .coach-card:hover,
-.testimonial-card:hover,
 .contact-card:hover {
   transform: translateY(-10px);
   border-color: rgba(255, 255, 255, 0.14);
@@ -1156,7 +1152,6 @@ select {
 .program-card::before,
 .partner-card::before,
 .coach-card::before,
-.testimonial-card::before,
 .contact-card::before {
   content: "";
   position: absolute;
@@ -1711,7 +1706,6 @@ select {
 
 .partners-grid,
 .coaches-grid,
-.testimonials-grid,
 .contact-grid {
   display: grid;
   gap: 1rem;
@@ -1885,47 +1879,6 @@ select {
   text-transform: uppercase;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.testimonials-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.testimonial-card {
-  position: relative;
-  padding: 1.5rem 1.25rem;
-  border-radius: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, rgba(14, 17, 29, 0.98), rgba(9, 12, 20, 0.94));
-  transition: transform 0.28s ease, border-color 0.28s ease;
-}
-
-.testimonial-mark {
-  display: inline-flex;
-  color: rgba(255, 255, 255, 0.44);
-}
-
-.testimonial-card p {
-  margin: 1rem 0 1.25rem;
-}
-
-.testimonial-card strong {
-  display: block;
-  font-size: 1.1rem;
-}
-
-.testimonial-result {
-  display: inline-flex;
-  margin-top: 0.85rem;
-  padding: 0.55rem 0.8rem;
-  border-radius: 999px;
-  background: linear-gradient(135deg, rgba(197, 64, 53, 0.16), rgba(78, 93, 255, 0.16));
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 0.86rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--silver);
 }
 
 .section-location {
@@ -2701,7 +2654,6 @@ select {
 
   .contact-grid,
   .partners-grid,
-  .testimonials-grid,
   .program-grid,
   .discipline-roster,
   .booking-summary {
@@ -2800,7 +2752,6 @@ select {
   .discipline-roster,
   .partners-grid,
   .coaches-grid,
-  .testimonials-grid,
   .contact-grid,
   .gallery-grid,
   .booking-summary {
