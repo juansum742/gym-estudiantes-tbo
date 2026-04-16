@@ -632,32 +632,42 @@ select {
 }
 
 .section-motion-strip {
-  padding: 1.35rem 0 1.55rem;
+  padding: 1.4rem 0 1.7rem;
 }
 
 .section-motion-strip::before {
-  opacity: 0.28;
+  opacity: 0.24;
 }
 
 .motion-strip-shell {
   position: relative;
   overflow: hidden;
-  padding: 0.95rem;
-  border-radius: 30px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 1rem;
+  border-radius: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
   background:
-    radial-gradient(circle at top left, rgba(78, 93, 255, 0.15), transparent 26%),
-    radial-gradient(circle at bottom right, rgba(197, 64, 53, 0.12), transparent 24%),
-    linear-gradient(180deg, rgba(14, 17, 28, 0.96), rgba(9, 12, 20, 0.92));
+    radial-gradient(circle at top left, rgba(78, 93, 255, 0.2), transparent 26%),
+    radial-gradient(circle at bottom right, rgba(197, 64, 53, 0.16), transparent 26%),
+    linear-gradient(180deg, rgba(14, 17, 28, 0.98), rgba(8, 10, 18, 0.94));
   box-shadow: var(--shadow-deep);
 }
 
 .motion-strip-shell::before {
   content: "";
   position: absolute;
-  inset: 0.65rem;
-  border-radius: 22px;
+  inset: 0.72rem;
+  border-radius: 28px;
   border: 1px solid rgba(255, 255, 255, 0.06);
+  pointer-events: none;
+}
+
+.motion-strip-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(112deg, rgba(255, 255, 255, 0.08) 0, rgba(255, 255, 255, 0) 36%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 40%);
   pointer-events: none;
 }
 
@@ -666,168 +676,283 @@ select {
   z-index: 1;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.85rem;
+  gap: 0.95rem;
 }
 
-.motion-chip {
-  --motion-accent: var(--blue-bright);
+.motion-scene {
+  --scene-accent: #5d6bff;
+  --scene-accent-soft: rgba(93, 107, 255, 0.24);
+  --scene-hot: #ff6f63;
   position: relative;
   display: grid;
   place-items: center;
-  min-height: 132px;
-  padding: 0.8rem;
-  border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  min-height: 184px;
+  padding: 0.4rem;
+  border-radius: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   background:
-    linear-gradient(180deg, rgba(19, 22, 36, 0.96), rgba(11, 13, 22, 0.92)),
+    linear-gradient(180deg, rgba(22, 27, 43, 0.98), rgba(10, 12, 22, 0.94)),
     rgba(255, 255, 255, 0.02);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -12px 26px rgba(0, 0, 0, 0.22);
   overflow: hidden;
+  isolation: isolate;
 }
 
-.motion-chip::before {
+.motion-scene::before {
   content: "";
   position: absolute;
-  inset: 0 auto auto 0;
-  width: 100%;
-  height: 3px;
-  background: linear-gradient(90deg, var(--motion-accent), rgba(255, 255, 255, 0.24), transparent);
+  inset: 0 0 auto;
+  height: 4px;
+  background: linear-gradient(90deg, var(--scene-hot), rgba(255, 255, 255, 0.24), var(--scene-accent));
   opacity: 0.9;
 }
 
-.motion-chip::after {
+.motion-scene::after {
   content: "";
   position: absolute;
-  width: 78px;
-  height: 78px;
-  right: -18px;
-  bottom: -24px;
+  inset: 11% 12% auto auto;
+  width: 88px;
+  height: 88px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.08), transparent 68%);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.14), transparent 68%);
+  mix-blend-mode: screen;
+  opacity: 0.6;
   pointer-events: none;
 }
 
-.motion-chip-bike {
-  --motion-accent: #52a7ff;
+.motion-scene-bike {
+  --scene-accent: #4ea5ff;
+  --scene-accent-soft: rgba(78, 165, 255, 0.24);
+  --scene-hot: #ff7c6c;
+  background:
+    radial-gradient(circle at 78% 16%, rgba(78, 165, 255, 0.22), transparent 28%),
+    radial-gradient(circle at 16% 90%, rgba(255, 124, 108, 0.14), transparent 34%),
+    linear-gradient(180deg, rgba(20, 28, 48, 0.98), rgba(9, 12, 23, 0.96));
 }
 
-.motion-chip-lift {
-  --motion-accent: #f16255;
+.motion-scene-lift {
+  --scene-accent: #6b79ff;
+  --scene-accent-soft: rgba(107, 121, 255, 0.24);
+  --scene-hot: #ff6a57;
+  background:
+    radial-gradient(circle at 76% 18%, rgba(255, 106, 87, 0.2), transparent 30%),
+    radial-gradient(circle at 18% 88%, rgba(107, 121, 255, 0.16), transparent 34%),
+    linear-gradient(180deg, rgba(24, 25, 42, 0.98), rgba(10, 12, 22, 0.96));
 }
 
-.motion-chip-boxing {
-  --motion-accent: #7a79ff;
+.motion-scene-boxing {
+  --scene-accent: #7f7cff;
+  --scene-accent-soft: rgba(127, 124, 255, 0.24);
+  --scene-hot: #ff6258;
+  background:
+    radial-gradient(circle at 80% 22%, rgba(127, 124, 255, 0.22), transparent 28%),
+    radial-gradient(circle at 12% 80%, rgba(255, 98, 88, 0.16), transparent 32%),
+    linear-gradient(180deg, rgba(19, 23, 41, 0.98), rgba(9, 11, 20, 0.96));
 }
 
-.motion-chip-gap {
-  --motion-accent: #ff7264;
+.motion-scene-gap {
+  --scene-accent: #5d6bff;
+  --scene-accent-soft: rgba(93, 107, 255, 0.24);
+  --scene-hot: #ff7462;
+  background:
+    radial-gradient(circle at 72% 18%, rgba(255, 116, 98, 0.18), transparent 26%),
+    radial-gradient(circle at 18% 86%, rgba(93, 107, 255, 0.18), transparent 34%),
+    linear-gradient(180deg, rgba(22, 26, 43, 0.98), rgba(10, 12, 21, 0.96));
 }
 
-.motion-glyph {
-  width: min(100%, 156px);
+.motion-scene-svg {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 210px);
   height: auto;
   overflow: visible;
+  filter:
+    drop-shadow(0 24px 36px rgba(0, 0, 0, 0.32))
+    drop-shadow(0 8px 18px rgba(20, 30, 56, 0.28));
 }
 
-.motion-glyph * {
-  vector-effect: non-scaling-stroke;
-}
-
-.glyph-figure-stroke,
-.glyph-bike-frame,
-.glyph-accent-stroke,
-.glyph-floor,
-.glyph-wheel {
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.glyph-figure-stroke,
-.glyph-bike-frame {
-  stroke: rgba(246, 247, 251, 0.9);
-  stroke-width: 5;
-}
-
-.glyph-figure-fill {
-  fill: rgba(246, 247, 251, 0.94);
-}
-
-.glyph-accent-stroke {
-  stroke: var(--motion-accent);
-  stroke-width: 4.5;
-}
-
-.glyph-accent-fill {
-  fill: var(--motion-accent);
-}
-
-.glyph-floor {
-  stroke: rgba(255, 255, 255, 0.16);
-  stroke-width: 3;
-}
-
-.glyph-wheel {
-  stroke: rgba(255, 255, 255, 0.24);
-  stroke-width: 3.2;
-}
-
-.glyph-bike-rider,
-.glyph-boxing-body,
-.glyph-gap-body,
-.glyph-lift-body,
-.glyph-boxing-arm,
-.glyph-lift-arm,
-.glyph-bike-leg,
-.glyph-gap-leg {
+.scene-bike-rider,
+.scene-bike-arm,
+.scene-bike-leg,
+.scene-bike-wheel-spin,
+.scene-lift-athlete,
+.scene-lift-arm,
+.scene-dumbbell,
+.scene-boxing-athlete,
+.scene-boxing-arm,
+.scene-punch-trail,
+.scene-gap-athlete,
+.scene-gap-arm,
+.scene-gap-leg {
   transform-box: fill-box;
   transform-origin: center;
+  will-change: transform;
 }
 
-.glyph-bike-rider {
-  animation: glyphRideBob 3.4s ease-in-out infinite;
+.scene-shadow {
+  fill: rgba(5, 7, 15, 0.56);
+  filter: blur(3px);
 }
 
-.glyph-bike-leg-left {
-  transform-origin: 72px 56px;
-  animation: glyphPedalLeft 2.7s ease-in-out infinite;
+.scene-spotlight {
+  opacity: 0.85;
 }
 
-.glyph-bike-leg-right {
-  transform-origin: 72px 56px;
-  animation: glyphPedalRight 2.7s ease-in-out infinite;
+.scene-platform {
+  fill: rgba(255, 255, 255, 0.14);
 }
 
-.glyph-lift-arm {
-  transform-origin: 78px 41px;
-  animation: glyphCurlLift 3.1s ease-in-out infinite;
+.scene-ring {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.3);
+  stroke-width: 6;
 }
 
-.glyph-boxing-body {
-  animation: glyphBoxingBody 3.5s ease-in-out infinite;
+.scene-ring-inner {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 4;
 }
 
-.glyph-boxing-arm-front {
-  transform-origin: 77px 38px;
-  animation: glyphBoxingJab 2.8s ease-in-out infinite;
+.scene-equipment {
+  fill: rgba(208, 219, 246, 0.26);
 }
 
-.glyph-boxing-arm-back {
-  transform-origin: 76px 39px;
-  animation: glyphBoxingHook 2.8s ease-in-out infinite;
+.scene-equipment-detail {
+  fill: rgba(246, 249, 255, 0.82);
 }
 
-.glyph-gap-body {
-  animation: glyphGapSquatBody 3.8s ease-in-out infinite;
+.scene-accent {
+  fill: var(--scene-accent);
 }
 
-.glyph-gap-leg-left {
-  transform-origin: 80px 51px;
-  animation: glyphGapLegLeft 3.8s ease-in-out infinite;
+.scene-head {
+  fill: #f6f7fb;
 }
 
-.glyph-gap-leg-right {
-  transform-origin: 80px 51px;
-  animation: glyphGapLegRight 3.8s ease-in-out infinite;
+.scene-hair {
+  fill: rgba(18, 22, 34, 0.88);
+}
+
+.scene-torso {
+  stroke: rgba(255, 255, 255, 0.26);
+  stroke-width: 1.5;
+}
+
+.scene-panel {
+  opacity: 0.95;
+}
+
+.motion-scene-bike .scene-panel,
+.motion-scene-boxing .scene-panel {
+  fill: var(--scene-hot);
+  opacity: 0.82;
+}
+
+.scene-limb {
+  fill: #e7edf9;
+}
+
+.scene-limb-light {
+  fill: #eef3ff;
+}
+
+.scene-limb-accent {
+  fill: var(--scene-accent);
+}
+
+.scene-shoe {
+  fill: #f35f52;
+}
+
+.scene-glove {
+  fill: #ff6458;
+}
+
+.scene-punch-trail {
+  opacity: 0.75;
+  filter: blur(0.5px);
+}
+
+.motion-scene-bike .scene-bike-rider {
+  animation: sceneRidePulse 3.8s ease-in-out infinite;
+}
+
+.motion-scene-bike .scene-bike-arm {
+  transform-origin: 96px 62px;
+  animation: sceneRideReach 3.8s ease-in-out infinite;
+}
+
+.motion-scene-bike .scene-bike-leg-front {
+  transform-origin: 86px 100px;
+  animation: scenePedalFront 2.7s ease-in-out infinite;
+}
+
+.motion-scene-bike .scene-bike-leg-back {
+  transform-origin: 96px 102px;
+  animation: scenePedalBack 2.7s ease-in-out infinite;
+}
+
+.motion-scene-bike .scene-bike-wheel-spin {
+  transform-origin: 150px 112px;
+  animation: sceneWheelOrbit 2.2s linear infinite;
+}
+
+.motion-scene-lift .scene-lift-athlete {
+  animation: sceneBodyPower 3.9s ease-in-out infinite;
+}
+
+.motion-scene-lift .scene-lift-arm-front {
+  transform-origin: 121px 72px;
+  animation: sceneCurlDrive 3.2s cubic-bezier(0.55, 0.06, 0.35, 1) infinite;
+}
+
+.motion-scene-lift .scene-lift-arm-back {
+  transform-origin: 78px 75px;
+  animation: sceneCounterBalance 3.2s ease-in-out infinite;
+}
+
+.motion-scene-lift .scene-dumbbell {
+  transform-origin: 150px 40px;
+  animation: sceneDumbbellLift 3.2s cubic-bezier(0.55, 0.06, 0.35, 1) infinite;
+}
+
+.motion-scene-boxing .scene-boxing-athlete {
+  animation: sceneFightShift 3.4s ease-in-out infinite;
+}
+
+.motion-scene-boxing .scene-boxing-arm-front {
+  transform-origin: 116px 69px;
+  animation: scenePunchLead 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.motion-scene-boxing .scene-boxing-arm-back {
+  transform-origin: 73px 82px;
+  animation: scenePunchGuard 2.8s ease-in-out infinite;
+}
+
+.motion-scene-boxing .scene-punch-trail {
+  animation: sceneTrailPulse 2.8s ease-in-out infinite;
+}
+
+.motion-scene-gap .scene-gap-athlete {
+  animation: sceneSquatFlow 3.6s ease-in-out infinite;
+}
+
+.motion-scene-gap .scene-gap-leg-front {
+  transform-origin: 118px 104px;
+  animation: sceneGapFront 3.6s ease-in-out infinite;
+}
+
+.motion-scene-gap .scene-gap-leg-back {
+  transform-origin: 99px 107px;
+  animation: sceneGapBack 3.6s ease-in-out infinite;
+}
+
+.motion-scene-gap .scene-gap-arm {
+  animation: sceneGapArms 3.6s ease-in-out infinite;
 }
 
 .section-heading {
@@ -2766,124 +2891,211 @@ select {
   }
 }
 
-@keyframes glyphRideBob {
+@keyframes sceneRidePulse {
+  0%,
+  100% {
+    transform: translateY(0) translateX(0);
+  }
+  45% {
+    transform: translateY(2px) translateX(-1px);
+  }
+  65% {
+    transform: translateY(1px) translateX(1px);
+  }
+}
+
+@keyframes sceneRideReach {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  40% {
+    transform: rotate(-4deg) translateY(1px);
+  }
+  65% {
+    transform: rotate(2deg) translateY(-1px);
+  }
+}
+
+@keyframes scenePedalFront {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(-18deg) translateY(4px);
+  }
+}
+
+@keyframes scenePedalBack {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(16deg) translateY(-3px);
+  }
+}
+
+@keyframes sceneWheelOrbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes sceneBodyPower {
   0%,
   100% {
     transform: translateY(0);
   }
-  50% {
-    transform: translateY(2px);
-  }
-}
-
-@keyframes glyphPedalLeft {
-  0%,
-  100% {
-    transform: rotate(16deg);
-  }
-  50% {
-    transform: rotate(-18deg);
-  }
-}
-
-@keyframes glyphPedalRight {
-  0%,
-  100% {
-    transform: rotate(-18deg);
-  }
-  50% {
-    transform: rotate(16deg);
-  }
-}
-
-@keyframes glyphCurlLift {
-  0%,
-  100% {
-    transform: rotate(-10deg) translateY(0);
-  }
   45% {
-    transform: rotate(28deg) translateY(-2px);
+    transform: translateY(-2px) rotate(-1deg);
   }
   65% {
-    transform: rotate(22deg) translateY(-1px);
+    transform: translateY(1px) rotate(1deg);
   }
 }
 
-@keyframes glyphBoxingBody {
+@keyframes sceneCurlDrive {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  45% {
+    transform: rotate(-12deg) translateY(-4px);
+  }
+  60% {
+    transform: rotate(-10deg) translateY(-2px);
+  }
+}
+
+@keyframes sceneCounterBalance {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  45% {
+    transform: rotate(8deg) translateY(2px);
+  }
+}
+
+@keyframes sceneDumbbellLift {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  45% {
+    transform: translateY(-5px) rotate(-4deg);
+  }
+  60% {
+    transform: translateY(-3px) rotate(-3deg);
+  }
+}
+
+@keyframes sceneFightShift {
   0%,
   100% {
     transform: translateX(0);
   }
   35% {
-    transform: translateX(1px);
+    transform: translateX(2px) translateY(-1px);
   }
-  65% {
-    transform: translateX(-1.5px);
+  68% {
+    transform: translateX(-2px) translateY(1px);
   }
 }
 
-@keyframes glyphBoxingJab {
+@keyframes scenePunchLead {
   0%,
   100% {
     transform: translateX(0) rotate(0deg);
   }
-  30% {
-    transform: translateX(8px) rotate(-6deg);
+  34% {
+    transform: translateX(9px) rotate(-6deg);
   }
-  45% {
-    transform: translateX(12px) rotate(-8deg);
+  46% {
+    transform: translateX(13px) rotate(-8deg);
   }
-  62% {
-    transform: translateX(2px) rotate(-2deg);
+  64% {
+    transform: translateX(1px) rotate(-1deg);
   }
 }
 
-@keyframes glyphBoxingHook {
+@keyframes scenePunchGuard {
   0%,
   100% {
-    transform: rotate(0deg) translateX(0);
+    transform: rotate(0deg);
   }
-  28% {
-    transform: rotate(8deg) translateX(-1px);
+  34% {
+    transform: rotate(6deg) translateX(-1px);
   }
-  50% {
-    transform: rotate(-12deg) translateX(-3px);
+  48% {
+    transform: rotate(-10deg) translateX(-3px);
   }
-  70% {
-    transform: rotate(4deg) translateX(0);
+  62% {
+    transform: rotate(1deg);
   }
 }
 
-@keyframes glyphGapSquatBody {
+@keyframes sceneTrailPulse {
+  0%,
+  100% {
+    opacity: 0.42;
+    transform: scaleX(0.88);
+  }
+  42% {
+    opacity: 0.9;
+    transform: scaleX(1.06);
+  }
+  64% {
+    opacity: 0.62;
+    transform: scaleX(0.96);
+  }
+}
+
+@keyframes sceneSquatFlow {
   0%,
   100% {
     transform: translateY(0);
   }
   45% {
-    transform: translateY(8px);
+    transform: translateY(7px);
   }
   65% {
-    transform: translateY(6px);
+    transform: translateY(5px);
   }
 }
 
-@keyframes glyphGapLegLeft {
+@keyframes sceneGapFront {
   0%,
   100% {
     transform: rotate(0deg);
   }
   45% {
-    transform: rotate(11deg);
+    transform: rotate(-10deg) translateY(2px);
   }
 }
 
-@keyframes glyphGapLegRight {
+@keyframes sceneGapBack {
   0%,
   100% {
     transform: rotate(0deg);
   }
   45% {
-    transform: rotate(-11deg);
+    transform: rotate(11deg) translateY(-1px);
+  }
+}
+
+@keyframes sceneGapArms {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  45% {
+    transform: translateY(2px) rotate(-2deg);
   }
 }
 
@@ -3093,12 +3305,16 @@ select {
   }
 
   .motion-strip-shell {
-    padding: 0.8rem;
+    padding: 0.82rem;
   }
 
-  .motion-chip {
-    min-height: 118px;
-    padding: 0.7rem;
+  .motion-scene {
+    min-height: 162px;
+    border-radius: 22px;
+  }
+
+  .motion-scene-svg {
+    width: min(100%, 190px);
   }
 
   .hero-grid {
@@ -3322,13 +3538,17 @@ select {
     gap: 0.65rem;
   }
 
-  .motion-chip {
-    min-height: 108px;
-    border-radius: 18px;
+  .motion-strip-shell {
+    padding: 0.72rem;
   }
 
-  .motion-glyph {
-    width: min(100%, 132px);
+  .motion-scene {
+    min-height: 148px;
+    border-radius: 20px;
+  }
+
+  .motion-scene-svg {
+    width: min(100%, 168px);
   }
 
   .hero-grid {
