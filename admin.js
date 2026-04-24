@@ -156,6 +156,15 @@ function hidePasswordPeekButtons(root = document) {
   });
 }
 
+function clearSensitiveFormFields(form) {
+  if (!form) {
+    return;
+  }
+
+  form.reset();
+  hidePasswordPeekButtons(form);
+}
+
 bindPasswordPeekButtons();
 
 if (bookingApi) {
@@ -321,6 +330,7 @@ if (bookingApi) {
     isDashboardUnlocked = false;
     activeView = "gate";
     closeScheduleDeleteModal();
+    clearSensitiveFormFields(loginForm);
     resetScheduleForm();
     resetPasswordForm();
     resetSecurityQuestionsForm();
@@ -780,11 +790,12 @@ if (bookingApi) {
 
     try {
       await wait(280);
-      await bookingApi.login(pinInput.value.trim());
+      const candidatePin = pinInput.value.trim();
+      clearSensitiveFormFields(loginForm);
+      await bookingApi.login(candidatePin);
 
       unlockDashboard();
       gateNote.textContent = "Acceso habilitado y protegido por el servidor.";
-      pinInput.value = "";
     } catch (error) {
       gateNote.textContent = error.message;
     } finally {
@@ -852,11 +863,13 @@ if (bookingApi) {
 
     try {
       await wait(220);
-      const response = await bookingApi.changePassword({
+      const payload = {
         currentPassword: passwordCurrentInput.value,
         newPassword: passwordNextInput.value,
         confirmPassword: passwordRepeatInput.value,
-      });
+      };
+      clearSensitiveFormFields(passwordForm);
+      const response = await bookingApi.changePassword(payload);
 
       resetPasswordForm();
       lockDashboard(response?.message || "Clave actualizada. Ingresá nuevamente con la nueva contraseña.");
@@ -878,10 +891,12 @@ if (bookingApi) {
 
     try {
       await wait(220);
-      const response = await bookingApi.saveSecurityQuestions({
+      const payload = {
         currentPassword: securityQuestionsCurrentPassword.value,
         answers: getSecurityAnswersPayload("security"),
-      });
+      };
+      clearSensitiveFormFields(securityQuestionsForm);
+      const response = await bookingApi.saveSecurityQuestions(payload);
 
       renderSecurityStatus(response);
       resetSecurityQuestionsForm();
@@ -903,9 +918,11 @@ if (bookingApi) {
 
     try {
       await wait(220);
-      const response = await bookingApi.clearSecurityQuestions({
+      const payload = {
         currentPassword: securityQuestionsCurrentPassword.value,
-      });
+      };
+      clearSensitiveFormFields(securityQuestionsForm);
+      const response = await bookingApi.clearSecurityQuestions(payload);
 
       renderSecurityStatus(response);
       resetSecurityQuestionsForm();
@@ -927,9 +944,11 @@ if (bookingApi) {
 
     try {
       await wait(220);
-      await bookingApi.verifyRecoveryAnswers({
+      const payload = {
         answers: getSecurityAnswersPayload("recovery"),
-      });
+      };
+      clearSensitiveFormFields(recoveryForm);
+      await bookingApi.verifyRecoveryAnswers(payload);
 
       recoveryVerified = true;
       recoveryForm.classList.add("is-hidden");
@@ -959,10 +978,12 @@ if (bookingApi) {
 
     try {
       await wait(220);
-      const response = await bookingApi.resetPasswordWithRecovery({
+      const payload = {
         newPassword: recoveryNextPassword.value,
         confirmPassword: recoveryRepeatPassword.value,
-      });
+      };
+      clearSensitiveFormFields(recoveryResetForm);
+      const response = await bookingApi.resetPasswordWithRecovery(payload);
 
       resetRecoveryForms();
       lockDashboard(response?.message || "Acceso recuperado. Ingresá con tu nueva clave.");
