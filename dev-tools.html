@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="dev-tools.css?v=20260507-1">
+  <link rel="stylesheet" href="dev-tools.css?v=20260507-2">
 </head>
 <body>
   <main class="dev-shell">
@@ -22,8 +22,8 @@
       </div>
 
       <p class="dev-kicker">Acceso interno</p>
-      <h1 id="dev-login-title">Herramientas de campaña</h1>
-      <p class="dev-text">Ingresá el PIN para controlar detalles temporales de la landing sin modificar código.</p>
+      <h1 id="dev-login-title">Panel de desarrollador</h1>
+      <p class="dev-text">Ingresá el PIN para controlar la campaña temporal de la landing.</p>
 
       <form class="dev-form" id="dev-login-form" autocomplete="off">
         <label for="dev-pin">PIN de acceso</label>
@@ -37,82 +37,55 @@
       <header class="dev-panel-head">
         <div>
           <p class="dev-kicker">Club Estudiantes TBÓ</p>
-          <h1 id="dev-panel-title">Modo campaña</h1>
-          <p class="dev-text">Control local de detalles visuales temporales. El modo Día de la Madre inicia apagado por defecto.</p>
+          <h1 id="dev-panel-title">Panel de desarrollador</h1>
+          <p class="dev-text">Control simple para activar u ocultar la campaña temporal del Día de la Madre.</p>
         </div>
 
         <div class="dev-actions">
-          <a class="dev-button dev-button-secondary" href="index.html#sorteo-dia-madre">Ver sorteo</a>
-          <a class="dev-button dev-button-secondary" href="index.html">Ver home</a>
+          <a class="dev-button dev-button-secondary" href="index.html">Ver página</a>
           <button class="dev-button dev-button-ghost" type="button" id="dev-logout">Cerrar sesión</button>
         </div>
       </header>
 
-      <div class="dev-status" id="dev-status" role="status" aria-live="polite">
-        Modo Día de la Madre desactivado.
-      </div>
+      <section class="dev-campaign-card" id="dev-campaign-card" aria-labelledby="dev-campaign-title">
+        <div class="dev-campaign-card-head">
+          <div>
+            <p class="dev-kicker">Campaña temporal</p>
+            <h2 id="dev-campaign-title">Campaña Día de la Madre</h2>
+            <p>Activá la estética general de campaña y, dentro de ella, controlá si el sorteo aparece o queda oculto.</p>
+          </div>
 
-      <form class="dev-controls" id="dev-campaign-form">
-        <label class="dev-toggle">
-          <input type="checkbox" name="motherDayMode">
-          <span></span>
-          <strong>Activar Modo Día de la Madre</strong>
-          <small>Activa o apaga todos los detalles temporales de campaña.</small>
-        </label>
-
-        <div class="dev-control-grid">
-          <label class="dev-toggle">
-            <input type="checkbox" name="showPinkDetails">
-            <span></span>
-            <strong>Detalles rosados suaves</strong>
-            <small>Glow rosa, lila, coral y acentos rose-gold.</small>
-          </label>
-
-          <label class="dev-toggle">
-            <input type="checkbox" name="showDecorations">
-            <span></span>
-            <strong>Pétalos y flores decorativas</strong>
-            <small>Capa visual general, sin tocar la sección del sorteo.</small>
-          </label>
-
-          <label class="dev-toggle">
-            <input type="checkbox" name="showHeroBadge">
-            <span></span>
-            <strong>Badge temporal en hero</strong>
-            <small>“Especial Día de la Madre · Sorteo para mamás socias”.</small>
-          </label>
-
-          <label class="dev-toggle">
-            <input type="checkbox" name="showHeroButton">
-            <span></span>
-            <strong>Botón “Ver sorteo” en hero</strong>
-            <small>Atajo directo hacia la sección del sorteo.</small>
-          </label>
+          <div class="dev-state-group" aria-live="polite">
+            <span class="dev-state-pill" id="dev-campaign-state">Campaña desactivada</span>
+            <span class="dev-state-pill" id="dev-raffle-state">Sorteo oculto</span>
+          </div>
         </div>
 
-        <label class="dev-select-wrap" for="decorationIntensity">
-          <span>Intensidad visual</span>
-          <select id="decorationIntensity" name="decorationIntensity">
-            <option value="soft">Sutil</option>
-            <option value="medium">Medio</option>
-            <option value="strong">Destacado</option>
-          </select>
-        </label>
+        <form class="dev-controls" id="dev-campaign-form">
+          <label class="dev-toggle dev-toggle-main">
+            <input type="checkbox" name="motherDayCampaignEnabled">
+            <span></span>
+            <strong id="dev-campaign-toggle-label">Activar modo Día de la Madre</strong>
+            <small>Prende o apaga flores, pétalos, glow, acentos rosados y badge temporal del hero.</small>
+          </label>
 
-        <div class="dev-actions dev-actions-bottom">
-          <button class="dev-button dev-button-primary" type="submit">Guardar configuración</button>
-          <button class="dev-button dev-button-secondary" type="button" id="dev-reset">Restablecer apagado</button>
-        </div>
-      </form>
+          <label class="dev-toggle dev-toggle-nested">
+            <input type="checkbox" name="motherDayRaffleEnabled">
+            <span></span>
+            <strong id="dev-raffle-toggle-label">Mostrar sorteo Día de la Madre</strong>
+            <small>Controla la sección del sorteo y el acceso desde el menú.</small>
+          </label>
+        </form>
+      </section>
 
       <aside class="dev-note">
         <strong>Nota técnica</strong>
-        <p>Este panel está oculto y protegido con PIN simple. La configuración se guarda localmente en este navegador.</p>
+        <p>Esta configuración se guarda con localStorage en este navegador. No cambia la web para todos los visitantes.</p>
       </aside>
     </section>
   </main>
 
-  <script src="campaign-controls.js?v=20260507-1"></script>
-  <script src="dev-tools.js?v=20260507-1"></script>
+  <script src="campaign-controls.js?v=20260507-3"></script>
+  <script src="dev-tools.js?v=20260507-2"></script>
 </body>
 </html>

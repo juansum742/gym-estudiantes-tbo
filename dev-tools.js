@@ -6,9 +6,12 @@
   const loginForm = document.querySelector("#dev-login-form");
   const loginMessage = document.querySelector("#dev-login-message");
   const campaignForm = document.querySelector("#dev-campaign-form");
-  const statusElement = document.querySelector("#dev-status");
+  const campaignCard = document.querySelector("#dev-campaign-card");
+  const campaignState = document.querySelector("#dev-campaign-state");
+  const raffleState = document.querySelector("#dev-raffle-state");
+  const campaignToggleLabel = document.querySelector("#dev-campaign-toggle-label");
+  const raffleToggleLabel = document.querySelector("#dev-raffle-toggle-label");
   const logoutButton = document.querySelector("#dev-logout");
-  const resetButton = document.querySelector("#dev-reset");
   const campaignApi = window.EstudiantesTboCampaign;
 
   function bytesToHex(buffer) {
@@ -52,12 +55,8 @@
     const data = new FormData(campaignForm);
 
     return {
-      motherDayMode: data.get("motherDayMode") === "on",
-      showPinkDetails: data.get("showPinkDetails") === "on",
-      showDecorations: data.get("showDecorations") === "on",
-      showHeroBadge: data.get("showHeroBadge") === "on",
-      showHeroButton: data.get("showHeroButton") === "on",
-      decorationIntensity: String(data.get("decorationIntensity") || "soft"),
+      motherDayCampaignEnabled: data.get("motherDayCampaignEnabled") === "on",
+      motherDayRaffleEnabled: data.get("motherDayRaffleEnabled") === "on",
     };
   }
 
@@ -76,29 +75,38 @@
 
     const config = campaignApi.getConfig();
 
-    setCheckbox("motherDayMode", config.motherDayMode);
-    setCheckbox("showPinkDetails", config.showPinkDetails);
-    setCheckbox("showDecorations", config.showDecorations);
-    setCheckbox("showHeroBadge", config.showHeroBadge);
-    setCheckbox("showHeroButton", config.showHeroButton);
-    campaignForm.elements.decorationIntensity.value = config.decorationIntensity;
-    updateStatus(config);
+    setCheckbox("motherDayCampaignEnabled", config.motherDayCampaignEnabled);
+    setCheckbox("motherDayRaffleEnabled", config.motherDayRaffleEnabled);
+    updatePanelState(config);
   }
 
-  function updateStatus(config) {
-    if (!statusElement) {
-      return;
+  function updatePanelState(config) {
+    const campaignEnabled = Boolean(config.motherDayCampaignEnabled);
+    const raffleVisible = Boolean(config.motherDayCampaignEnabled && config.motherDayRaffleEnabled);
+
+    campaignCard?.classList.toggle("is-campaign-active", campaignEnabled);
+
+    if (campaignState) {
+      campaignState.textContent = campaignEnabled ? "Campaña activa" : "Campaña desactivada";
+      campaignState.classList.toggle("is-active", campaignEnabled);
     }
 
-    const intensityLabel = {
-      soft: "sutil",
-      medium: "media",
-      strong: "destacada",
-    }[config.decorationIntensity] || "sutil";
+    if (raffleState) {
+      raffleState.textContent = raffleVisible ? "Sorteo visible" : "Sorteo oculto";
+      raffleState.classList.toggle("is-active", raffleVisible);
+    }
 
-    statusElement.textContent = config.motherDayMode
-      ? `Modo Día de la Madre activo con intensidad ${intensityLabel}.`
-      : "Modo Día de la Madre desactivado.";
+    if (campaignToggleLabel) {
+      campaignToggleLabel.textContent = campaignEnabled
+        ? "Desactivar modo Día de la Madre"
+        : "Activar modo Día de la Madre";
+    }
+
+    if (raffleToggleLabel) {
+      raffleToggleLabel.textContent = config.motherDayRaffleEnabled
+        ? "Ocultar sorteo Día de la Madre"
+        : "Mostrar sorteo Día de la Madre";
+    }
   }
 
   loginForm?.addEventListener("submit", async (event) => {
@@ -129,27 +137,7 @@
     }
 
     const config = campaignApi.saveConfig(getFormConfig());
-    updateStatus(config);
-  });
-
-  campaignForm?.addEventListener("submit", (event) => {
-    event.preventDefault();
-
-    if (!campaignApi) {
-      return;
-    }
-
-    const config = campaignApi.saveConfig(getFormConfig());
-    updateStatus(config);
-  });
-
-  resetButton?.addEventListener("click", () => {
-    if (!campaignApi) {
-      return;
-    }
-
-    const config = campaignApi.resetConfig();
-    syncFormFromConfig(config);
+    updatePanelState(config);
   });
 
   logoutButton?.addEventListener("click", () => {
@@ -158,7 +146,7 @@
   });
 
   window.addEventListener(campaignApi?.changeEvent || "estudiantes-tbo-campaign:changed", (event) => {
-    updateStatus(event.detail || campaignApi?.getConfig?.() || {});
+    updatePanelState(event.detail || campaignApi?.getConfig?.() || {});
   });
 
   if (hasSession()) {

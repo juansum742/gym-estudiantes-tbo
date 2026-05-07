@@ -1,39 +1,29 @@
 (function () {
   const STORAGE_KEY = "estudiantes_tbo_campaign_controls_v1";
   const CHANGE_EVENT = "estudiantes-tbo-campaign:changed";
-  const INTENSITIES = ["soft", "medium", "strong"];
   const DEFAULT_CONFIG = {
-    motherDayMode: false,
-    showPinkDetails: true,
-    showDecorations: true,
-    showHeroBadge: true,
-    showHeroButton: true,
-    decorationIntensity: "soft",
+    motherDayCampaignEnabled: false,
+    motherDayRaffleEnabled: false,
   };
+
+  function normalizeConfig(config) {
+    const source = config || {};
+
+    return {
+      motherDayCampaignEnabled: Boolean(source.motherDayCampaignEnabled ?? DEFAULT_CONFIG.motherDayCampaignEnabled),
+      motherDayRaffleEnabled: Boolean(
+        source.motherDayRaffleEnabled ?? DEFAULT_CONFIG.motherDayRaffleEnabled
+      ),
+    };
+  }
 
   function readConfig() {
     try {
       const storedValue = window.localStorage.getItem(STORAGE_KEY);
-      const storedConfig = storedValue ? JSON.parse(storedValue) : {};
-      return normalizeConfig(storedConfig);
+      return normalizeConfig(storedValue ? JSON.parse(storedValue) : {});
     } catch (error) {
       return { ...DEFAULT_CONFIG };
     }
-  }
-
-  function normalizeConfig(config) {
-    const nextConfig = { ...DEFAULT_CONFIG, ...(config || {}) };
-
-    nextConfig.motherDayMode = Boolean(nextConfig.motherDayMode);
-    nextConfig.showPinkDetails = Boolean(nextConfig.showPinkDetails);
-    nextConfig.showDecorations = Boolean(nextConfig.showDecorations);
-    nextConfig.showHeroBadge = Boolean(nextConfig.showHeroBadge);
-    nextConfig.showHeroButton = Boolean(nextConfig.showHeroButton);
-    nextConfig.decorationIntensity = INTENSITIES.includes(nextConfig.decorationIntensity)
-      ? nextConfig.decorationIntensity
-      : DEFAULT_CONFIG.decorationIntensity;
-
-    return nextConfig;
   }
 
   function saveConfig(partialConfig) {
@@ -50,6 +40,10 @@
     applyConfig(nextConfig);
     window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: nextConfig }));
     return nextConfig;
+  }
+
+  function shouldShowRaffle(config) {
+    return Boolean(config.motherDayCampaignEnabled && config.motherDayRaffleEnabled);
   }
 
   function createAmbientLayer() {
@@ -81,10 +75,9 @@
     let badge = heroCopy.querySelector(".campaign-hero-badge");
 
     if (!badge) {
-      badge = document.createElement("a");
+      badge = document.createElement("span");
       badge.className = "campaign-hero-badge";
-      badge.href = "#sorteo-dia-madre";
-      badge.textContent = "Especial Día de la Madre · Sorteo para mamás socias";
+      badge.textContent = "Especial Día de la Madre";
       const title = heroCopy.querySelector(".hero-title");
       heroCopy.insertBefore(badge, title || heroCopy.firstChild);
     }
@@ -116,6 +109,13 @@
     document.querySelectorAll(selector).forEach((element) => element.remove());
   }
 
+  function toggleHidden(selector, hidden) {
+    document.querySelectorAll(selector).forEach((element) => {
+      element.hidden = hidden;
+      element.setAttribute("aria-hidden", String(hidden));
+    });
+  }
+
   function applyConfig(inputConfig) {
     const config = normalizeConfig(inputConfig || readConfig());
     const body = document.body;
@@ -124,32 +124,33 @@
       return config;
     }
 
-    body.classList.toggle("campaign-mother-day", config.motherDayMode);
-    body.classList.toggle("campaign-pink-details", config.motherDayMode && config.showPinkDetails);
-    body.classList.toggle("campaign-decorations-enabled", config.motherDayMode && config.showDecorations);
-    body.classList.toggle("campaign-hero-badge-enabled", config.motherDayMode && config.showHeroBadge);
-    body.classList.toggle("campaign-hero-button-enabled", config.motherDayMode && config.showHeroButton);
-    body.dataset.campaignIntensity = config.decorationIntensity;
+    const campaignEnabled = config.motherDayCampaignEnabled;
+    const raffleVisible = shouldShowRaffle(config);
 
-    if (config.motherDayMode && config.showDecorations) {
+    body.classList.toggle("campaign-mother-day", campaignEnabled);
+    body.classList.toggle("campaign-pink-details", campaignEnabled);
+    body.classList.toggle("campaign-decorations-enabled", campaignEnabled);
+    body.dataset.campaignIntensity = campaignEnabled ? "strong" : "off";
+
+    if (campaignEnabled) {
       if (!document.querySelector(".campaign-ambient-layer")) {
         createAmbientLayer();
       }
-    } else {
-      removeDynamicElement(".campaign-ambient-layer");
-    }
 
-    if (config.motherDayMode && config.showHeroBadge) {
       ensureHeroBadge();
     } else {
+      removeDynamicElement(".campaign-ambient-layer");
       removeDynamicElement(".campaign-hero-badge");
     }
 
-    if (config.motherDayMode && config.showHeroButton) {
+    if (raffleVisible) {
       ensureHeroButton();
     } else {
       removeDynamicElement(".campaign-hero-button");
     }
+
+    toggleHidden("[data-campaign-raffle]", !raffleVisible);
+    toggleHidden("[data-campaign-nav-raffle]", !raffleVisible);
 
     return config;
   }
@@ -166,6 +167,7 @@
     saveConfig,
     resetConfig,
     applyConfig,
+    shouldShowRaffle,
   };
 
   window.addEventListener("storage", (event) => {
