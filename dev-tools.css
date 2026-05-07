@@ -222,6 +222,15 @@ h1 {
   font-weight: 800;
 }
 
+.dev-message.is-error {
+  color: #ffaaa0;
+}
+
+.dev-save-message {
+  margin-top: -0.25rem;
+  color: #c8f4ff;
+}
+
 .dev-panel-head {
   display: flex;
   justify-content: space-between;

@@ -15,6 +15,7 @@ const LOGIN_BLOCK_MS = 1000 * 60 * 15;
 const RECOVERY_SESSION_TTL_MS = 1000 * 60 * 10;
 const MAX_LOGIN_ATTEMPTS = 5;
 const MAX_JSON_BODY_BYTES = 4096;
+const DEFAULT_DEV_TOOLS_PIN_HASH = "9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0";
 const MIN_ADMIN_PASSWORD_LENGTH = 7;
 const MAX_ADMIN_PASSWORD_LENGTH = 128;
 const MIN_SECURITY_ANSWER_LENGTH = 2;
@@ -33,6 +34,10 @@ const SECURITY_QUESTIONS = [
   { key: "birth_city", label: "¿Ciudad donde naciste?" },
   { key: "primary_school", label: "¿Nombre de tu escuela primaria?" },
 ];
+const DEFAULT_CAMPAIGN_CONFIG = {
+  motherDayCampaignEnabled: false,
+  motherDayRaffleEnabled: false,
+};
 const API_RESPONSE_HEADERS = {
   "Cache-Control": "no-store, no-cache, must-revalidate",
   "Content-Type": "application/json; charset=utf-8",
@@ -441,6 +446,110 @@ async function readJson(request) {
   } catch (error) {
     throw new HttpError(400, "No pudimos leer el contenido enviado.");
   }
+}
+
+function normalizeCampaignConfig(config) {
+  const source = config || {};
+
+  return {
+    motherDayCampaignEnabled: Boolean(
+      source.motherDayCampaignEnabled ?? DEFAULT_CAMPAIGN_CONFIG.motherDayCampaignEnabled
+    ),
+    motherDayRaffleEnabled: Boolean(
+      source.motherDayRaffleEnabled ?? DEFAULT_CAMPAIGN_CONFIG.motherDayRaffleEnabled
+    ),
+  };
+}
+
+async function ensureCampaignConfigTable(db) {
+  await db
+    .prepare(`
+      CREATE TABLE IF NOT EXISTS campaign_config (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        mother_day_campaign_enabled INTEGER NOT NULL DEFAULT 0,
+        mother_day_raffle_enabled INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    `)
+    .run();
+}
+
+async function readCampaignConfig(db) {
+  await ensureCampaignConfigTable(db);
+
+  const row = await db
+    .prepare(`
+      SELECT mother_day_campaign_enabled, mother_day_raffle_enabled
+      FROM campaign_config
+      WHERE id = 1
+      LIMIT 1
+    `)
+    .first();
+
+  if (!row) {
+    return { ...DEFAULT_CAMPAIGN_CONFIG };
+  }
+
+  return normalizeCampaignConfig({
+    motherDayCampaignEnabled: Number(row.mother_day_campaign_enabled) === 1,
+    motherDayRaffleEnabled: Number(row.mother_day_raffle_enabled) === 1,
+  });
+}
+
+async function persistCampaignConfig(db, config) {
+  await ensureCampaignConfigTable(db);
+
+  const nextConfig = normalizeCampaignConfig(config);
+  const timestamp = new Date().toISOString();
+
+  await db
+    .prepare(`
+      INSERT INTO campaign_config (
+        id,
+        mother_day_campaign_enabled,
+        mother_day_raffle_enabled,
+        created_at,
+        updated_at
+      )
+      VALUES (1, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        mother_day_campaign_enabled = excluded.mother_day_campaign_enabled,
+        mother_day_raffle_enabled = excluded.mother_day_raffle_enabled,
+        updated_at = excluded.updated_at
+    `)
+    .bind(
+      nextConfig.motherDayCampaignEnabled ? 1 : 0,
+      nextConfig.motherDayRaffleEnabled ? 1 : 0,
+      timestamp,
+      timestamp
+    )
+    .run();
+
+  return nextConfig;
+}
+
+function getDevToolsPinHash(env) {
+  return String(env.DEV_TOOLS_PIN_HASH || DEFAULT_DEV_TOOLS_PIN_HASH).trim();
+}
+
+async function verifyDevToolsPin(pin, env) {
+  const candidatePin = String(pin || "").trim();
+
+  if (!candidatePin) {
+    return false;
+  }
+
+  const candidateHash = createHash("sha256").update(candidatePin).digest("hex");
+  const expectedHash = getDevToolsPinHash(env);
+  const candidateBuffer = Buffer.from(candidateHash);
+  const expectedBuffer = Buffer.from(expectedHash);
+
+  if (candidateBuffer.length !== expectedBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(candidateBuffer, expectedBuffer);
 }
 
 function createOpaqueToken() {
@@ -1193,6 +1302,69 @@ async function handleSchedulesGet(request, env) {
   );
 }
 
+async function handleCampaignConfigGet(request, env) {
+  const corsOrigin = resolvePublicCorsOrigin(request, env);
+  const config = await readCampaignConfig(getDb(env));
+
+  return jsonResponse(
+    {
+      config,
+      mode: "cloudflare-d1",
+    },
+    { corsOrigin }
+  );
+}
+
+async function handleCampaignPinVerify(request, env) {
+  const corsOrigin = getRequestOrigin(request);
+  assertTrustedWriteRequest(request);
+  const body = await readJson(request);
+  const isValidPin = await verifyDevToolsPin(body?.pin, env);
+
+  if (!isValidPin) {
+    return jsonResponse(
+      {
+        error: "PIN incorrecto.",
+      },
+      { status: 401, corsOrigin }
+    );
+  }
+
+  return jsonResponse(
+    {
+      ok: true,
+    },
+    { corsOrigin }
+  );
+}
+
+async function handleCampaignConfigSave(request, env) {
+  const corsOrigin = getRequestOrigin(request);
+  assertTrustedWriteRequest(request);
+  const body = await readJson(request);
+  const isValidPin = await verifyDevToolsPin(body?.pin, env);
+
+  if (!isValidPin) {
+    return jsonResponse(
+      {
+        error: "PIN incorrecto.",
+      },
+      { status: 401, corsOrigin }
+    );
+  }
+
+  const config = await persistCampaignConfig(getDb(env), body?.config || {});
+
+  return jsonResponse(
+    {
+      ok: true,
+      config,
+      mode: "cloudflare-d1",
+    },
+    { corsOrigin }
+  );
+}
+
 async function handleLogin(request, env) {
   const corsOrigin = getRequestOrigin(request);
   assertTrustedWriteRequest(request);
@@ -1552,7 +1724,7 @@ async function handleScheduleDelete(request, env, scheduleId) {
 async function handleOptions(request, env) {
   const pathname = getRequestUrl(request).pathname.replace(/\/+$/, "") || "/";
 
-  if (pathname === "/api/schedules" || pathname === "/api/health") {
+  if (pathname === "/api/schedules" || pathname === "/api/health" || pathname === "/api/campaign-config") {
     const corsOrigin = resolvePublicCorsOrigin(request, env);
     return new Response(null, {
       status: 204,
@@ -1587,6 +1759,18 @@ async function routeApiRequest(request, env) {
 
   if (pathname === "/api/schedules" && request.method === "GET") {
     return handleSchedulesGet(request, env);
+  }
+
+  if (pathname === "/api/campaign-config" && request.method === "GET") {
+    return handleCampaignConfigGet(request, env);
+  }
+
+  if (pathname === "/api/campaign-config/verify" && request.method === "POST") {
+    return handleCampaignPinVerify(request, env);
+  }
+
+  if (pathname === "/api/campaign-config" && request.method === "POST") {
+    return handleCampaignConfigSave(request, env);
   }
 
   if (pathname === "/api/admin/login" && request.method === "POST") {

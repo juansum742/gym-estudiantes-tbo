@@ -1,10 +1,12 @@
 (function () {
   const STORAGE_KEY = "estudiantes_tbo_campaign_controls_v1";
   const CHANGE_EVENT = "estudiantes-tbo-campaign:changed";
+  const API_ENDPOINT = "/api/campaign-config";
   const DEFAULT_CONFIG = {
     motherDayCampaignEnabled: false,
     motherDayRaffleEnabled: false,
   };
+  let currentConfig = { ...DEFAULT_CONFIG };
 
   function normalizeConfig(config) {
     const source = config || {};
@@ -17,7 +19,7 @@
     };
   }
 
-  function readConfig() {
+  function readLocalConfig() {
     try {
       const storedValue = window.localStorage.getItem(STORAGE_KEY);
       return normalizeConfig(storedValue ? JSON.parse(storedValue) : {});
@@ -26,20 +28,89 @@
     }
   }
 
-  function saveConfig(partialConfig) {
-    const nextConfig = normalizeConfig({ ...readConfig(), ...(partialConfig || {}) });
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextConfig));
-    applyConfig(nextConfig);
-    window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: nextConfig }));
-    return nextConfig;
+  function readConfig() {
+    return normalizeConfig(currentConfig);
   }
 
-  function resetConfig() {
-    window.localStorage.removeItem(STORAGE_KEY);
-    const nextConfig = { ...DEFAULT_CONFIG };
-    applyConfig(nextConfig);
-    window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: nextConfig }));
-    return nextConfig;
+  function persistLocalConfig(config) {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeConfig(config)));
+    } catch (error) {
+      // El sitio sigue funcionando aunque el navegador bloquee almacenamiento local.
+    }
+  }
+
+  function dispatchConfigChange(config) {
+    const normalizedConfig = normalizeConfig(config);
+    window.dispatchEvent(new CustomEvent(CHANGE_EVENT, { detail: normalizedConfig }));
+    return normalizedConfig;
+  }
+
+  async function refreshConfig({ silent = true } = {}) {
+    try {
+      const response = await fetch(API_ENDPOINT, {
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "No pudimos cargar la configuración de campaña.");
+      }
+
+      currentConfig = normalizeConfig(payload?.config || payload);
+      persistLocalConfig(currentConfig);
+      applyConfig(currentConfig);
+      dispatchConfigChange(currentConfig);
+      return readConfig();
+    } catch (error) {
+      if (!silent) {
+        console.warn(error);
+      }
+
+      currentConfig = readLocalConfig();
+      applyConfig(currentConfig);
+      return readConfig();
+    }
+  }
+
+  async function saveConfig(partialConfig, options = {}) {
+    const nextConfig = normalizeConfig({ ...readConfig(), ...(partialConfig || {}) });
+    const pin = String(options.pin || "").trim();
+
+    if (pin) {
+      const response = await fetch(API_ENDPOINT, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          pin,
+          config: nextConfig,
+        }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "No pudimos guardar la configuración.");
+      }
+
+      currentConfig = normalizeConfig(payload?.config || nextConfig);
+    } else {
+      currentConfig = nextConfig;
+    }
+
+    persistLocalConfig(currentConfig);
+    applyConfig(currentConfig);
+    dispatchConfigChange(currentConfig);
+    return readConfig();
+  }
+
+  function resetConfig(options = {}) {
+    return saveConfig({ ...DEFAULT_CONFIG }, options);
   }
 
   function shouldShowRaffle(config) {
@@ -156,7 +227,9 @@
   }
 
   function initCampaignControls() {
-    applyConfig(readConfig());
+    currentConfig = readLocalConfig();
+    applyConfig(currentConfig);
+    refreshConfig();
   }
 
   window.EstudiantesTboCampaign = {
@@ -164,6 +237,7 @@
     changeEvent: CHANGE_EVENT,
     defaults: { ...DEFAULT_CONFIG },
     getConfig: readConfig,
+    refreshConfig,
     saveConfig,
     resetConfig,
     applyConfig,
@@ -172,7 +246,8 @@
 
   window.addEventListener("storage", (event) => {
     if (event.key === STORAGE_KEY) {
-      applyConfig(readConfig());
+      currentConfig = readLocalConfig();
+      applyConfig(currentConfig);
     }
   });
 

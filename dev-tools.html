@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="dev-tools.css?v=20260507-2">
+  <link rel="stylesheet" href="dev-tools.css?v=20260507-3">
 </head>
 <body>
   <main class="dev-shell">
@@ -75,17 +75,19 @@
             <strong id="dev-raffle-toggle-label">Mostrar sorteo Día de la Madre</strong>
             <small>Controla la sección del sorteo y el acceso desde el menú.</small>
           </label>
+
+          <p class="dev-message dev-save-message" id="dev-campaign-message" role="status" aria-live="polite"></p>
         </form>
       </section>
 
       <aside class="dev-note">
         <strong>Nota técnica</strong>
-        <p>Esta configuración se guarda con localStorage en este navegador. No cambia la web para todos los visitantes.</p>
+        <p>Esta configuración se guarda en Cloudflare/D1. Al cambiarla acá, también se refleja en celulares y otros dispositivos.</p>
       </aside>
     </section>
   </main>
 
-  <script src="campaign-controls.js?v=20260507-3"></script>
-  <script src="dev-tools.js?v=20260507-2"></script>
+  <script src="campaign-controls.js?v=20260507-4"></script>
+  <script src="dev-tools.js?v=20260507-3"></script>
 </body>
 </html>

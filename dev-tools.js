@@ -1,6 +1,7 @@
 (function () {
   const SESSION_KEY = "estudiantes_tbo_dev_tools_session_v1";
-  const PIN_HASH = "9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0";
+  const SESSION_PIN_KEY = "estudiantes_tbo_dev_tools_pin_v1";
+  const VERIFY_ENDPOINT = "/api/campaign-config/verify";
   const loginPanel = document.querySelector("#dev-login-panel");
   const controlsPanel = document.querySelector("#dev-controls-panel");
   const loginForm = document.querySelector("#dev-login-form");
@@ -11,44 +12,81 @@
   const raffleState = document.querySelector("#dev-raffle-state");
   const campaignToggleLabel = document.querySelector("#dev-campaign-toggle-label");
   const raffleToggleLabel = document.querySelector("#dev-raffle-toggle-label");
+  const campaignMessage = document.querySelector("#dev-campaign-message");
   const logoutButton = document.querySelector("#dev-logout");
   const campaignApi = window.EstudiantesTboCampaign;
 
-  function bytesToHex(buffer) {
-    return Array.from(new Uint8Array(buffer))
-      .map((byte) => byte.toString(16).padStart(2, "0"))
-      .join("");
-  }
-
-  async function hashPin(pin) {
-    const encodedPin = new TextEncoder().encode(pin);
-    const digest = await window.crypto.subtle.digest("SHA-256", encodedPin);
-    return bytesToHex(digest);
-  }
-
   function hasSession() {
-    return window.sessionStorage.getItem(SESSION_KEY) === "active";
+    return window.sessionStorage.getItem(SESSION_KEY) === "active" && Boolean(getSessionPin());
   }
 
-  function setSession(active) {
+  function getSessionPin() {
+    return String(window.sessionStorage.getItem(SESSION_PIN_KEY) || "");
+  }
+
+  function setSession(active, pin = "") {
     if (active) {
       window.sessionStorage.setItem(SESSION_KEY, "active");
+      window.sessionStorage.setItem(SESSION_PIN_KEY, pin);
       return;
     }
 
     window.sessionStorage.removeItem(SESSION_KEY);
+    window.sessionStorage.removeItem(SESSION_PIN_KEY);
   }
 
-  function showAuthenticatedState() {
+  async function verifyPin(pin) {
+    const response = await fetch(VERIFY_ENDPOINT, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ pin }),
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      throw new Error(payload?.error || "No pudimos validar el PIN.");
+    }
+
+    return payload;
+  }
+
+  async function showAuthenticatedState() {
     loginPanel.hidden = true;
     controlsPanel.hidden = false;
     syncFormFromConfig();
+
+    try {
+      const config = await campaignApi?.refreshConfig?.({ silent: false });
+      if (config) {
+        syncFormFromConfig();
+      }
+    } catch (error) {
+      showCampaignMessage("No pudimos cargar la configuración compartida.", true);
+    }
   }
 
   function showLoginState() {
     loginPanel.hidden = false;
     controlsPanel.hidden = true;
     loginForm?.reset();
+  }
+
+  function setControlsBusy(isBusy) {
+    Array.from(campaignForm?.elements || []).forEach((element) => {
+      element.disabled = Boolean(isBusy);
+    });
+  }
+
+  function showCampaignMessage(message, isError = false) {
+    if (!campaignMessage) {
+      return;
+    }
+
+    campaignMessage.textContent = message || "";
+    campaignMessage.classList.toggle("is-error", Boolean(isError));
   }
 
   function getFormConfig() {
@@ -112,32 +150,46 @@
   loginForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    if (!window.crypto?.subtle) {
-      loginMessage.textContent = "Este navegador no permite validar el PIN de forma segura.";
-      return;
-    }
-
     const pin = String(new FormData(loginForm).get("pin") || "");
-    const pinHash = await hashPin(pin);
 
-    if (pinHash !== PIN_HASH) {
-      loginMessage.textContent = "PIN incorrecto.";
+    try {
+      await verifyPin(pin);
+    } catch (error) {
+      loginMessage.textContent = error instanceof Error ? error.message : "PIN incorrecto.";
       loginForm.reset();
       return;
     }
 
     loginMessage.textContent = "";
-    setSession(true);
-    showAuthenticatedState();
+    setSession(true, pin);
+    await showAuthenticatedState();
   });
 
-  campaignForm?.addEventListener("change", () => {
+  campaignForm?.addEventListener("change", async () => {
     if (!campaignApi) {
       return;
     }
 
-    const config = campaignApi.saveConfig(getFormConfig());
-    updatePanelState(config);
+    const optimisticConfig = getFormConfig();
+    updatePanelState(optimisticConfig);
+    setControlsBusy(true);
+    showCampaignMessage("Guardando cambios...");
+
+    try {
+      const config = await campaignApi.saveConfig(optimisticConfig, { pin: getSessionPin() });
+      syncFormFromConfig();
+      updatePanelState(config);
+      showCampaignMessage("Configuración guardada para PC y móvil.");
+    } catch (error) {
+      showCampaignMessage(
+        error instanceof Error ? error.message : "No pudimos guardar la configuración.",
+        true
+      );
+      await campaignApi.refreshConfig?.();
+      syncFormFromConfig();
+    } finally {
+      setControlsBusy(false);
+    }
   });
 
   logoutButton?.addEventListener("click", () => {
