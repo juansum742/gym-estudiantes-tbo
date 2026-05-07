@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260416-3">
+  <link rel="stylesheet" href="style.css?v=20260507-2">
 </head>
 <body>
   <div class="site-shell">
@@ -32,6 +32,7 @@
         <nav class="site-nav" id="site-nav" aria-label="Navegación principal">
           <a href="#horarios">Horarios</a>
           <a href="#disciplinas">Disciplinas</a>
+          <a href="#sorteo-dia-madre">Sorteo</a>
           <a href="#convenios">Convenios</a>
           <a href="#galeria">Galería</a>
           <a href="#profes">Profes</a>
@@ -132,6 +133,151 @@
           </div>
         </div>
       </section>
+
+      <!-- MothersDaySpecialSection START: seccion temporal Dia de la Madre - remover facilmente despues de la campana -->
+      <section class="section section-mothers-raffle" id="sorteo-dia-madre" aria-labelledby="mothers-raffle-title">
+        <div class="container">
+          <div class="mothers-raffle-shell">
+            <!-- Logo tematico Dia de la Madre usado por la seccion temporal de la campana. -->
+            <figure class="mothers-bg-flower mothers-bg-flower-left" aria-hidden="true">
+              <img src="assets/mother-day/flowers-roses-dark.jpg" alt="">
+            </figure>
+            <figure class="mothers-bg-flower mothers-bg-flower-right" aria-hidden="true">
+              <img src="assets/mother-day/flowers-soft-pink.jpg" alt="">
+            </figure>
+            <div class="mothers-floral-corner mothers-floral-corner-left" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <div class="mothers-floral-corner mothers-floral-corner-right" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <div class="mothers-petals" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+
+            <header class="mothers-campaign-head" data-reveal="up">
+              <div class="mothers-logo-stage">
+                <div class="mothers-logo-halo" aria-hidden="true"></div>
+                <img src="assets/mother-day/motherday-logo.png" alt="Logo especial Día de la Madre de Club Estudiantes TBÓ">
+                <span>Edición especial</span>
+              </div>
+
+              <div class="mothers-hero-copy">
+                <div class="mothers-badge-row">
+                  <span class="mothers-raffle-badge">Especial Día de la Madre</span>
+                  <span class="mothers-raffle-badge mothers-raffle-badge-date">Sábado 9 de mayo</span>
+                  <span class="mothers-raffle-badge mothers-raffle-badge-soft">Celebración del club</span>
+                </div>
+                <p class="mothers-script">Para nuestras mamás</p>
+                <h2 id="mothers-raffle-title">Sorteo Día de la Madre</h2>
+                <p class="mothers-raffle-subtitle">Un mimo especial para nuestras mamás socias</p>
+                <p class="mothers-raffle-text">
+                  En Club Estudiantes TBÓ celebramos a las mamás que entrenan, acompañan y forman parte de nuestra comunidad.
+                  Preparamos premios con cariño para reconocer su constancia y regalarles un momento especial.
+                </p>
+              </div>
+            </header>
+
+            <div class="mothers-campaign-layout">
+              <aside class="mothers-feature-panel" data-reveal="left" style="--delay: 120ms;">
+                <div class="mothers-feature-seal">
+                  <span>Premio especial</span>
+                  <strong>2</strong>
+                  <small>mensualidades</small>
+                </div>
+                <div class="mothers-feature-copy">
+                  <p>El destaque del sorteo</p>
+                  <h3>2 mensualidades gratis</h3>
+                  <span>Dos mamás ganan 1 mes cada una</span>
+                </div>
+              </aside>
+
+              <div class="mothers-secondary-prizes">
+                <div class="mothers-prizes-heading">
+                  <span>Premios físicos</span>
+                  <strong>Detalles para acompañar su energía</strong>
+                </div>
+
+                <div class="mothers-raffle-prizes" aria-label="Premios del sorteo Día de la Madre">
+                <article class="mothers-prize-card mothers-prize-card-whey" data-reveal="up" style="--delay: 80ms;">
+                  <span class="mothers-prize-ribbon">Premio 01</span>
+                  <figure class="mothers-prize-media">
+                    <img src="assets/mothers-day-whey.jpeg" alt="Premio Whey Protein">
+                  </figure>
+                  <div class="mothers-prize-copy">
+                    <small>Premios con cariño</small>
+                    <strong>Whey Protein</strong>
+                  </div>
+                </article>
+
+                <article class="mothers-prize-card mothers-prize-card-bars" data-reveal="up" style="--delay: 150ms;">
+                  <span class="mothers-prize-ribbon">Premio 02</span>
+                  <figure class="mothers-prize-media">
+                    <img src="assets/mothers-day-bars.jpeg" alt="Premio Pack de barritas">
+                  </figure>
+                  <div class="mothers-prize-copy">
+                    <small>Para recargar energía</small>
+                    <strong>Pack de barritas</strong>
+                  </div>
+                </article>
+
+                <article class="mothers-prize-card mothers-prize-card-creatine" data-reveal="up" style="--delay: 220ms;">
+                  <span class="mothers-prize-ribbon">Premio 03</span>
+                  <figure class="mothers-prize-media">
+                    <img src="assets/mothers-day-creatine.jpeg" alt="Premio Creatina">
+                  </figure>
+                  <div class="mothers-prize-copy">
+                    <small>Constancia y fuerza</small>
+                    <strong>Creatina</strong>
+                  </div>
+                </article>
+
+                <article class="mothers-prize-card mothers-prize-card-shirt" data-reveal="up" style="--delay: 290ms;">
+                  <span class="mothers-prize-ribbon">Premio 04</span>
+                  <div class="mothers-shirt-visual" aria-hidden="true">
+                    <div class="mothers-shirt-body">
+                      <img src="assets/Captura de pantalla 2026-04-01 000722.png" alt="">
+                    </div>
+                  </div>
+                  <div class="mothers-prize-copy">
+                    <small>Identidad del club</small>
+                    <strong>Remera negra del gym</strong>
+                  </div>
+                </article>
+                </div>
+              </div>
+            </div>
+
+            <div class="mothers-info-band" data-reveal="up" style="--delay: 360ms;">
+              <article>
+                <span>Participan</span>
+                <strong>Las mamás que sean socias activas del gym.</strong>
+              </article>
+              <article>
+                <span>Fecha del sorteo</span>
+                <strong>El sorteo se realizará el sábado 9 de mayo.</strong>
+              </article>
+              <article>
+                <span>Después del sorteo</span>
+                <strong>Compartiremos las fotos de las ganadoras junto a sus premios.</strong>
+              </article>
+              <a class="btn btn-primary mothers-raffle-cta" href="https://wa.me/59898012588?text=Hola%20Estudiantes%20TB%C3%93%2C%20quiero%20consultar%20por%20el%20sorteo%20del%20D%C3%ADa%20de%20la%20Madre." target="_blank" rel="noreferrer">
+                Consultá en el gym
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- MothersDaySpecialSection END -->
 
       <section class="section section-schedule" id="disciplinas">
         <div class="container">
@@ -504,6 +650,7 @@
 
   <script src="schedule-core.js?v=20260414-1"></script>
   <script src="booking-data.js?v=20260414-1"></script>
-  <script src="script.js?v=20260415-1"></script>
+  <script src="campaign-controls.js?v=20260507-2"></script>
+  <script src="script.js?v=20260507-2"></script>
 </body>
 </html>

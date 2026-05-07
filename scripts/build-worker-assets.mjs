@@ -9,13 +9,17 @@ const outputDir = join(projectRoot, "dist-worker");
 
 const filesToCopy = [
   "index.html",
+  "dev-tools.html",
   "admin.html",
   "style.css",
+  "dev-tools.css",
   "admin.css",
   "config.js",
   "schedule-core.js",
   "booking-data.js",
+  "campaign-controls.js",
   "script.js",
+  "dev-tools.js",
   "admin.js",
   "scripts/admin-entry-redirect.js",
 ];
