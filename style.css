@@ -2080,8 +2080,12 @@ body.campaign-pink-details .hero-marquee {
   }
 
   .mothers-feature-copy h3 {
-    font-size: clamp(2.55rem, 14vw, 4rem);
-    letter-spacing: 0.04em;
+    font-size: clamp(2.15rem, 10.6vw, 3.15rem);
+    line-height: 0.94;
+    letter-spacing: 0.025em;
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: none;
   }
 
   .mothers-raffle-prizes {
