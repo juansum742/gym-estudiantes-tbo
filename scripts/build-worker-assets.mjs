@@ -22,6 +22,7 @@ const filesToCopy = [
   "config.js",
   "schedule-core.js",
   "booking-data.js",
+  "mothers-day-winners.js",
   "campaign-controls.js",
   "script.js",
   "dev-tools.js",

@@ -1821,7 +1821,7 @@ body.campaign-pink-details .hero-marquee {
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-columns: minmax(0, 1.12fr) minmax(280px, 0.88fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: clamp(1rem, 3vw, 1.55rem);
   align-items: stretch;
   margin-top: clamp(0.8rem, 2.6vw, 1.6rem);
@@ -1832,6 +1832,7 @@ body.campaign-pink-details .hero-marquee {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   min-width: 0;
+  min-height: clamp(360px, 32vw, 520px);
   border-radius: clamp(28px, 4vw, 42px);
   border: 1px solid rgba(255, 226, 241, 0.24);
   background:
@@ -1883,7 +1884,7 @@ body.campaign-pink-details .hero-marquee {
 }
 
 .mothers-winner-card-featured {
-  min-height: clamp(430px, 43vw, 610px);
+  min-height: clamp(360px, 32vw, 520px);
 }
 
 .mothers-winner-media {
@@ -1893,10 +1894,7 @@ body.campaign-pink-details .hero-marquee {
   margin: 0;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.05);
-}
-
-.mothers-winner-card:not(.mothers-winner-card-featured) .mothers-winner-media {
-  aspect-ratio: 0.78;
+  aspect-ratio: 4 / 3;
 }
 
 .mothers-winner-media img {
@@ -1939,7 +1937,7 @@ body.campaign-pink-details .hero-marquee {
 .mothers-winner-copy strong {
   color: var(--mom-ink);
   font-family: var(--font-display);
-  font-size: clamp(2.1rem, 4vw, 3.7rem);
+  font-size: clamp(1.55rem, 2.45vw, 2.7rem);
   line-height: 0.9;
   letter-spacing: 0.045em;
   text-transform: uppercase;
@@ -2142,7 +2140,7 @@ body.campaign-pink-details .hero-marquee {
   }
 
   .mothers-winners-gallery {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .mothers-winner-card-featured,
@@ -2287,6 +2285,7 @@ body.campaign-pink-details .hero-marquee {
   }
 
   .mothers-winners-gallery {
+    grid-template-columns: 1fr;
     gap: 1rem;
   }
 
@@ -2295,7 +2294,7 @@ body.campaign-pink-details .hero-marquee {
   }
 
   .mothers-winner-copy strong {
-    font-size: clamp(2rem, 11vw, 2.8rem);
+    font-size: clamp(1.7rem, 8vw, 2.25rem);
   }
 
   .mothers-floral-corner {
