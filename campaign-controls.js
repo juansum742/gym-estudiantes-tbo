@@ -194,6 +194,12 @@
     });
   }
 
+  function revealWinnersSection() {
+    document.querySelectorAll("[data-campaign-winners] [data-reveal], [data-campaign-raffle] [data-reveal]").forEach((element) => {
+      element.classList.add("is-visible");
+    });
+  }
+
   function applyConfig(inputConfig) {
     const config = normalizeConfig(inputConfig || readConfig());
     const body = document.body;
@@ -229,6 +235,11 @@
 
     toggleHidden("[data-campaign-winners], [data-campaign-raffle]", !winnersVisible);
     toggleHidden("[data-campaign-nav-winners], [data-campaign-nav-raffle]", !winnersVisible);
+
+    if (winnersVisible) {
+      revealWinnersSection();
+      window.setTimeout(revealWinnersSection, 80);
+    }
 
     return config;
   }
