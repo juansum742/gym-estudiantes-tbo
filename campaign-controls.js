@@ -4,6 +4,7 @@
   const API_ENDPOINT = "/api/campaign-config";
   const DEFAULT_CONFIG = {
     motherDayCampaignEnabled: false,
+    motherDayWinnersEnabled: false,
     motherDayRaffleEnabled: false,
   };
   let currentConfig = { ...DEFAULT_CONFIG };
@@ -11,11 +12,17 @@
   function normalizeConfig(config) {
     const source = config || {};
 
+    const winnersEnabled = Boolean(
+      source.motherDayWinnersEnabled
+        ?? source.motherDayRaffleEnabled
+        ?? DEFAULT_CONFIG.motherDayWinnersEnabled
+    );
+
     return {
       motherDayCampaignEnabled: Boolean(source.motherDayCampaignEnabled ?? DEFAULT_CONFIG.motherDayCampaignEnabled),
-      motherDayRaffleEnabled: Boolean(
-        source.motherDayRaffleEnabled ?? DEFAULT_CONFIG.motherDayRaffleEnabled
-      ),
+      motherDayWinnersEnabled: winnersEnabled,
+      // Compatibilidad con la columna actual del backend/D1 sin migrar la base.
+      motherDayRaffleEnabled: winnersEnabled,
     };
   }
 
@@ -113,8 +120,8 @@
     return saveConfig({ ...DEFAULT_CONFIG }, options);
   }
 
-  function shouldShowRaffle(config) {
-    return Boolean(config.motherDayCampaignEnabled && config.motherDayRaffleEnabled);
+  function shouldShowWinners(config) {
+    return Boolean(config.motherDayCampaignEnabled && config.motherDayWinnersEnabled);
   }
 
   function createAmbientLayer() {
@@ -168,8 +175,8 @@
     if (!button) {
       button = document.createElement("a");
       button.className = "btn btn-primary campaign-hero-button";
-      button.href = "#sorteo-dia-madre";
-      button.textContent = "Ver sorteo";
+      button.href = "#ganadoras-dia-madre";
+      button.textContent = "Ver ganadoras";
       actions.insertBefore(button, actions.firstChild);
     }
 
@@ -196,7 +203,7 @@
     }
 
     const campaignEnabled = config.motherDayCampaignEnabled;
-    const raffleVisible = shouldShowRaffle(config);
+    const winnersVisible = shouldShowWinners(config);
 
     body.classList.toggle("campaign-mother-day", campaignEnabled);
     body.classList.toggle("campaign-pink-details", campaignEnabled);
@@ -214,14 +221,14 @@
       removeDynamicElement(".campaign-hero-badge");
     }
 
-    if (raffleVisible) {
+    if (winnersVisible) {
       ensureHeroButton();
     } else {
       removeDynamicElement(".campaign-hero-button");
     }
 
-    toggleHidden("[data-campaign-raffle]", !raffleVisible);
-    toggleHidden("[data-campaign-nav-raffle]", !raffleVisible);
+    toggleHidden("[data-campaign-winners], [data-campaign-raffle]", !winnersVisible);
+    toggleHidden("[data-campaign-nav-winners], [data-campaign-nav-raffle]", !winnersVisible);
 
     return config;
   }
@@ -241,7 +248,8 @@
     saveConfig,
     resetConfig,
     applyConfig,
-    shouldShowRaffle,
+    shouldShowRaffle: shouldShowWinners,
+    shouldShowWinners,
   };
 
   window.addEventListener("storage", (event) => {

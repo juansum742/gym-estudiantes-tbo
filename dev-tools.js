@@ -91,10 +91,13 @@
 
   function getFormConfig() {
     const data = new FormData(campaignForm);
+    const winnersEnabled = data.get("motherDayWinnersEnabled") === "on";
 
     return {
       motherDayCampaignEnabled: data.get("motherDayCampaignEnabled") === "on",
-      motherDayRaffleEnabled: data.get("motherDayRaffleEnabled") === "on",
+      motherDayWinnersEnabled: winnersEnabled,
+      // Compatibilidad con la columna actual del backend/D1.
+      motherDayRaffleEnabled: winnersEnabled,
     };
   }
 
@@ -114,13 +117,14 @@
     const config = campaignApi.getConfig();
 
     setCheckbox("motherDayCampaignEnabled", config.motherDayCampaignEnabled);
-    setCheckbox("motherDayRaffleEnabled", config.motherDayRaffleEnabled);
+    setCheckbox("motherDayWinnersEnabled", config.motherDayWinnersEnabled);
     updatePanelState(config);
   }
 
   function updatePanelState(config) {
     const campaignEnabled = Boolean(config.motherDayCampaignEnabled);
-    const raffleVisible = Boolean(config.motherDayCampaignEnabled && config.motherDayRaffleEnabled);
+    const winnersEnabled = Boolean(config.motherDayWinnersEnabled ?? config.motherDayRaffleEnabled);
+    const winnersVisible = Boolean(config.motherDayCampaignEnabled && winnersEnabled);
 
     campaignCard?.classList.toggle("is-campaign-active", campaignEnabled);
 
@@ -130,8 +134,8 @@
     }
 
     if (raffleState) {
-      raffleState.textContent = raffleVisible ? "Sorteo visible" : "Sorteo oculto";
-      raffleState.classList.toggle("is-active", raffleVisible);
+      raffleState.textContent = winnersVisible ? "Ganadoras visibles" : "Ganadoras ocultas";
+      raffleState.classList.toggle("is-active", winnersVisible);
     }
 
     if (campaignToggleLabel) {
@@ -141,9 +145,9 @@
     }
 
     if (raffleToggleLabel) {
-      raffleToggleLabel.textContent = config.motherDayRaffleEnabled
-        ? "Ocultar sorteo Día de la Madre"
-        : "Mostrar sorteo Día de la Madre";
+      raffleToggleLabel.textContent = winnersEnabled
+        ? "Ocultar ganadoras Día de la Madre"
+        : "Mostrar ganadoras Día de la Madre";
     }
   }
 
